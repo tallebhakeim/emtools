@@ -86,19 +86,22 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
     EMtools
   </a>
-  <span style="font-size:12px;color:#94a3b8;">Dosimétrie EM · Outil d'expertise</span>
+  <span style="display:flex;align-items:center;gap:12px">
+    <span style="font-size:12px;color:#94a3b8;" data-i18n="nav.sub">Dosimétrie EM · Outil d'expertise</span>
+    <button id="lang-toggle" onclick="toggleLang()" style="background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.45);border-radius:7px;padding:3px 10px;font-size:12px;font-weight:700;cursor:pointer">EN</button>
+  </span>
 </nav>
 
 <h1>Dosimétrie EM <span>·</span> TMM + Cole-Cole (IT'IS V5.0)</h1>
 
 <div class="tabs">
-  <button class="tab active" onclick="switchTab('source')"><span class="tab-dot" style="background:#D85A30"></span>Source EM</button>
-  <button class="tab" onclick="switchTab('onde')"><span class="tab-dot" style="background:#0ea5e9"></span>Onde EM</button>
-  <button class="tab" onclick="switchTab('stack')"><span class="tab-dot" style="background:#378ADD"></span>Empilement</button>
-  <button class="tab" onclick="switchTab('results')"><span class="tab-dot" style="background:#1D9E75"></span>Résultats</button>
-  <button class="tab" onclick="switchTab('diel')"><span class="tab-dot" style="background:#9F3FAE"></span>Diélectriques</button>
-  <button class="tab" onclick="switchTab('therm')"><span class="tab-dot" style="background:#E24B4A"></span>Thermique</button>
-  <button class="tab" onclick="switchTab('valid')"><span class="tab-dot" style="background:#16a34a"></span>Validation</button>
+  <button class="tab active" onclick="switchTab('source')"><span class="tab-dot" style="background:#D85A30"></span><span data-i18n="tab.source">Source EM</span></button>
+  <button class="tab" onclick="switchTab('onde')"><span class="tab-dot" style="background:#0ea5e9"></span><span data-i18n="tab.onde">Onde EM</span></button>
+  <button class="tab" onclick="switchTab('stack')"><span class="tab-dot" style="background:#378ADD"></span><span data-i18n="tab.stack">Empilement</span></button>
+  <button class="tab" onclick="switchTab('results')"><span class="tab-dot" style="background:#1D9E75"></span><span data-i18n="tab.results">Résultats</span></button>
+  <button class="tab" onclick="switchTab('diel')"><span class="tab-dot" style="background:#9F3FAE"></span><span data-i18n="tab.diel">Diélectriques</span></button>
+  <button class="tab" onclick="switchTab('therm')"><span class="tab-dot" style="background:#E24B4A"></span><span data-i18n="tab.therm">Thermique</span></button>
+  <button class="tab" onclick="switchTab('valid')"><span class="tab-dot" style="background:#16a34a"></span><span data-i18n="tab.valid">Validation</span></button>
 </div>
 
 
@@ -678,6 +681,35 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
 
 <script>
 'use strict';
+// ── i18n (FR / EN) — bascule partagée avec l'accueil via localStorage ──────────
+let LANG='fr'; try{ LANG=localStorage.getItem('emtools_lang')||'fr'; }catch(e){}
+const I18N={
+  'nav.sub':{fr:"Dosimétrie EM · Outil d'expertise",en:"EM dosimetry · expert tool"},
+  // Onglets
+  'tab.source':{fr:'Source EM',en:'EM source'},'tab.onde':{fr:'Onde EM',en:'EM wave'},
+  'tab.stack':{fr:'Empilement',en:'Tissue stack'},'tab.results':{fr:'Résultats',en:'Results'},
+  'tab.diel':{fr:'Diélectriques',en:'Dielectrics'},'tab.therm':{fr:'Thermique',en:'Thermal'},
+  'tab.valid':{fr:'Validation',en:'Validation'},
+  // Métriques résultats
+  'm.einc':{fr:'E incident',en:'Incident E'},'m.sarpic':{fr:'SAR pic',en:'Peak SAR'},
+  'm.sar10g':{fr:'SAR 10g',en:'10g SAR'},'m.refl':{fr:'Réflexion |R|',en:'Reflection |R|'},
+  // Axes de graphes
+  'ax.depth':{fr:'Profondeur z (mm)',en:'Depth z (mm)'},'ax.sar':{fr:'SAR (W/kg)',en:'SAR (W/kg)'},
+  'ax.e':{fr:'|E| (V/m)',en:'|E| (V/m)'},'ax.time':{fr:'Temps (min)',en:'Time (min)'},
+  'ax.dt':{fr:'ΔT (°C)',en:'ΔT (°C)'}
+};
+function t(k){const e=I18N[k];return e?(e[LANG]||e.fr):k;}
+function applyLang(){
+  try{document.documentElement.lang=LANG;}catch(e){}
+  document.querySelectorAll('[data-i18n]').forEach(el=>{const e=I18N[el.getAttribute('data-i18n')];if(e)el.textContent=e[LANG]||e.fr;});
+  document.querySelectorAll('[data-i18n-html]').forEach(el=>{const e=I18N[el.getAttribute('data-i18n-html')];if(e)el.innerHTML=e[LANG]||e.fr;});
+  const b=document.getElementById('lang-toggle');if(b)b.textContent=LANG==='fr'?'EN':'FR';
+  try{ if(typeof lastResult!=='undefined'&&lastResult){renderResults(lastResult.f,lastResult.E0,lastResult.r);renderSchema();} }catch(e){}
+  try{ if(document.getElementById('th-sar'))runThermal(); }catch(e){}
+  try{ if(document.getElementById('onde-f'))ondeLambda(); }catch(e){}
+  try{ if(document.getElementById('valid-body'))runValidation(); }catch(e){}
+}
+function toggleLang(){LANG=(LANG==='fr')?'en':'fr';try{localStorage.setItem('emtools_lang',LANG);}catch(e){}applyLang();}
 const EPS0=8.854e-12,MU0=4*Math.PI*1e-7;
 const LCOLORS=['#378ADD','#1D9E75','#D85A30','#9F3FAE','#BA7517','#639922','#E24B4A','#73726c','#C4732A','#2AACB8','#B84298','#5B8C3E'];
 const TISSUES={
@@ -1128,10 +1160,10 @@ function renderResults(f,E0,r){
   const Emax=Math.max(...r.eArr);
   const Rpct=(cabs(r.R)*100).toFixed(1);
   document.getElementById('metrics-grid').innerHTML=
-    '<div class="metric"><div class="mlbl">E incident</div><div class="mval">'+E0.toFixed(3)+'<span class="munit">V/m</span></div></div>'+
-    '<div class="metric"><div class="mlbl">SAR pic</div><div class="mval">'+sarPic.toFixed(4)+'<span class="munit">W/kg</span></div></div>'+
-    '<div class="metric"><div class="mlbl">SAR 10g</div><div class="mval">'+sar10gPic.toFixed(4)+'<span class="munit">W/kg</span></div></div>'+
-    '<div class="metric"><div class="mlbl">Réflexion |R|</div><div class="mval">'+Rpct+'<span class="munit">%</span></div></div>';
+    '<div class="metric"><div class="mlbl">'+t('m.einc')+'</div><div class="mval">'+E0.toFixed(3)+'<span class="munit">V/m</span></div></div>'+
+    '<div class="metric"><div class="mlbl">'+t('m.sarpic')+'</div><div class="mval">'+sarPic.toFixed(4)+'<span class="munit">W/kg</span></div></div>'+
+    '<div class="metric"><div class="mlbl">'+t('m.sar10g')+'</div><div class="mval">'+sar10gPic.toFixed(4)+'<span class="munit">W/kg</span></div></div>'+
+    '<div class="metric"><div class="mlbl">'+t('m.refl')+'</div><div class="mval">'+Rpct+'<span class="munit">%</span></div></div>';
   // Alerte ICNIRP
   const warn=document.getElementById('icnirp-warn');
   const icnirpLim=f>10e6&&f<=400e6?2:(f<=2e9?2:2);
@@ -1186,7 +1218,7 @@ function plotSAR(r){
     ]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:true,labels:{font:{size:11},boxWidth:20}},'layers':plugin},
-      scales:{x:{type:'linear',title:{display:true,text:'Profondeur z (mm)'}},y:{title:{display:true,text:'SAR (W/kg)'},beginAtZero:true}}},
+      scales:{x:{type:'linear',title:{display:true,text:t('ax.depth')}},y:{title:{display:true,text:t('ax.sar')},beginAtZero:true}}},
     plugins:[plugin]});
 }
 function plotE(r){
@@ -1198,7 +1230,7 @@ function plotE(r){
     data:{datasets:[{label:'|E| (V/m)',data:r.zArr.map((z,i)=>({x:z,y:r.eArr[i]})),borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,0.06)',borderWidth:2,pointRadius:0,tension:0.2,fill:true}]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:true,labels:{font:{size:11},boxWidth:20}}},
-      scales:{x:{type:'linear',title:{display:true,text:'Profondeur z (mm)'}},y:{title:{display:true,text:'|E| (V/m)'},beginAtZero:true}}},
+      scales:{x:{type:'linear',title:{display:true,text:t('ax.depth')}},y:{title:{display:true,text:t('ax.e')},beginAtZero:true}}},
     plugins:[plugin]});
 }
 
@@ -1883,7 +1915,7 @@ function runThermal(){
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:true,labels:{font:{size:11},boxWidth:18}},
         tooltip:{callbacks:{label:c=>c.dataset.label+' : '+(+c.parsed.y).toFixed(3)+' °C'}}},
-      scales:{x:{title:{display:true,text:'Temps (min)'},ticks:{maxTicksLimit:12}},
+      scales:{x:{title:{display:true,text:t('ax.time')},ticks:{maxTicksLimit:12}},
               y:{title:{display:true,text:'ΔT (°C)'},beginAtZero:true,min:0,max:yMax}}}});
   runThermal1D();
   renderThermalMap();
@@ -2035,7 +2067,7 @@ function runThermal1D(){
     ]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:true,labels:{font:{size:11},boxWidth:16}}},
-      scales:{x:{type:'linear',title:{display:true,text:'Profondeur z (mm)'},ticks:{maxTicksLimit:14}},
+      scales:{x:{type:'linear',title:{display:true,text:t('ax.depth')},ticks:{maxTicksLimit:14}},
               y:{title:{display:true,text:'ΔT (°C) ou SAR/10'},beginAtZero:true,min:0,max:yMaxZ}}}});
 }
 
@@ -2145,6 +2177,8 @@ loadPreset('head');
 setTimeout(renderSchema,100);
 setTimeout(onThTissue,120);
 setTimeout(ondeLambda,130);
+// Applique la langue stockée (rien à faire si FR par défaut)
+if(LANG!=='fr'){ setTimeout(applyLang,160); } else { const _b=document.getElementById('lang-toggle'); if(_b)_b.textContent='EN'; }
 
 
 </script>
