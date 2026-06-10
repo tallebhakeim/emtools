@@ -89,7 +89,7 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
   <span style="font-size:12px;color:#94a3b8;">Dosimétrie EM · Outil d'expertise</span>
 </nav>
 
-<h1>Dosimétrie EM <span>·</span> TMM + Cole-Cole (IT'IS V5.0) &nbsp;—&nbsp; Hakeim Talleb</h1>
+<h1>Dosimétrie EM <span>·</span> TMM + Cole-Cole (IT'IS V5.0)</h1>
 
 <div class="tabs">
   <button class="tab active" onclick="switchTab('source')"><span class="tab-dot" style="background:#D85A30"></span>Source EM</button>
@@ -1484,7 +1484,19 @@ function renderSchema(){
   const N=stackData.length;
   const totalD=stackData.reduce((s,l)=>s+(l.d||l.d),0);
   const PX=85/totalD;
-  const shapeMap={head:{cx:195,cy:205,rx:0.88,ry:1.15,label:'Coupe coronale — Tête'},trunk:{cx:185,cy:210,rx:1.35,ry:0.82,label:'Coupe transversale — Tronc'},arm:{cx:200,cy:210,rx:0.95,ry:1.05,label:'Coupe transversale — Membre'},eye:{cx:210,cy:210,rx:1.0,ry:0.92,label:'Coupe sagittale — Œil'},breast:{cx:190,cy:210,rx:1.10,ry:1.0,label:'Coupe sagittale — Sein'}};
+  // Silhouettes en vue de face (tracés normalisés dans [-1,1], centrés en 0)
+  const HEAD_PATH='M0,-1 C0.6,-1 0.9,-0.55 0.88,-0.08 C0.86,0.4 0.55,0.82 0.26,0.96 C0.09,1.05 -0.09,1.05 -0.26,0.96 C-0.55,0.82 -0.86,0.4 -0.88,-0.08 C-0.9,-0.55 -0.6,-1 0,-1 Z';
+  const EYE_PATH='M-1,0 C-0.55,-0.62 0.55,-0.62 1,0 C0.55,0.62 -0.55,0.62 -1,0 Z';
+  const CIRCLE_PATH='M0,-1 C0.55,-1 1,-0.55 1,0 C1,0.55 0.55,1 0,1 C-0.55,1 -1,0.55 -1,0 C-1,-0.55 -0.55,-1 0,-1 Z';
+  const TRUNK_PATH='M-0.7,-0.92 Q-0.95,-0.92 -0.95,-0.6 L-0.95,0.6 Q-0.95,0.92 -0.7,0.92 L0.7,0.92 Q0.95,0.92 0.95,0.6 L0.95,-0.6 Q0.95,-0.92 0.7,-0.92 Z';
+  const BREAST_PATH='M-0.85,-0.9 L-0.85,0.9 L-0.1,0.9 C0.6,0.9 1,0.45 1,-0.05 C1,-0.55 0.55,-0.9 -0.1,-0.9 Z';
+  const shapeMap={
+    head:{cx:200,cy:200,rx:0.86,ry:1.12,label:'Vue de face — Tête',path:HEAD_PATH},
+    trunk:{cx:185,cy:210,rx:1.35,ry:0.82,label:'Coupe transversale — Tronc',path:TRUNK_PATH},
+    arm:{cx:200,cy:210,rx:1.0,ry:1.0,label:'Coupe transversale — Membre',path:CIRCLE_PATH},
+    eye:{cx:205,cy:205,rx:1.08,ry:0.82,label:'Vue de face — Œil',path:EYE_PATH},
+    breast:{cx:185,cy:205,rx:1.05,ry:1.0,label:'Coupe sagittale — Sein',path:BREAST_PATH}
+  };
   const shape=shapeMap[activePreset]||shapeMap['head'];
   const{cx,cy}=shape; const BASE_RX=shape.rx,BASE_RY=shape.ry;
   let radii=[],rCum=totalD;
@@ -1492,15 +1504,17 @@ function renderSchema(){
   radii.push(Math.max(0,rCum*PX));
   const gL=document.getElementById('svg-layers'),gS=document.getElementById('svg-source'),gLb=document.getElementById('svg-labels');
   gL.innerHTML='';gS.innerHTML='';gLb.innerHTML='';
-  for(let i=0;i<N;i++){
-    const el=document.createElementNS('http://www.w3.org/2000/svg','ellipse');
-    el.setAttribute('cx',cx);el.setAttribute('cy',cy);
-    el.setAttribute('rx',(radii[i]*BASE_RX).toFixed(1));el.setAttribute('ry',(radii[i]*BASE_RY).toFixed(1));
-    el.setAttribute('fill',LCOLORS[i%LCOLORS.length]);el.setAttribute('fill-opacity','0.62');
-    el.setAttribute('stroke',LCOLORS[i%LCOLORS.length]);el.setAttribute('stroke-width','0.8');el.setAttribute('stroke-opacity','0.9');
+  const layerPath=(rr,col,op,withStroke)=>{
+    const el=document.createElementNS('http://www.w3.org/2000/svg','path');
+    el.setAttribute('d',shape.path);
+    el.setAttribute('transform','translate('+cx+' '+cy+') scale('+(rr*BASE_RX).toFixed(2)+' '+(rr*BASE_RY).toFixed(2)+')');
+    el.setAttribute('fill',col);el.setAttribute('fill-opacity',op);
+    el.setAttribute('vector-effect','non-scaling-stroke');
+    if(withStroke){el.setAttribute('stroke',col);el.setAttribute('stroke-width','0.8');el.setAttribute('stroke-opacity','0.9');}
     gL.appendChild(el);
-  }
-  if(radii[N]>8){const elC=document.createElementNS('http://www.w3.org/2000/svg','ellipse');elC.setAttribute('cx',cx);elC.setAttribute('cy',cy);elC.setAttribute('rx',(radii[N]*BASE_RX).toFixed(1));elC.setAttribute('ry',(radii[N]*BASE_RY).toFixed(1));elC.setAttribute('fill',LCOLORS[(N-1)%LCOLORS.length]);elC.setAttribute('fill-opacity','0.75');gL.appendChild(elC);}
+  };
+  for(let i=0;i<N;i++) layerPath(radii[i],LCOLORS[i%LCOLORS.length],'0.62',true);
+  if(radii[N]>8) layerPath(radii[N],LCOLORS[(N-1)%LCOLORS.length],'0.75',false);
   const outerRX=radii[0]*BASE_RX,outerRY=radii[0]*BASE_RY;
   const lineH=16,yStart=cy-(N-1)*lineH/2,xLabel=cx+outerRX+18;
   for(let i=0;i<N;i++){
