@@ -118,66 +118,66 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
 </div>
 <!-- SOURCE -->
 <div id="tab-source" class="panel active">
-  <div class="stitle0">Type de source</div>
+  <div class="stitle0" data-i18n="src.type">Type de source</div>
   <div class="row">
-    <div class="field"><label>Catégorie</label>
+    <div class="field"><label data-i18n="f.cat">Catégorie</label>
       <select id="src-cat" onchange="onSrcCat()">
-        <option value="ff">Champ lointain (onde plane)</option>
-        <option value="near">Champ proche</option>
+        <option value="ff" data-i18n="opt.ff">Champ lointain (onde plane)</option>
+        <option value="near" data-i18n="opt.near">Champ proche</option>
       </select>
     </div>
-    <div class="field"><label>Fréquence (Hz)</label>
+    <div class="field"><label data-i18n="f.freq">Fréquence (Hz)</label>
       <input type="number" id="freq" value="2450000000" min="10" max="1e11" step="any" onchange="onFreqChange()">
     </div>
   </div>
 
   <div id="ff-panel">
-    <div class="stitle">Source champ lointain</div>
+    <div class="stitle" data-i18n="src.ff">Source champ lointain</div>
     <div class="row">
-      <div class="field"><label>Mode</label>
+      <div class="field"><label data-i18n="f.mode">Mode</label>
         <select id="ff-mode" onchange="onFfMode()">
-          <option value="einc">E incident libre (V/m)</option>
+          <option value="einc" data-i18n="opt.einc">E incident libre (V/m)</option>
           <option value="icnirp98">Limite ICNIRP 1998</option>
           <option value="icnirp20">Limite ICNIRP 2020</option>
           <option value="fcc_fm">Modèle FM FCC (EPA 1985)</option>
         </select>
       </div>
-      <div class="field" id="einc-field"><label>E incident (V/m)</label>
+      <div class="field" id="einc-field"><label data-i18n="f.einc">E incident (V/m)</label>
         <input type="number" id="einc-val" value="10" min="0.001" step="any">
       </div>
     </div>
     <div id="fcc-fields" style="display:none">
       <div class="row">
-        <div class="field"><label>Puissance rayonnée (kW)</label><input type="number" id="fcc-erp" value="100" min="0.1" step="any"></div>
-        <div class="field"><label>Distance antenne (m)</label><input type="number" id="fcc-dist" value="50" min="1" step="any"></div>
+        <div class="field"><label data-i18n="f.erp">Puissance rayonnée (kW)</label><input type="number" id="fcc-erp" value="100" min="0.1" step="any"></div>
+        <div class="field"><label data-i18n="f.antdist">Distance antenne (m)</label><input type="number" id="fcc-dist" value="50" min="1" step="any"></div>
       </div>
-      <div class="formula">E = √(30 × ERP) / d &nbsp;[modèle EPA 1985, champ libre]</div>
+      <div class="formula">E = √(30 × ERP) / d &nbsp;[EPA 1985]</div>
     </div>
     <div id="icnirp-info" style="display:none" class="info"></div>
   </div>
 
   <div id="near-panel" style="display:none">
-    <div class="stitle">Source champ proche</div>
+    <div class="stitle" data-i18n="src.near">Source champ proche</div>
     <div class="row">
-      <div class="field"><label>Type</label>
+      <div class="field"><label data-i18n="f.type">Type</label>
         <select id="near-type" onchange="onNearType()">
-          <option value="edipole">Dipôle électrique (Hertz)</option>
-          <option value="mdipole">Dipôle magnétique</option>
-          <option value="loop">Boucle circulaire (NFC/RFID/IRM)</option>
+          <option value="edipole" data-i18n="opt.edipole">Dipôle électrique (Hertz)</option>
+          <option value="mdipole" data-i18n="opt.mdipole">Dipôle magnétique</option>
+          <option value="loop" data-i18n="opt.loop">Boucle circulaire (NFC/RFID/IRM)</option>
         </select>
       </div>
-      <div class="field"><label>Distance source–surface (m)</label>
+      <div class="field"><label data-i18n="f.srcdist">Distance source–surface (m)</label>
         <input type="number" id="near-dist" value="0.05" min="0.001" step="any" onchange="updateNearDisplay()">
       </div>
     </div>
     <div class="row">
-      <div class="field" id="near-moment-field"><label>Moment Il (A·m)</label>
+      <div class="field" id="near-moment-field"><label data-i18n="f.moment">Moment Il (A·m)</label>
         <input type="number" id="near-moment" value="1e-5" min="1e-9" step="any" onchange="updateNearDisplay()">
       </div>
-      <div class="field" id="near-radius-field" style="display:none"><label>Rayon boucle (m)</label>
+      <div class="field" id="near-radius-field" style="display:none"><label data-i18n="f.radius">Rayon boucle (m)</label>
         <input type="number" id="near-radius" value="0.05" min="0.001" step="any" onchange="updateNearDisplay()">
       </div>
-      <div class="field" id="near-current-field" style="display:none"><label>Courant I (A)</label>
+      <div class="field" id="near-current-field" style="display:none"><label data-i18n="f.current">Courant I (A)</label>
         <input type="number" id="near-current" value="1" min="1e-6" step="any" onchange="updateNearDisplay()">
       </div>
     </div>
@@ -187,17 +187,17 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
   </div>
 
   <div style="margin-top:1.25rem;display:flex;justify-content:flex-end">
-    <button class="btn btn-p" onclick="compute()">Calculer</button>
+    <button class="btn btn-p" onclick="compute()" data-i18n="btn.compute">Calculer</button>
   </div>
 
   <!-- Schéma intégré -->
-  <div class="stitle" style="margin-top:1.5rem">Géométrie — coupe frontale</div>
+  <div class="stitle" style="margin-top:1.5rem" data-i18n="geo.title">Géométrie — vue de face</div>
   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:.75rem">
-    <button class="btn btn-sm" id="ps-head"   onclick="loadPreset('head')"   style="border-color:#378ADD;color:#378ADD">🧠 Tête</button>
-    <button class="btn btn-sm" id="ps-trunk"  onclick="loadPreset('trunk')"  style="border-color:#1D9E75;color:#1D9E75">🫁 Tronc</button>
-    <button class="btn btn-sm" id="ps-arm"    onclick="loadPreset('arm')"    style="border-color:#D85A30;color:#D85A30">💪 Membre</button>
-    <button class="btn btn-sm" id="ps-eye"    onclick="loadPreset('eye')"    style="border-color:#9F3FAE;color:#9F3FAE">👁 Œil</button>
-    <button class="btn btn-sm" id="ps-breast" onclick="loadPreset('breast')" style="border-color:#BA7517;color:#BA7517">🔵 Sein</button>
+    <button class="btn btn-sm" id="ps-head"   onclick="loadPreset('head')"   style="border-color:#378ADD;color:#378ADD" data-i18n="ps.head">🧠 Tête</button>
+    <button class="btn btn-sm" id="ps-trunk"  onclick="loadPreset('trunk')"  style="border-color:#1D9E75;color:#1D9E75" data-i18n="ps.trunk">🫁 Tronc</button>
+    <button class="btn btn-sm" id="ps-arm"    onclick="loadPreset('arm')"    style="border-color:#D85A30;color:#D85A30" data-i18n="ps.arm">💪 Membre</button>
+    <button class="btn btn-sm" id="ps-eye"    onclick="loadPreset('eye')"    style="border-color:#9F3FAE;color:#9F3FAE" data-i18n="ps.eye">👁 Œil</button>
+    <button class="btn btn-sm" id="ps-breast" onclick="loadPreset('breast')" style="border-color:#BA7517;color:#BA7517" data-i18n="ps.breast">🔵 Sein</button>
   </div>
   <div style="display:flex;gap:1rem;align-items:flex-start;flex-wrap:wrap">
     <div style="flex:1;min-width:280px">
@@ -217,11 +217,11 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
       </svg>
     </div>
     <div style="flex:0 0 180px;font-size:12px">
-      <div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">Couches</div>
+      <div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem" data-i18n="geo.layers">Couches</div>
       <div id="schema-legend" style="line-height:1.8"></div>
     </div>
   </div>
-  <div id="schema-hint" class="info" style="font-size:12px;margin-top:.5rem">
+  <div id="schema-hint" class="info" style="font-size:12px;margin-top:.5rem" data-i18n="geo.hint">
     Configure l'empilement dans "Empilement" puis lance un calcul pour voir les résultats.
   </div>
 
@@ -245,24 +245,24 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
 
 <!-- STACK -->
 <div id="tab-stack" class="panel">
-  <div class="stitle0">Empilements prédéfinis</div>
+  <div class="stitle0" data-i18n="stk.presets">Empilements prédéfinis</div>
   <div class="presets">
-    <button class="btn btn-sm" onclick="loadPreset('head')">Tête frontale</button>
-    <button class="btn btn-sm" onclick="loadPreset('trunk')">Tronc</button>
-    <button class="btn btn-sm" onclick="loadPreset('arm')">Membre</button>
-    <button class="btn btn-sm" onclick="loadPreset('eye')">Œil</button>
-    <button class="btn btn-sm" onclick="loadPreset('breast')">Sein</button>
+    <button class="btn btn-sm" onclick="loadPreset('head')" data-i18n="ps.head2">Tête frontale</button>
+    <button class="btn btn-sm" onclick="loadPreset('trunk')" data-i18n="ps.trunk2">Tronc</button>
+    <button class="btn btn-sm" onclick="loadPreset('arm')" data-i18n="ps.arm2">Membre</button>
+    <button class="btn btn-sm" onclick="loadPreset('eye')" data-i18n="ps.eye2">Œil</button>
+    <button class="btn btn-sm" onclick="loadPreset('breast')" data-i18n="ps.breast2">Sein</button>
   </div>
-  <div class="stitle">Couches (air → tissu profond)</div>
-  <table><thead><tr><th>#</th><th>Tissu</th><th>Épaisseur (mm)</th><th></th></tr></thead>
+  <div class="stitle" data-i18n="stk.layers">Couches (air → tissu profond)</div>
+  <table><thead><tr><th>#</th><th data-i18n="th.tissue">Tissu</th><th data-i18n="th.thick">Épaisseur (mm)</th><th></th></tr></thead>
     <tbody id="stack-body"></tbody>
   </table>
-  <button class="btn btn-sm" onclick="addLayer()">+ Ajouter couche</button>
+  <button class="btn btn-sm" onclick="addLayer()" data-i18n="btn.addlayer">+ Ajouter couche</button>
 </div>
 
 <!-- RESULTS -->
 <div id="tab-results" class="panel">
-  <div id="no-result" class="info">Lance un calcul depuis l'onglet "Source EM".</div>
+  <div id="no-result" class="info" data-i18n="res.noresult">Lance un calcul depuis l'onglet "Source EM".</div>
   <div id="results-content" style="display:none">
     <div class="metrics" id="metrics-grid"></div>
     <div id="icnirp-warn" class="warn"></div>
@@ -278,17 +278,17 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
       DAS lissé le long de la profondeur (l'onde arrive par la gauche). Modèle planaire 1D :
       l'absorption ne dépend que de z, carte uniforme latéralement (vue illustrative en coupe).
     </div>
-    <div class="stitle">Profil SAR(z)</div>
+    <div class="stitle" data-i18n="res.profsar">Profil SAR(z)</div>
     <div id="layer-legend" style="display:flex;flex-wrap:wrap;gap:8px;margin:.4rem 0;font-size:12px;"></div>
     <div class="cw"><canvas id="sar-chart"></canvas></div>
-    <div class="stitle">Profil |E(z)|</div>
+    <div class="stitle" data-i18n="res.profe">Profil |E(z)|</div>
     <div class="cw2"><canvas id="e-chart"></canvas></div>
-    <div class="stitle">Propriétés diélectriques à la fréquence choisie</div>
-    <table><thead><tr><th>Couche</th><th>Tissu</th><th>ε'</th><th>σ(f) (S/m)</th><th>δ (mm)</th><th>ρ (kg/m³)</th></tr></thead>
+    <div class="stitle" data-i18n="res.dielf">Propriétés diélectriques à la fréquence choisie</div>
+    <table><thead><tr><th data-i18n="th.layer">Couche</th><th data-i18n="th.tissue">Tissu</th><th>ε'</th><th>σ(f) (S/m)</th><th>δ (mm)</th><th data-i18n="th.rho">ρ (kg/m³)</th></tr></thead>
       <tbody id="diel-res-body"></tbody>
     </table>
     <div style="display:flex;justify-content:flex-end;margin-top:.75rem">
-      <button class="btn btn-sm" onclick="exportCSV()">⬇ Exporter CSV</button>
+      <button class="btn btn-sm" onclick="exportCSV()" data-i18n="res.export">⬇ Exporter CSV</button>
     </div>
   </div>
 </div>
@@ -696,7 +696,48 @@ const I18N={
   // Axes de graphes
   'ax.depth':{fr:'Profondeur z (mm)',en:'Depth z (mm)'},'ax.sar':{fr:'SAR (W/kg)',en:'SAR (W/kg)'},
   'ax.e':{fr:'|E| (V/m)',en:'|E| (V/m)'},'ax.time':{fr:'Temps (min)',en:'Time (min)'},
-  'ax.dt':{fr:'ΔT (°C)',en:'ΔT (°C)'}
+  'ax.dt':{fr:'ΔT (°C)',en:'ΔT (°C)'},
+  // Source EM
+  'src.type':{fr:'Type de source',en:'Source type'},
+  'f.cat':{fr:'Catégorie',en:'Category'},
+  'f.freq':{fr:'Fréquence (Hz)',en:'Frequency (Hz)'},
+  'opt.ff':{fr:'Champ lointain (onde plane)',en:'Far field (plane wave)'},
+  'opt.near':{fr:'Champ proche',en:'Near field'},
+  'src.ff':{fr:'Source champ lointain',en:'Far-field source'},
+  'f.mode':{fr:'Mode',en:'Mode'},
+  'f.einc':{fr:'E incident (V/m)',en:'Incident E (V/m)'},
+  'opt.einc':{fr:'E incident libre (V/m)',en:'Free incident E (V/m)'},
+  'f.erp':{fr:'Puissance rayonnée (kW)',en:'Radiated power (kW)'},
+  'f.antdist':{fr:'Distance antenne (m)',en:'Antenna distance (m)'},
+  'src.near':{fr:'Source champ proche',en:'Near-field source'},
+  'f.type':{fr:'Type',en:'Type'},
+  'opt.edipole':{fr:'Dipôle électrique (Hertz)',en:'Electric dipole (Hertzian)'},
+  'opt.mdipole':{fr:'Dipôle magnétique',en:'Magnetic dipole'},
+  'opt.loop':{fr:'Boucle circulaire (NFC/RFID/IRM)',en:'Circular loop (NFC/RFID/MRI)'},
+  'f.srcdist':{fr:'Distance source–surface (m)',en:'Source–surface distance (m)'},
+  'f.moment':{fr:'Moment Il (A·m)',en:'Moment Il (A·m)'},
+  'f.radius':{fr:'Rayon boucle (m)',en:'Loop radius (m)'},
+  'f.current':{fr:'Courant I (A)',en:'Current I (A)'},
+  'btn.compute':{fr:'Calculer',en:'Compute'},
+  'geo.title':{fr:'Géométrie — vue de face',en:'Geometry — front view'},
+  'ps.head':{fr:'🧠 Tête',en:'🧠 Head'},'ps.trunk':{fr:'🫁 Tronc',en:'🫁 Trunk'},
+  'ps.arm':{fr:'💪 Membre',en:'💪 Limb'},'ps.eye':{fr:'👁 Œil',en:'👁 Eye'},'ps.breast':{fr:'🔵 Sein',en:'🔵 Breast'},
+  'geo.layers':{fr:'Couches',en:'Layers'},
+  'geo.hint':{fr:'Configure l’empilement dans « Empilement » puis lance un calcul pour voir les résultats.',en:'Set up the stack in "Tissue stack" then run a calculation to see the results.'},
+  // Empilement
+  'stk.presets':{fr:'Empilements prédéfinis',en:'Preset stacks'},
+  'ps.head2':{fr:'Tête frontale',en:'Head (frontal)'},'ps.trunk2':{fr:'Tronc',en:'Trunk'},
+  'ps.arm2':{fr:'Membre',en:'Limb'},'ps.eye2':{fr:'Œil',en:'Eye'},'ps.breast2':{fr:'Sein',en:'Breast'},
+  'stk.layers':{fr:'Couches (air → tissu profond)',en:'Layers (air → deep tissue)'},
+  'th.tissue':{fr:'Tissu',en:'Tissue'},'th.thick':{fr:'Épaisseur (mm)',en:'Thickness (mm)'},
+  'btn.addlayer':{fr:'+ Ajouter couche',en:'+ Add layer'},
+  // Résultats
+  'res.noresult':{fr:'Lance un calcul depuis l’onglet « Source EM ».',en:'Run a calculation from the "EM source" tab.'},
+  'res.profsar':{fr:'Profil SAR(z)',en:'SAR(z) profile'},
+  'res.profe':{fr:'Profil |E(z)|',en:'|E(z)| profile'},
+  'res.dielf':{fr:'Propriétés diélectriques à la fréquence choisie',en:'Dielectric properties at the chosen frequency'},
+  'res.export':{fr:'⬇ Exporter CSV',en:'⬇ Export CSV'},
+  'th.layer':{fr:'Couche',en:'Layer'},'th.rho':{fr:'ρ (kg/m³)',en:'ρ (kg/m³)'}
 };
 function t(k){const e=I18N[k];return e?(e[LANG]||e.fr):k;}
 function applyLang(){
