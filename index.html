@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hakeim Talleb — Outils de simulation</title>
+<meta name="description" content="Outils libres de simulation et de modélisation : dosimétrie électromagnétique, et plus à venir.">
+<style>
+:root{
+  --navy:#1a2e4a; --teal:#0d9488; --teal2:#0f766e; --teal-light:#e6f7f5;
+  --gold:#d97706; --text:#1e293b; --text2:#64748b; --border:#e2e8f0;
+  --bg:#f8fafc; --bg2:#f0fdf9; --white:#fff; --radius:14px;
+  --shadow:0 2px 14px rgba(26,46,74,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--text);background:var(--bg);line-height:1.6}
+a{color:var(--teal2)}
+.wrap{max-width:980px;margin:0 auto;padding:0 1.25rem}
+
+/* Hero */
+header{background:linear-gradient(135deg,#1a2e4a,#0f3a4d);color:#fff;padding:3.5rem 0 3rem}
+header .wrap{display:flex;flex-direction:column;gap:.5rem}
+header h1{font-size:2rem;font-weight:800;letter-spacing:-.02em}
+header h1 span{color:#5eead4}
+header .tag{font-size:1.05rem;color:#cbd5e1;max-width:680px}
+header .meta{margin-top:.9rem;font-size:.85rem;color:#94a3b8}
+
+/* Sections */
+main{padding:2.5rem 0 3rem}
+.stitle{font-size:.8rem;font-weight:700;color:var(--teal2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:1rem}
+
+/* Tool cards */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1.1rem}
+.card{background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius);
+  padding:1.25rem 1.3rem;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:.5rem;
+  text-decoration:none;color:inherit;transition:all .15s}
+.card.live:hover{border-color:var(--teal);transform:translateY(-2px);box-shadow:0 8px 24px rgba(13,148,136,.14)}
+.card .ico{font-size:1.6rem}
+.card h3{font-size:1.05rem;font-weight:700;color:var(--navy)}
+.card p{font-size:.9rem;color:var(--text2)}
+.card .tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:.35rem}
+.badge{font-size:.7rem;font-weight:700;padding:2px 9px;border-radius:20px;letter-spacing:.02em}
+.badge.ok{background:var(--teal-light);color:var(--teal2)}
+.badge.free{background:#fff7ed;color:var(--gold)}
+.card.soon{opacity:.7;border-style:dashed;cursor:default;align-items:center;justify-content:center;text-align:center;min-height:150px;color:var(--text2)}
+
+/* About */
+.about{margin-top:2.5rem;background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--radius);padding:1.4rem 1.5rem;font-size:.92rem;color:var(--text)}
+.about b{color:var(--navy)}
+
+footer{border-top:1px solid var(--border);padding:1.5rem 0;font-size:.82rem;color:var(--text2)}
+footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+footer a{color:var(--text2)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1><span>Hakeim</span> Talleb</h1>
+    <div class="tag">Outils libres de simulation et de modélisation pour l'ingénierie électromagnétique
+      et biomédicale. De nouveaux outils sont ajoutés au fil du temps.</div>
+    <div class="meta">Accès libre · code ouvert · à visée pédagogique et de recherche</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="stitle">Outils disponibles</div>
+  <div class="grid">
+
+    <a class="card live" href="dosimetrie.html">
+      <div class="ico">📡</div>
+      <h3>Dosimétrie électromagnétique</h3>
+      <p>Estimation du DAS (SAR) et de l'échauffement dans les tissus sous exposition radiofréquence :
+        matrices de transfert + Cole-Cole (IT'IS V5.0), thermique de Pennes, cartographies.</p>
+      <div class="tags">
+        <span class="badge ok">✓ validé &lt; 1,4 %</span>
+        <span class="badge free">accès libre</span>
+      </div>
+    </a>
+
+    <div class="card soon">
+      <div>
+        <div class="ico" style="opacity:.5">＋</div>
+        <div style="font-size:.9rem;margin-top:.3rem">Autres outils<br>à venir…</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="about">
+    <b>À propos —</b> Ces outils sont développés par Hakeim Talleb. Ils sont <b>indicatifs et
+    pédagogiques</b> : ils donnent des ordres de grandeur et facilitent la compréhension physique,
+    sans remplacer un code numérique de référence (FDTD, FEM) ni constituer une évaluation
+    réglementaire. Le code est ouvert et les méthodes sont documentées et validées.
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Hakeim Talleb · Code sous licence <a href="LICENSE">MIT</a></span>
+    <span><a href="VALIDATION.md">Validation</a> · <a href="NOTE_CADRAGE_ANSES.md">Note de cadrage</a></span>
+  </div>
+</footer>
+
+</body>
+</html>

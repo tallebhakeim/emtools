@@ -1,0 +1,2138 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dosimétrie EM — Hakeim Talleb</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+/* ── Palette ── */
+:root{
+  --navy:#1a2e4a; --teal:#0d9488; --teal2:#0f766e;
+  --teal-light:#e6f7f5; --teal-mid:#5eead4;
+  --gold:#d97706; --gold2:#b45309; --gold-light:#fff7ed;
+  --blue:#2563eb; --text:#1e293b; --text2:#64748b;
+  --border:#e2e8f0; --bg:#f8fafc; --bg2:#f0fdf9;
+  --white:#ffffff; --radius:10px;
+  --shadow:0 2px 12px rgba(26,46,74,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+     font-size:14px;background:var(--bg);color:var(--text);padding:1rem}
+h1{font-size:18px;font-weight:700;margin-bottom:1.25rem;color:var(--navy);letter-spacing:-.01em}
+h1 span{color:var(--teal)}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1.5rem;border-bottom:none}
+.tab{padding:9px 17px;font-size:13px;border-radius:var(--radius);
+     border:1.5px solid var(--border);background:var(--white);
+     color:var(--text2);cursor:pointer;font-weight:500;
+     display:flex;align-items:center;gap:7px;transition:all .15s;box-shadow:var(--shadow)}
+.tab .tab-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;opacity:.9}
+.tab.active{background:var(--navy);border-color:var(--navy);color:var(--white);
+            font-weight:600;box-shadow:0 4px 14px rgba(26,46,74,.18)}
+.tab:hover:not(.active){background:var(--teal-light);border-color:var(--teal);color:var(--navy)}
+.panel{display:none}.panel.active{display:block}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.field{display:flex;flex-direction:column;gap:4px}
+label{font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+select,input[type=number]{width:100%;padding:7px 10px;border:1.5px solid var(--border);
+  border-radius:8px;font-size:13px;background:var(--white);color:var(--text);transition:border-color .15s}
+select:focus,input[type=number]:focus{outline:none;border-color:var(--teal)}
+.stitle{font-size:11px;font-weight:700;color:var(--teal2);text-transform:uppercase;
+        letter-spacing:.06em;margin:1.25rem 0 .7rem;border-top:1.5px solid var(--border);padding-top:.9rem}
+.stitle0{font-size:11px;font-weight:700;color:var(--teal2);text-transform:uppercase;
+         letter-spacing:.06em;margin:0 0 .7rem}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:.75rem}
+th{font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;
+   padding:6px 8px;border-bottom:2px solid var(--teal-light);text-align:left;background:var(--bg2)}
+td{padding:6px 8px;border-bottom:1px solid var(--border)}
+tr:hover td{background:var(--bg2)}
+td select,td input[type=number]{padding:3px 6px;font-size:12px}
+.btn{padding:8px 16px;font-size:13px;font-weight:500;cursor:pointer;
+     border:1.5px solid var(--border);border-radius:8px;
+     background:var(--white);color:var(--text);transition:all .15s}
+.btn:hover{background:var(--teal-light);border-color:var(--teal);color:var(--navy)}
+.btn-p{background:var(--navy);color:var(--white);border-color:var(--navy)}
+.btn-p:hover{background:var(--teal2);border-color:var(--teal2)}
+.btn-sm{padding:4px 10px;font-size:12px}
+.btn-d{border-color:#fca5a5;color:#dc2626}
+.btn-d:hover{background:#fef2f2}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:1rem 0}
+.metric{background:var(--white);border-radius:var(--radius);padding:12px 14px;
+        border:1.5px solid var(--border);box-shadow:var(--shadow)}
+.mlbl{font-size:11px;color:var(--text2);text-transform:uppercase;
+      letter-spacing:.04em;margin-bottom:5px;font-weight:600}
+.mval{font-size:20px;font-weight:700;color:var(--navy)}
+.munit{font-size:11px;color:var(--text2);margin-left:2px;font-weight:400}
+.cw{position:relative;width:100%;height:250px;margin:.75rem 0}
+.cw2{position:relative;width:100%;height:190px;margin:.5rem 0}
+.info{background:var(--teal-light);color:var(--teal2);padding:8px 12px;border-radius:8px;
+      font-size:12px;margin-bottom:.75rem;border-left:3px solid var(--teal)}
+.warn{background:var(--gold-light);color:var(--gold2);padding:8px 12px;border-radius:8px;
+      font-size:12px;margin-bottom:.75rem;border-left:3px solid var(--gold);display:none}
+.presets{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:.75rem}
+.formula{font-family:monospace;font-size:12px;background:var(--bg2);padding:6px 10px;
+         border-radius:8px;margin:.5rem 0;border-left:3px solid var(--teal-mid);color:var(--navy)}
+.lc{width:9px;height:9px;border-radius:2px;display:inline-block;vertical-align:middle;margin-right:3px}
+.dtab{padding:8px 17px;font-size:13px;cursor:pointer;border:none;background:transparent;
+      color:var(--text2);border-bottom:2.5px solid transparent;margin-bottom:-1px;font-weight:500;transition:all .15s}
+.dtab.active{color:var(--teal2);border-bottom-color:var(--teal);font-weight:700}
+.dtab:hover:not(.active){color:var(--navy)}
+.dpanel{display:none}.dpanel.active{display:block}
+</style>
+</head>
+<body>
+<nav style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#1a2e4a;margin:-1rem -1rem 1.25rem -1rem;position:sticky;top:0;z-index:100;">
+  <a href="./" style="display:flex;align-items:center;gap:8px;color:#ffffff;font-size:13px;font-weight:600;text-decoration:none;">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    Hakeim Talleb · Outils
+  </a>
+  <span style="font-size:12px;color:#94a3b8;">Dosimétrie EM · Outil d'expertise</span>
+</nav>
+
+<h1>Dosimétrie EM <span>·</span> TMM + Cole-Cole (IT'IS V5.0) &nbsp;—&nbsp; Hakeim Talleb</h1>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('source')"><span class="tab-dot" style="background:#D85A30"></span>Source EM</button>
+  <button class="tab" onclick="switchTab('onde')"><span class="tab-dot" style="background:#0ea5e9"></span>Onde EM</button>
+  <button class="tab" onclick="switchTab('stack')"><span class="tab-dot" style="background:#378ADD"></span>Empilement</button>
+  <button class="tab" onclick="switchTab('results')"><span class="tab-dot" style="background:#1D9E75"></span>Résultats</button>
+  <button class="tab" onclick="switchTab('diel')"><span class="tab-dot" style="background:#9F3FAE"></span>Diélectriques</button>
+  <button class="tab" onclick="switchTab('therm')"><span class="tab-dot" style="background:#E24B4A"></span>Thermique</button>
+  <button class="tab" onclick="switchTab('valid')"><span class="tab-dot" style="background:#16a34a"></span>Validation</button>
+</div>
+
+
+<!-- ═══ DISCLAIMER TMM ═══ -->
+<div id="nse-tmm-info" style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:10px 14px;margin:0 0 .75rem;font-size:11.5px;color:#0369a1;line-height:1.55">
+  <strong>ℹ Méthode analytique — Matrices de transfert (TMM)</strong> &nbsp;·&nbsp;
+  Cet outil calcule l'absorption électromagnétique par une méthode analytique matricielle (Transfer Matrix Method) appliquée à des empilements de couches planes homogènes — il ne s'agit <em>pas</em> d'une simulation numérique volumique (FDTD, FEM).
+  <span id="nse-tmm-more" style="display:none">
+    <br><br>
+    <strong>Ce que la TMM permet :</strong> estimer l'ordre de grandeur du DAS, du profil de champ et de la profondeur de pénétration pour des géométries planes — idéal pour la compréhension physique, le dimensionnement préliminaire et la vérification de conformité ICNIRP en première approximation.<br><br>
+    <strong>Ses limites :</strong> la géométrie supposée planaire infinie ne tient pas compte de la courbure du corps ni des hétérogénéités locales. Les couches sont homogènes et indépendantes. Pour des certifications réglementaires, des évaluations sur des géométries réalistes (tête, tronc, membres) ou des projets nécessitant une validation formelle, une simulation 3D (FDTD, FEM) ou des mesures sur fantôme normalisé restent nécessaires.
+  </span>
+  &nbsp;<a href="#" onclick="var m=document.getElementById('nse-tmm-more'),l=document.getElementById('nse-tmm-lnk');if(m.style.display==='none'){m.style.display='';l.textContent='Réduire ▲';}else{m.style.display='none';l.textContent='En savoir plus ▼';}return false;" id="nse-tmm-lnk" style="color:#0369a1;font-weight:600;white-space:nowrap">En savoir plus ▼</a>
+</div>
+<!-- SOURCE -->
+<div id="tab-source" class="panel active">
+  <div class="stitle0">Type de source</div>
+  <div class="row">
+    <div class="field"><label>Catégorie</label>
+      <select id="src-cat" onchange="onSrcCat()">
+        <option value="ff">Champ lointain (onde plane)</option>
+        <option value="near">Champ proche</option>
+      </select>
+    </div>
+    <div class="field"><label>Fréquence (Hz)</label>
+      <input type="number" id="freq" value="2450000000" min="10" max="1e11" step="any" onchange="onFreqChange()">
+    </div>
+  </div>
+
+  <div id="ff-panel">
+    <div class="stitle">Source champ lointain</div>
+    <div class="row">
+      <div class="field"><label>Mode</label>
+        <select id="ff-mode" onchange="onFfMode()">
+          <option value="einc">E incident libre (V/m)</option>
+          <option value="icnirp98">Limite ICNIRP 1998</option>
+          <option value="icnirp20">Limite ICNIRP 2020</option>
+          <option value="fcc_fm">Modèle FM FCC (EPA 1985)</option>
+        </select>
+      </div>
+      <div class="field" id="einc-field"><label>E incident (V/m)</label>
+        <input type="number" id="einc-val" value="10" min="0.001" step="any">
+      </div>
+    </div>
+    <div id="fcc-fields" style="display:none">
+      <div class="row">
+        <div class="field"><label>Puissance rayonnée (kW)</label><input type="number" id="fcc-erp" value="100" min="0.1" step="any"></div>
+        <div class="field"><label>Distance antenne (m)</label><input type="number" id="fcc-dist" value="50" min="1" step="any"></div>
+      </div>
+      <div class="formula">E = √(30 × ERP) / d &nbsp;[modèle EPA 1985, champ libre]</div>
+    </div>
+    <div id="icnirp-info" style="display:none" class="info"></div>
+  </div>
+
+  <div id="near-panel" style="display:none">
+    <div class="stitle">Source champ proche</div>
+    <div class="row">
+      <div class="field"><label>Type</label>
+        <select id="near-type" onchange="onNearType()">
+          <option value="edipole">Dipôle électrique (Hertz)</option>
+          <option value="mdipole">Dipôle magnétique</option>
+          <option value="loop">Boucle circulaire (NFC/RFID/IRM)</option>
+        </select>
+      </div>
+      <div class="field"><label>Distance source–surface (m)</label>
+        <input type="number" id="near-dist" value="0.05" min="0.001" step="any" onchange="updateNearDisplay()">
+      </div>
+    </div>
+    <div class="row">
+      <div class="field" id="near-moment-field"><label>Moment Il (A·m)</label>
+        <input type="number" id="near-moment" value="1e-5" min="1e-9" step="any" onchange="updateNearDisplay()">
+      </div>
+      <div class="field" id="near-radius-field" style="display:none"><label>Rayon boucle (m)</label>
+        <input type="number" id="near-radius" value="0.05" min="0.001" step="any" onchange="updateNearDisplay()">
+      </div>
+      <div class="field" id="near-current-field" style="display:none"><label>Courant I (A)</label>
+        <input type="number" id="near-current" value="1" min="1e-6" step="any" onchange="updateNearDisplay()">
+      </div>
+    </div>
+    <div id="near-formula" class="formula"></div>
+    <div id="near-loop-warn" style="display:none;margin-top:.4rem" class="warn"></div>
+    <div id="near-einc-display" class="info" style="margin-top:.5rem"></div>
+  </div>
+
+  <div style="margin-top:1.25rem;display:flex;justify-content:flex-end">
+    <button class="btn btn-p" onclick="compute()">Calculer</button>
+  </div>
+
+  <!-- Schéma intégré -->
+  <div class="stitle" style="margin-top:1.5rem">Géométrie — coupe frontale</div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:.75rem">
+    <button class="btn btn-sm" id="ps-head"   onclick="loadPreset('head')"   style="border-color:#378ADD;color:#378ADD">🧠 Tête</button>
+    <button class="btn btn-sm" id="ps-trunk"  onclick="loadPreset('trunk')"  style="border-color:#1D9E75;color:#1D9E75">🫁 Tronc</button>
+    <button class="btn btn-sm" id="ps-arm"    onclick="loadPreset('arm')"    style="border-color:#D85A30;color:#D85A30">💪 Membre</button>
+    <button class="btn btn-sm" id="ps-eye"    onclick="loadPreset('eye')"    style="border-color:#9F3FAE;color:#9F3FAE">👁 Œil</button>
+    <button class="btn btn-sm" id="ps-breast" onclick="loadPreset('breast')" style="border-color:#BA7517;color:#BA7517">🔵 Sein</button>
+  </div>
+  <div style="display:flex;gap:1rem;align-items:flex-start;flex-wrap:wrap">
+    <div style="flex:1;min-width:280px">
+      <svg id="head-svg" viewBox="0 0 540 420" xmlns="http://www.w3.org/2000/svg"
+           style="width:100%;max-width:540px;height:auto;background:#f8f8f6;border-radius:8px;border:0.5px solid #ddd">
+        <defs>
+          <marker id="arrow-wave" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L7,3 z" fill="#378ADD" opacity="0.8"/>
+          </marker>
+          <marker id="arrow-red" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L7,3 z" fill="#D85A30" opacity="0.8"/>
+          </marker>
+        </defs>
+        <g id="svg-layers"></g>
+        <g id="svg-source"></g>
+        <g id="svg-labels"></g>
+      </svg>
+    </div>
+    <div style="flex:0 0 180px;font-size:12px">
+      <div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">Couches</div>
+      <div id="schema-legend" style="line-height:1.8"></div>
+    </div>
+  </div>
+  <div id="schema-hint" class="info" style="font-size:12px;margin-top:.5rem">
+    Configure l'empilement dans "Empilement" puis lance un calcul pour voir les résultats.
+  </div>
+
+  <!-- Cartographie de l'absorption (coupe en profondeur) -->
+  <div id="sar-map-wrap" style="display:none;margin-top:1.25rem">
+    <div class="stitle" style="margin-top:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      Cartographie de l'absorption (DAS) — coupe en profondeur
+      <select id="sar-map-mode" onchange="setSarMapMode(this.value)" style="text-transform:none;font-weight:400;font-size:12px;padding:2px 6px;width:auto">
+        <option value="local">DAS local</option>
+        <option value="10g">DAS 10 g (moyenné)</option>
+      </select>
+    </div>
+    <canvas id="sar-map" width="1520" height="200" style="width:100%;height:auto;border-radius:8px;border:0.5px solid var(--border)"></canvas>
+    <div style="font-size:11px;color:var(--text2);margin-top:.3rem;line-height:1.5">
+      Représentation lissée du DAS le long de la profondeur (l'onde arrive par la gauche).
+      Le modèle étant planaire 1D, l'absorption ne dépend que de la profondeur z — vue illustrative
+      en coupe (uniforme latéralement). Noms affichés pour les couches assez larges (voir légende).
+    </div>
+  </div>
+</div>
+
+<!-- STACK -->
+<div id="tab-stack" class="panel">
+  <div class="stitle0">Empilements prédéfinis</div>
+  <div class="presets">
+    <button class="btn btn-sm" onclick="loadPreset('head')">Tête frontale</button>
+    <button class="btn btn-sm" onclick="loadPreset('trunk')">Tronc</button>
+    <button class="btn btn-sm" onclick="loadPreset('arm')">Membre</button>
+    <button class="btn btn-sm" onclick="loadPreset('eye')">Œil</button>
+    <button class="btn btn-sm" onclick="loadPreset('breast')">Sein</button>
+  </div>
+  <div class="stitle">Couches (air → tissu profond)</div>
+  <table><thead><tr><th>#</th><th>Tissu</th><th>Épaisseur (mm)</th><th></th></tr></thead>
+    <tbody id="stack-body"></tbody>
+  </table>
+  <button class="btn btn-sm" onclick="addLayer()">+ Ajouter couche</button>
+</div>
+
+<!-- RESULTS -->
+<div id="tab-results" class="panel">
+  <div id="no-result" class="info">Lance un calcul depuis l'onglet "Source EM".</div>
+  <div id="results-content" style="display:none">
+    <div class="metrics" id="metrics-grid"></div>
+    <div id="icnirp-warn" class="warn"></div>
+    <div class="stitle" style="border-top:none;padding-top:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      Cartographie de l'absorption (DAS) — coupe en profondeur
+      <select id="sar-map-mode-r" onchange="setSarMapMode(this.value)" style="text-transform:none;font-weight:400;font-size:12px;padding:2px 6px;width:auto">
+        <option value="local">DAS local</option>
+        <option value="10g">DAS 10 g (moyenné)</option>
+      </select>
+    </div>
+    <canvas id="sar-map-r" width="1520" height="200" style="width:100%;height:auto;border-radius:8px;border:0.5px solid var(--border)"></canvas>
+    <div style="font-size:11px;color:var(--text2);margin:.3rem 0 .25rem;line-height:1.5">
+      DAS lissé le long de la profondeur (l'onde arrive par la gauche). Modèle planaire 1D :
+      l'absorption ne dépend que de z, carte uniforme latéralement (vue illustrative en coupe).
+    </div>
+    <div class="stitle">Profil SAR(z)</div>
+    <div id="layer-legend" style="display:flex;flex-wrap:wrap;gap:8px;margin:.4rem 0;font-size:12px;"></div>
+    <div class="cw"><canvas id="sar-chart"></canvas></div>
+    <div class="stitle">Profil |E(z)|</div>
+    <div class="cw2"><canvas id="e-chart"></canvas></div>
+    <div class="stitle">Propriétés diélectriques à la fréquence choisie</div>
+    <table><thead><tr><th>Couche</th><th>Tissu</th><th>ε'</th><th>σ(f) (S/m)</th><th>δ (mm)</th><th>ρ (kg/m³)</th></tr></thead>
+      <tbody id="diel-res-body"></tbody>
+    </table>
+    <div style="display:flex;justify-content:flex-end;margin-top:.75rem">
+      <button class="btn btn-sm" onclick="exportCSV()">⬇ Exporter CSV</button>
+    </div>
+  </div>
+</div>
+<!-- DIELECTRIQUES -->
+<div id="tab-diel" class="panel">
+  <div class="row" style="max-width:500px;margin-bottom:.75rem">
+    <div class="field"><label>Tissu</label><select id="diel-tissue" onchange="onDielTissue()"></select></div>
+  </div>
+  <div style="display:flex;gap:6px;margin-bottom:1rem;border-bottom:1px solid var(--border);padding-bottom:0">
+    <button class="dtab active" id="dtab-props" onclick="switchDielTab('props')">ε'(f) et σ(f)</button>
+    <button class="dtab" id="dtab-cc" onclick="switchDielTab('cc')">Diagramme Cole-Cole</button>
+    <button class="dtab" id="dtab-prop" onclick="switchDielTab('prop')">Propagation &amp; δs</button>
+  </div>
+
+  <div id="dpanel-props" class="dpanel active">
+    <div class="row" style="max-width:280px;margin-bottom:.5rem">
+      <div class="field"><label>Sources</label>
+        <select id="diel-source" onchange="plotDiel()">
+          <option value="both">IT'IS + IFAC</option>
+          <option value="itis">IT'IS seul</option>
+          <option value="ifac">IFAC seul</option>
+        </select>
+      </div>
+    </div>
+    <div id="diel-ifac-note" class="info" style="display:none;font-size:12px;margin-bottom:.5rem"></div>
+    <div class="cw"><canvas id="diel-eps-chart"></canvas></div>
+    <div class="cw2"><canvas id="diel-sig-chart"></canvas></div>
+    <div id="diel-diff-section" style="display:none">
+      <div class="stitle">Écart relatif IT'IS vs IFAC (%)</div>
+      <div class="cw2"><canvas id="diel-diff-chart"></canvas></div>
+    </div>
+  </div>
+
+  <div id="dpanel-cc" class="dpanel" style="display:none">
+    <div class="info" style="font-size:12px;margin-bottom:.75rem">
+      Plan complexe ε''(ε') — courbe globale du tissu. Debye pur (α=0) → demi-cercle parfait. Cole-Cole (α&gt;0) → arc aplati.
+    </div>
+    <div style="display:flex;gap:1rem;flex-wrap:wrap">
+      <div style="flex:1;min-width:280px">
+        <div class="cw" style="height:320px"><canvas id="cc-chart"></canvas></div>
+      </div>
+      <div style="flex:0 0 200px;font-size:12px">
+        <div class="stitle0">Paramètres Cole-Cole</div>
+        <table style="width:100%;border-collapse:collapse;font-size:11px" id="cc-params-table">
+          <thead><tr style="border-bottom:1px solid var(--border)">
+            <th style="padding:3px 4px">Dispersion</th>
+            <th style="padding:3px 4px">Δε</th>
+            <th style="padding:3px 4px">τ</th>
+            <th style="padding:3px 4px">α</th>
+            <th style="padding:3px 4px">fc</th>
+          </tr></thead>
+          <tbody id="cc-params-body"></tbody>
+        </table>
+        <div style="margin-top:.75rem;font-size:11px;color:var(--text2)">
+          <b>ε∞</b> = <span id="cc-einf"></span><br>
+          <b>σs</b> = <span id="cc-sig"></span> S/m<br>
+          <b>ρ</b> = <span id="cc-rho"></span> kg/m³
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="dpanel-prop" class="dpanel" style="display:none">
+    <div class="info" style="font-size:12px;margin-bottom:.75rem">
+      Grandeurs de propagation issues de la permittivité Cole-Cole IT'IS V5.0 :
+      épaisseur de peau δs = 1/α, longueur d'onde normalisée λn = λ₀/√ε', tangente de pertes tan(δ) = ε''/ε'.
+    </div>
+    <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:.75rem">
+      <div class="field" style="flex:0 0 220px">
+        <label>Fréquence de référence (Hz)</label>
+        <input type="number" id="prop-freq" value="2450000000" step="any" oninput="plotProp()">
+      </div>
+    </div>
+    <div id="prop-table-wrap" style="margin-bottom:1rem;overflow-x:auto"></div>
+    <div class="stitle0">δs(f) — Épaisseur de peau (mm)</div>
+    <div class="cw" style="height:230px"><canvas id="prop-ds-chart"></canvas></div>
+    <div class="stitle0" style="margin-top:.5rem">λn(f) et tan(δ)(f)</div>
+    <div class="cw" style="height:230px"><canvas id="prop-ln-chart"></canvas></div>
+  </div>
+</div>
+
+<div id="tab-therm" class="panel">
+  <div class="stitle0">Modèles d'échauffement RF → ΔT(t) et ΔT(z)</div>
+  <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;padding:.9rem 1rem;background:var(--bg2);border-radius:8px;border:0.5px solid var(--border)">
+    <div class="field" style="flex:0 0 180px">
+      <label>Tissu (thermique)</label>
+      <select id="th-tissue" onchange="onThTissue()"></select>
+      <div style="font-size:11px;color:var(--text2);margin-top:2px" id="th-tissue-hint">k, c, ρ, perfusion IT'IS</div>
+    </div>
+    <div class="field" style="flex:0 0 160px">
+      <label>SAR (W/kg)</label>
+      <input type="number" id="th-sar" value="4" min="0.001" step="any" oninput="runThermal()">
+      <div style="font-size:11px;color:var(--text2);margin-top:2px" id="th-sar-hint">Saisir ou utiliser SAR pic TMM</div>
+    </div>
+    <div class="field" style="flex:0 0 150px">
+      <label>Durée (min)</label>
+      <input type="number" id="th-tend" value="30" min="1" max="120" step="1" oninput="runThermal()">
+    </div>
+    <div class="field" style="flex:0 0 160px">
+      <label>Durée pulse t_ON (ms)</label>
+      <input type="number" id="th-ton" value="100" min="1" step="1" oninput="updateDC();runThermal()">
+    </div>
+    <div class="field" style="flex:0 0 160px">
+      <label>Période T (ms)</label>
+      <input type="number" id="th-period" value="1000" min="1" step="1" oninput="updateDC();runThermal()">
+      <div style="font-size:11px;color:var(--text2);margin-top:2px" id="th-dc-display">DC = 10.0%</div>
+    </div>
+    <div class="field" style="flex:0 0 100px">
+      <label>Mode</label>
+      <select id="th-mode" onchange="onThMode();runThermal()">
+        <option value="pulse">Pulsé</option>
+        <option value="continu">Continu</option>
+      </select>
+    </div>
+    <div class="field" style="flex:0 0 150px">
+      <label>Perfusion ω_b (s⁻¹)</label>
+      <input type="number" id="th-wb" value="0.000672" min="0" step="any" oninput="runThermal()">
+      <div style="font-size:11px;color:var(--text2);margin-top:2px">auto depuis tissu</div>
+    </div>
+    <div class="field" style="flex:0 0 160px">
+      <label>τ dissipation (s)</label>
+      <input type="number" id="th-tau" value="1470" min="10" step="10" oninput="runThermal()">
+      <div style="font-size:11px;color:var(--text2);margin-top:2px">≈ 1/γ (modèle lumped)</div>
+    </div>
+    <div class="field" style="flex:0 0 150px">
+      <label>Convection h (W/m²/K)</label>
+      <input type="number" id="th-h" value="8" min="0" step="0.5" oninput="runThermal1D()">
+      <div style="font-size:11px;color:var(--text2);margin-top:2px">surface peau↔air (1D)</div>
+    </div>
+    <div style="display:flex;align-items:flex-end;padding-bottom:2px;gap:6px">
+      <button class="btn btn-sm" onclick="useSARfromTMM()" style="background:var(--teal);color:#fff;border-color:transparent">↗ SAR TMM</button>
+      <button class="btn btn-sm" onclick="loadScenario('icnirp')" style="background:var(--navy);color:#fff;border-color:transparent">ICNIRP</button>
+    </div>
+  </div>
+  <div id="th-metrics" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:1rem"></div>
+  <div id="th-warn" class="warn" style="display:none"></div>
+  <div class="stitle" style="border-top:none;padding-top:0">Élévation de température ΔT(t)</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:.5rem;font-size:12px">
+    <label style="display:flex;align-items:center;gap:4px;font-weight:normal;text-transform:none;letter-spacing:0;color:var(--text)"><input type="checkbox" id="th-m0" checked oninput="runThermal()"> Adiabatique (sans dissipation)</label>
+    <label style="display:flex;align-items:center;gap:4px;font-weight:normal;text-transform:none;letter-spacing:0;color:var(--text)"><input type="checkbox" id="th-m1" checked oninput="runThermal()"> Lumped τ</label>
+    <label style="display:flex;align-items:center;gap:4px;font-weight:normal;text-transform:none;letter-spacing:0;color:var(--text)"><input type="checkbox" id="th-m3" checked oninput="runThermal()"> Pennes 0D (perfusion)</label>
+    <label style="display:flex;align-items:center;gap:5px;font-weight:normal;text-transform:none;letter-spacing:0;color:var(--text);margin-left:auto">Max Y (°C)
+      <input type="number" id="th-ymax" placeholder="auto" step="any" min="0" style="width:72px;padding:3px 6px" oninput="runThermal()">
+      <button class="btn btn-sm" onclick="document.getElementById('th-ymax').value='';runThermal()" title="Échelle automatique">auto</button>
+    </label>
+  </div>
+  <div class="cw" style="height:280px"><canvas id="th-time-chart"></canvas></div>
+  <div id="th-pulse-note" style="display:none;font-size:11px;color:var(--text2);margin-top:.4rem;background:var(--bg2);padding:6px 10px;border-radius:6px;border:0.5px solid var(--border)">
+    ℹ La constante de temps thermique du tissu (τ ≈ 1/γ, plusieurs centaines de secondes) est très supérieure à la période des pulses : l'échauffement répond à la <b>puissance moyenne</b> (SAR × duty cycle), les oscillations intra-pulse sont négligeables (&lt;0.01°C). La courbe en tirets montre le cas continu (DC=100%) pour comparaison.
+  </div>
+  <div class="stitle">Profil spatial ΔT(z) — bio-chaleur 1D (Pennes) multicouche</div>
+  <div style="font-size:12px;color:var(--text2);margin-bottom:.5rem">
+    Conduction + perfusion résolues couche par couche (k, c, ρ, ω_b propres à chaque tissu de l'empilement TMM).
+    Surface peau↔air : condition de convection (h) ; bord profond : température de cœur fixe.
+    SAR(z) issu du calcul TMM, normalisé au SAR saisi. Profil à t = <b id="th-t15-label">15</b> min.
+    <input type="range" id="th-tslice" min="1" max="30" value="15" step="1"
+      oninput="document.getElementById('th-t15-label').textContent=this.value; runThermal1D();"
+      style="width:120px;vertical-align:middle;margin-left:8px">
+    &nbsp;·&nbsp; Max Y :
+    <input type="number" id="th-ymax-z" placeholder="auto" step="any" min="0" style="width:70px;padding:2px 6px;font-size:12px" oninput="runThermal1D()">
+    <button class="btn btn-sm" onclick="document.getElementById('th-ymax-z').value='';runThermal1D()" title="Échelle automatique">auto</button>
+  </div>
+  <div class="cw2" style="height:220px"><canvas id="th-space-chart"></canvas></div>
+  <div class="info" style="font-size:12px;margin-top:.75rem" id="th-note">
+    Lance d'abord un calcul TMM pour alimenter le profil spatial SAR(z). Le profil est normalisé par le SAR saisi — tu peux changer le scénario sans relancer la TMM.
+  </div>
+
+  <!-- Cartographie thermique 2D : profondeur × temps -->
+  <div id="th-map-wrap" style="display:none">
+    <div class="stitle">Cartographie de l'échauffement ΔT(z, t) — profondeur × temps</div>
+    <canvas id="th-map" width="1520" height="240" style="width:100%;height:auto;border-radius:8px;border:0.5px solid var(--border)"></canvas>
+    <div style="font-size:11px;color:var(--text2);margin-top:.3rem;line-height:1.5">
+      Évolution de l'élévation de température dans la profondeur (axe vertical, surface en haut) au
+      cours du temps (axe horizontal) — modèle de bio-chaleur de Pennes 1D multicouche. Contrairement
+      au DAS, c'est une <b>vraie carte 2D</b> : la diffusion thermique étale la chaleur et fait
+      tendre ΔT vers son régime permanent.
+    </div>
+  </div>
+</div>
+
+<!-- ONDE EM (pédagogie) -->
+<div id="tab-onde" class="panel">
+  <div class="stitle0">Comprendre les ondes électromagnétiques</div>
+
+  <!-- 1. Définition -->
+  <div class="stitle" style="border-top:none;padding-top:0">1 · Qu'est-ce qu'une onde électromagnétique ?</div>
+  <div style="display:flex;gap:1.2rem;flex-wrap:wrap;align-items:center">
+    <div style="flex:1;min-width:260px;font-size:13px;line-height:1.7">
+      Une onde électromagnétique est la <b>propagation d'énergie</b> à travers l'espace, sans
+      support matériel. Elle est composée de deux champs couplés, oscillants et perpendiculaires :
+      <ul style="margin:.5rem 0 .5rem 1.1rem">
+        <li>un <b style="color:#dc2626">champ électrique E</b> (en V/m) ;</li>
+        <li>un <b style="color:#2563eb">champ magnétique H</b> (en A/m).</li>
+      </ul>
+      E et H sont <b>perpendiculaires entre eux</b> et perpendiculaires à la <b>direction de
+      propagation</b>. C'est cette énergie qui, en pénétrant dans les tissus, y est partiellement
+      absorbée (→ DAS) et peut produire un échauffement.
+    </div>
+    <div style="flex:0 0 320px">
+      <svg viewBox="0 0 320 180" style="width:100%;background:var(--bg2);border-radius:8px;border:0.5px solid var(--border)">
+        <line x1="20" y1="90" x2="300" y2="90" stroke="#94a3b8" stroke-width="1"/>
+        <polygon points="300,90 292,86 292,94" fill="#94a3b8"/>
+        <text x="296" y="105" font-size="9" fill="#64748b">propagation</text>
+        <path d="M20,90 Q50,30 80,90 T140,90 T200,90 T260,90 T300,90" fill="none" stroke="#dc2626" stroke-width="2"/>
+        <path d="M20,90 Q50,120 80,90 T140,90 T200,90 T260,90 T300,90" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.8"/>
+        <text x="26" y="40" font-size="11" fill="#dc2626" font-weight="700">E</text>
+        <text x="26" y="135" font-size="11" fill="#2563eb" font-weight="700">H</text>
+        <line x1="80" y1="90" x2="200" y2="90" stroke="#0f766e" stroke-width="0" />
+        <line x1="80" y1="150" x2="200" y2="150" stroke="#0f766e" stroke-width="1"/>
+        <line x1="80" y1="146" x2="80" y2="154" stroke="#0f766e" stroke-width="1"/>
+        <line x1="200" y1="146" x2="200" y2="154" stroke="#0f766e" stroke-width="1"/>
+        <text x="128" y="166" font-size="10" fill="#0f766e" font-weight="700">λ</text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- 2. Caractéristiques -->
+  <div class="stitle">2 · Caractéristiques : fréquence, vitesse, longueur d'onde</div>
+  <div style="font-size:13px;line-height:1.7">
+    Une onde oscille à une <b>fréquence f</b> (en hertz, Hz). Dans le vide elle se propage à la
+    <b>vitesse de la lumière</b> c ≈ 300 000 km/s ; dans la matière à v = c/n (n = indice du milieu).
+    Sa <b>longueur d'onde</b> λ — la « taille » d'une oscillation — relie les deux :
+  </div>
+  <div class="formula">λ = c / f &nbsp;&nbsp;(vide) &nbsp;·&nbsp; v = c / n &nbsp;(milieu) &nbsp;·&nbsp; énergie du photon E = h·f</div>
+  <div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end;background:var(--bg2);padding:.8rem 1rem;border-radius:8px;border:0.5px solid var(--border);margin:.6rem 0">
+    <div class="field" style="flex:0 0 150px">
+      <label>Fréquence</label>
+      <input type="number" id="onde-f" value="2.45" step="any" oninput="ondeLambda()">
+    </div>
+    <div class="field" style="flex:0 0 110px">
+      <label>Unité</label>
+      <select id="onde-fu" onchange="ondeLambda()">
+        <option value="1e3">kHz</option>
+        <option value="1e6">MHz</option>
+        <option value="1e9" selected>GHz</option>
+        <option value="1e12">THz</option>
+      </select>
+    </div>
+    <div style="flex:1;min-width:200px;font-size:13px" id="onde-lam-out"></div>
+  </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:12px">
+    <button class="btn btn-sm" onclick="ondePreset(0.1,'1e6')">FM 100 MHz</button>
+    <button class="btn btn-sm" onclick="ondePreset(900,'1e6')">GSM 900 MHz</button>
+    <button class="btn btn-sm" onclick="ondePreset(2.45,'1e9')">Wi-Fi 2,45 GHz</button>
+    <button class="btn btn-sm" onclick="ondePreset(3.5,'1e9')">5G 3,5 GHz</button>
+    <button class="btn btn-sm" onclick="ondePreset(28,'1e9')">5G mmW 28 GHz</button>
+  </div>
+
+  <!-- 3. Spectre -->
+  <div class="stitle">3 · Le spectre électromagnétique : non-ionisant / ionisant</div>
+  <div style="font-size:13px;line-height:1.7;margin-bottom:.5rem">
+    Plus la fréquence est élevée, plus l'énergie d'un photon (E = h·f) est grande. En-dessous de
+    l'ultraviolet, les ondes sont <b>non ionisantes</b> : elles ne cassent pas les liaisons
+    moléculaires (leur effet biologique dominant est <b>thermique</b>). Les radiofréquences et
+    micro-ondes des télécommunications sont dans cette zone.
+  </div>
+  <div style="height:26px;border-radius:6px;background:linear-gradient(90deg,#1d4ed8,#0ea5e9,#10b981,#f59e0b,#ef4444,#7c3aed);position:relative;margin:.4rem 0 .2rem"></div>
+  <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text2)">
+    <span>radio / RF</span><span>micro-ondes</span><span>infrarouge</span><span>visible</span><span>UV</span><span>X / γ</span>
+  </div>
+  <div style="display:flex;font-size:10px;font-weight:700;margin-top:2px">
+    <span style="flex:0 0 66%;color:#0f766e">◄ NON IONISANT (effet thermique)</span>
+    <span style="flex:1;text-align:right;color:#7c3aed">IONISANT ►</span>
+  </div>
+
+  <!-- 4. Champ proche / champ lointain -->
+  <div class="stitle">4 · Zones de rayonnement : champ proche et champ lointain</div>
+  <div style="display:flex;gap:1.2rem;flex-wrap:wrap">
+    <div style="flex:0 0 300px">
+      <svg viewBox="0 0 300 200" style="width:100%;background:var(--bg2);border-radius:8px;border:0.5px solid var(--border)">
+        <defs><radialGradient id="nf" cx="12%" cy="50%" r="70%">
+          <stop offset="0%" stop-color="#fca5a5" stop-opacity="0.55"/>
+          <stop offset="35%" stop-color="#fdba74" stop-opacity="0.30"/>
+          <stop offset="55%" stop-color="#fde68a" stop-opacity="0.12"/>
+          <stop offset="70%" stop-color="#fde68a" stop-opacity="0"/>
+        </radialGradient></defs>
+        <rect x="0" y="0" width="300" height="200" fill="url(#nf)"/>
+        <!-- dipôle -->
+        <line x1="36" y1="78" x2="36" y2="122" stroke="#1a2e4a" stroke-width="3"/>
+        <circle cx="36" cy="78" r="4" fill="#1a2e4a"/><circle cx="36" cy="122" r="4" fill="#1a2e4a"/>
+        <text x="20" y="145" font-size="9" fill="#1a2e4a" font-weight="700">dipôle</text>
+        <!-- fronts d'onde : courbes près, plans loin -->
+        <path d="M70,40 Q90,100 70,160" fill="none" stroke="#dc2626" stroke-width="1.4" opacity="0.7"/>
+        <path d="M105,35 Q130,100 105,165" fill="none" stroke="#ea580c" stroke-width="1.3" opacity="0.6"/>
+        <line x1="170" y1="30" x2="170" y2="170" stroke="#2563eb" stroke-width="1.3" opacity="0.7"/>
+        <line x1="210" y1="30" x2="210" y2="170" stroke="#2563eb" stroke-width="1.3" opacity="0.7"/>
+        <line x1="250" y1="30" x2="250" y2="170" stroke="#2563eb" stroke-width="1.3" opacity="0.7"/>
+        <!-- frontière -->
+        <line x1="140" y1="20" x2="140" y2="180" stroke="#64748b" stroke-width="1" stroke-dasharray="4 3"/>
+        <text x="78" y="16" font-size="9" fill="#b45309" font-weight="700">champ proche</text>
+        <text x="186" y="16" font-size="9" fill="#1d4ed8" font-weight="700">champ lointain</text>
+        <text x="100" y="194" font-size="8.5" fill="#64748b">r ≈ λ/2π</text>
+        <polygon points="148,188 138,184 138,192" fill="#64748b"/>
+      </svg>
+    </div>
+    <div style="flex:1;min-width:280px;font-size:12.5px;line-height:1.6">
+      Autour d'une source (ex. un dipôle, cf. cours « Émettre des ondes »), l'espace se divise en
+      deux régions :
+      <table style="width:100%;border-collapse:collapse;font-size:12px;margin:.5rem 0">
+        <thead><tr>
+          <th style="text-align:left;padding:4px 6px;border-bottom:2px solid var(--teal-light)">Champ proche (réactif)</th>
+          <th style="text-align:left;padding:4px 6px;border-bottom:2px solid var(--teal-light)">Champ lointain (rayonné)</th>
+        </tr></thead>
+        <tbody>
+        <tr><td style="padding:4px 6px;border-bottom:1px solid var(--border);vertical-align:top">Énergie en partie <b>stockée</b> (oscille avec la source)</td>
+            <td style="padding:4px 6px;border-bottom:1px solid var(--border);vertical-align:top">Énergie <b>rayonnée</b> qui s'éloigne</td></tr>
+        <tr><td style="padding:4px 6px;border-bottom:1px solid var(--border);vertical-align:top">E et H <b>non reliés simplement</b> ; décroissance rapide en 1/r², 1/r³</td>
+            <td style="padding:4px 6px;border-bottom:1px solid var(--border);vertical-align:top">Onde quasi-<b>plane</b> ; E/H = η₀ ≈ 377 Ω ; décroissance en 1/r</td></tr>
+        <tr><td style="padding:4px 6px;vertical-align:top">Il faut mesurer E <b>et</b> H séparément</td>
+            <td style="padding:4px 6px;vertical-align:top">Densité de puissance S = E²/η₀ suffit</td></tr>
+        </tbody>
+      </table>
+      <b>Frontière</b> : r ≈ λ/2π pour une petite source ; r ≈ 2D²/λ pour une antenne de taille D.
+      <span id="onde-nf-note" style="display:block;margin-top:.3rem;color:var(--teal2)"></span>
+      <div class="info" style="font-size:11.5px;margin-top:.5rem">
+        👉 L'onglet <b>Source EM</b> permet justement de choisir une excitation en <b>champ lointain</b>
+        (onde plane) ou en <b>champ proche</b> (dipôle, boucle NFC/RFID/IRM).
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Propagation & pénétration -->
+  <div class="stitle">5 · Propagation, atténuation et pénétration dans les tissus</div>
+  <div style="font-size:13px;line-height:1.7">
+    En s'éloignant de la source, l'onde s'<b>atténue</b> (son énergie se répartit puis se dissipe).
+    En pénétrant dans un tissu, elle est absorbée : l'amplitude décroît exponentiellement, et la
+    <b>profondeur de pénétration</b> δ (profondeur où le champ tombe à 1/e) <b>diminue quand la
+    fréquence augmente</b> — d'où des effets plus superficiels à 2,45 GHz qu'à 900 MHz.
+    <br>👉 L'outil quantifie cela (onglets <b>Résultats</b> et <b>Validation</b>), et le moteur de
+    calcul est <b>validé</b> contre la solution analytique exacte à mieux que 1,4 %.
+  </div>
+</div>
+
+<!-- VALIDATION -->
+<div id="tab-valid" class="panel">
+  <div class="stitle0">Validation du moteur — comparaison avec la solution analytique exacte</div>
+  <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:10px 14px;margin:0 0 1rem;font-size:12px;color:#0369a1;line-height:1.6">
+    Pour une <b>monocouche semi-infinie</b> sous onde plane (incidence normale), la réflexion,
+    le SAR de surface et la profondeur de pénétration ont une <b>forme analytique close</b>
+    (réflexion de Fresnel + onde plane en milieu à pertes). C'est le socle de référence contre
+    lequel les codes FDTD/FEM sont eux-mêmes validés en géométrie planaire. Le moteur de l'outil
+    doit les reproduire — le calcul ci-dessous est <b>relancé en direct dans votre navigateur</b>.
+    <br>Onde plane, E<sub>inc</sub> = 19,41 V/m rms (densité de puissance ≈ 1 W/m²). Critère : écart &lt; 2 %.
+  </div>
+  <!-- Vérificateur interactif -->
+  <div class="stitle" style="border-top:none;padding-top:0">Vérifier un cas de votre choix</div>
+  <div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end;background:var(--bg2);padding:.8rem 1rem;border-radius:8px;border:0.5px solid var(--border);margin-bottom:.6rem">
+    <div class="field" style="flex:0 0 220px">
+      <label>Tissu (monocouche semi-infinie)</label>
+      <select id="valid-tissue" onchange="runValidationCase()"></select>
+    </div>
+    <div class="field" style="flex:0 0 130px">
+      <label>Fréquence</label>
+      <input type="number" id="valid-freq" value="1.8" step="any" min="0" oninput="runValidationCase()">
+    </div>
+    <div class="field" style="flex:0 0 100px">
+      <label>Unité</label>
+      <select id="valid-fu" onchange="runValidationCase()">
+        <option value="1e6">MHz</option>
+        <option value="1e9" selected>GHz</option>
+      </select>
+    </div>
+    <div style="flex:1;min-width:160px;font-size:11.5px;color:var(--text2);padding-bottom:4px">Le calcul se met à jour automatiquement.</div>
+  </div>
+  <div id="valid-custom" style="margin-bottom:1.25rem"></div>
+
+  <!-- Cas de référence -->
+  <div class="stitle">Cas de référence (4 tissus types) <span id="valid-verdict" style="font-weight:700;font-size:13px;margin-left:8px"></span></div>
+  <table>
+    <thead><tr><th>Tissu</th><th>Fréq.</th><th>Grandeur</th><th>Outil</th><th>Exact</th><th>Écart</th></tr></thead>
+    <tbody id="valid-body"></tbody>
+  </table>
+  <div class="stitle">Conservation de l'énergie — empilement multicouche</div>
+  <div id="valid-energy" class="info" style="font-size:12px;line-height:1.6"></div>
+  <div class="stitle">Méthode &amp; transparence</div>
+  <div style="font-size:12px;color:var(--text2);line-height:1.65;background:var(--bg2);padding:10px 14px;border-radius:8px;border:0.5px solid var(--border)">
+    La référence analytique est calculée <i>indépendamment</i> du moteur TMM (impédance de Fresnel
+    η₁ = η₀/√ε̂, champ de surface E·(1+Γ), SAR = σ<sub>eff</sub>·|E|²/ρ, atténuation α = (ω/c)·|Im √ε̂|),
+    à partir des mêmes propriétés diélectriques Cole-Cole : on valide ainsi la <b>physique d'onde</b>.<br><br>
+    <b>Note de transparence —</b> la mise en place de cette validation a révélé puis corrigé deux
+    erreurs de physique du moteur initial : (1) impédance d'onde ωμ₀/(jk) au lieu de ωμ₀/k
+    (réflexion air↔tissu ignorée, |R|≈0) ; (2) SAR calculé avec la conductivité statique au lieu de
+    σ<sub>eff</sub> = ωε₀ε″. Les deux sont corrigés ; le moteur reproduit désormais l'analytique à
+    mieux que 1,4 %. Détails et script reproductible : <code>VALIDATION.md</code> /
+    <code>validation/validate_tmm.js</code>.<br><br>
+    <b>Références —</b> C. Gabriel (1996) ; IT'IS Tissue Properties Database V5.0 ; ICNIRP 2020 ;
+    analogie ligne de transmission / TMM (validation standard des codes FDTD aux interfaces planes).
+  </div>
+</div>
+
+<script>
+'use strict';
+const EPS0=8.854e-12,MU0=4*Math.PI*1e-7;
+const LCOLORS=['#378ADD','#1D9E75','#D85A30','#9F3FAE','#BA7517','#639922','#E24B4A','#73726c','#C4732A','#2AACB8','#B84298','#5B8C3E'];
+const TISSUES={
+"Adrenal Gland":{density:1027.5,ef:3.0,sig:0.62,disp:[{del:48.2,tau:7.059999999999999e-12,alf:0.18},{del:52.1,tau:1.95e-09,alf:0.0},{del:0.0,tau:0.000159155,alf:0.2},{del:0.0,tau:0.015915,alf:0.0}]},
+"Air":{density:1.164091553,ef:1.0,sig:0.0,disp:[{del:0.0,tau:0.0,alf:0.0},{del:0.0,tau:0.0,alf:0.0},{del:0.0,tau:0.0,alf:0.0},{del:0.0,tau:0.0,alf:0.0}]},
+"Bile":{density:928.0,ef:4.0,sig:1.4,disp:[{del:66.0,tau:7.578999999999999e-12,alf:0.05},{del:50.0,tau:1.592e-09,alf:0.0},{del:0.0,tau:0.000159155,alf:0.2},{del:0.0,tau:0.015915,alf:0.2}]},
+"Blood":{density:1049.75,ef:4.0,sig:0.7,disp:[{del:56.0,tau:8.377000000000001e-12,alf:0.1},{del:5200.0,tau:1.32629e-07,alf:0.1},{del:0.0,tau:0.000159155,alf:0.2},{del:0.0,tau:0.015915,alf:0.0}]},
+"Blood Plasma":{density:1020.05,ef:0.0,sig:0.0,disp:[{del:0.0,tau:0.0,alf:0.0},{del:0.0,tau:0.0,alf:0.0},{del:0.0,tau:0.0,alf:0.0},{del:0.0,tau:0.0,alf:0.0}]},
+"Blood Serum":{density:1024.0,ef:0.0,sig:0.0,disp:[{del:0.0,tau:0.0,alf:0.0},{del:0.0,tau:0.0,alf:0.0},{del:0.0,tau:0.0,alf:0.0},{del:0.0,tau:0.0,alf:0.0}]},
+"Blood Vessel Wall":{density:1101.5,ef:4.0,sig:0.25,disp:[{del:40.0,tau:8.842e-12,alf:0.1},{del:50.0,tau:3.183e-09,alf:0.1},{del:100000.0,tau:0.000159155,alf:0.2},{del:10000000.0,tau:0.001592,alf:0.0}]},
+"Bone (Cancellous)":{density:1178.333333,ef:2.5,sig:0.07,disp:[{del:18.0,tau:1.3263e-11,alf:0.22},{del:300.0,tau:7.9577e-08,alf:0.25},{del:20000.0,tau:0.000159155,alf:0.2},{del:20000000.0,tau:0.015915,alf:0.0}]},
+"Bone (Cortical)":{density:1908.0,ef:2.5,sig:0.02,disp:[{del:10.0,tau:1.3263e-11,alf:0.2},{del:180.0,tau:7.9577e-08,alf:0.2},{del:5000.0,tau:0.000159155,alf:0.2},{del:100000.0,tau:0.015915,alf:0.0}]},
+"Bone Marrow (Red)":{density:1028.5,ef:2.5,sig:0.1,disp:[{del:9.0,tau:1.4468999999999999e-11,alf:0.2},{del:80.0,tau:1.5915e-08,alf:0.1},{del:10000.0,tau:0.0015915489999999998,alf:0.1},{del:2000000.0,tau:0.015915,alf:0.1}]},
+"Bone Marrow (Yellow)":{density:980.0,ef:2.5,sig:0.001,disp:[{del:3.0,tau:7.958e-12,alf:0.2},{del:25.0,tau:1.5915e-08,alf:0.1},{del:5000.0,tau:0.0015915489999999998,alf:0.1},{del:2000000.0,tau:0.015915,alf:0.1}]},
+"Brain":{density:1045.5,ef:4.0,sig:0.04,disp:[{del:40.0,tau:7.958e-12,alf:0.1},{del:700.0,tau:1.5915e-08,alf:0.15},{del:200000.0,tau:0.00010610299999999998,alf:0.22},{del:45000000.0,tau:0.005305,alf:0.0}]},
+"Brain (Grey Matter)":{density:1044.5,ef:4.0,sig:0.02,disp:[{del:45.0,tau:7.958e-12,alf:0.1},{del:400.0,tau:1.5915e-08,alf:0.15},{del:200000.0,tau:0.00010610299999999998,alf:0.22},{del:45000000.0,tau:0.005305,alf:0.0}]},
+"Brain (White Matter)":{density:1041.0,ef:4.0,sig:0.02,disp:[{del:32.0,tau:7.958e-12,alf:0.1},{del:100.0,tau:7.958000000000001e-09,alf:0.1},{del:40000.0,tau:5.3052e-05,alf:0.3},{del:35000000.0,tau:0.007958,alf:0.02}]},
+"Breast Fat":{density:911.0,ef:2.5,sig:0.01,disp:[{del:3.0,tau:1.768e-11,alf:0.1},{del:15.0,tau:6.366e-08,alf:0.1},{del:50000.0,tau:0.0004547,alf:0.1},{del:20000000.0,tau:0.01326,alf:0.0}]},
+"Breast Gland":{density:1040.5,ef:4.0,sig:0.5,disp:[{del:55.0,tau:7.958e-12,alf:0.1},{del:2500.0,tau:1.59155e-07,alf:0.1},{del:100000.0,tau:0.000159155,alf:0.2},{del:40000000.0,tau:0.015915,alf:0.0}]},
+"Bronchi":{density:1101.5,ef:2.5,sig:0.3,disp:[{del:38.0,tau:7.958e-12,alf:0.1},{del:400.0,tau:6.3662e-08,alf:0.1},{del:50000.0,tau:1.5915e-05,alf:0.2},{del:1000000.0,tau:0.015915,alf:0.0}]},
+"Bronchi lumen":{density:1.164091553,ef:1.0,sig:0.0,disp:[{del:0.0,tau:0.0,alf:0.0},{del:0.0,tau:0.0,alf:0.0},{del:0.0,tau:0.0,alf:0.0},{del:0.0,tau:0.0,alf:0.0}]},
+"Cartilage":{density:1099.5,ef:4.0,sig:0.15,disp:[{del:38.0,tau:1.3263e-11,alf:0.15},{del:2500.0,tau:1.4468600000000003e-07,alf:0.15},{del:100000.0,tau:0.00031831,alf:0.1},{del:40000000.0,tau:0.015915,alf:0.0}]},
+"Cerebellum":{density:1045.0,ef:4.0,sig:0.04,disp:[{del:40.0,tau:7.958e-12,alf:0.1},{del:700.0,tau:1.5915e-08,alf:0.15},{del:200000.0,tau:0.00010610299999999998,alf:0.22},{del:45000000.0,tau:0.005305,alf:0.0}]},
+"Cerebrospinal Fluid":{density:1007.0,ef:4.0,sig:2.0,disp:[{del:65.0,tau:7.958e-12,alf:0.1},{del:40.0,tau:1.592e-09,alf:0.0},{del:0.0,tau:0.000159155,alf:0.0},{del:0.0,tau:0.015915,alf:0.0}]},
+"Cervix":{density:1104.5,ef:4.0,sig:0.3,disp:[{del:45.0,tau:7.958e-12,alf:0.1},{del:200.0,tau:1.5915e-08,alf:0.1},{del:150000.0,tau:0.00010610299999999998,alf:0.18},{del:40000000.0,tau:0.001592,alf:0.0}]},
+"Commissura Anterior":{density:1041.0,ef:4.0,sig:0.02,disp:[{del:32.0,tau:7.958e-12,alf:0.1},{del:100.0,tau:7.958000000000001e-09,alf:0.1},{del:40000.0,tau:5.3052e-05,alf:0.3},{del:35000000.0,tau:0.007958,alf:0.02}]},
+"Commissura Posterior":{density:1041.0,ef:4.0,sig:0.02,disp:[{del:32.0,tau:7.958e-12,alf:0.1},{del:100.0,tau:7.958000000000001e-09,alf:0.1},{del:40000.0,tau:5.3052e-05,alf:0.3},{del:35000000.0,tau:0.007958,alf:0.02}]},
+"Connective Tissue":{density:1026.5,ef:4.0,sig:0.25,disp:[{del:42.0,tau:1.2243e-11,alf:0.1},{del:60.0,tau:6.366e-09,alf:0.1},{del:60000.0,tau:0.00031831,alf:0.22},{del:20000000.0,tau:0.0013260000000000001,alf:0.0}]},
+"Diaphragm":{density:1090.4,ef:4.0,sig:0.2,disp:[{del:50.0,tau:7.234e-12,alf:0.1},{del:7000.0,tau:3.53678e-07,alf:0.1},{del:1200000.0,tau:0.00031831,alf:0.1},{del:25000000.0,tau:0.002274,alf:0.0}]},
+"Ductus Deferens":{density:1101.5,ef:4.0,sig:0.25,disp:[{del:40.0,tau:8.842e-12,alf:0.1},{del:50.0,tau:3.183e-09,alf:0.1},{del:100000.0,tau:0.000159155,alf:0.2},{del:10000000.0,tau:0.001592,alf:0.0}]},
+"Dura":{density:1174.0,ef:4.0,sig:0.5,disp:[{del:40.0,tau:7.958e-12,alf:0.15},{del:200.0,tau:7.958000000000001e-09,alf:0.1},{del:10000.0,tau:0.000159155,alf:0.2},{del:1000000.0,tau:0.015915,alf:0.0}]},
+"Epididymis":{density:1082.0,ef:4.0,sig:0.4,disp:[{del:55.0,tau:7.958e-12,alf:0.1},{del:5000.0,tau:1.59155e-07,alf:0.1},{del:100000.0,tau:0.000159155,alf:0.2},{del:40000000.0,tau:0.015915,alf:0.0}]},
+"Esophagus":{density:1040.0,ef:4.0,sig:0.5,disp:[{del:60.0,tau:7.958e-12,alf:0.1},{del:2000.0,tau:7.9577e-08,alf:0.1},{del:100000.0,tau:0.000159155,alf:0.2},{del:40000000.0,tau:0.015915,alf:0.0}]},
+"Esophagus Lumen":{density:1.164091553,ef:1.0,sig:0.0,disp:[{del:0.0,tau:0.0,alf:0.0},{del:0.0,tau:0.0,alf:0.0},{del:0.0,tau:0.0,alf:0.0},{del:0.0,tau:0.0,alf:0.0}]},
+"Extracellular Fluids":{density:1010.75,ef:4.0,sig:2.0,disp:[{del:65.0,tau:7.958e-12,alf:0.1},{del:40.0,tau:1.592e-09,alf:0.0},{del:0.0,tau:0.000159155,alf:0.0},{del:0.0,tau:0.015915,alf:0.0}]},
+"Eye (Aqueous Humor)":{density:993.7770168,ef:4.0,sig:2.0,disp:[{del:65.0,tau:7.958e-12,alf:0.1},{del:40.0,tau:1.592e-09,alf:0.0},{del:0.0,tau:0.000159155,alf:0.0},{del:0.0,tau:0.015915,alf:0.0}]},
+"Eye (Choroid)":{density:1049.75,ef:4.0,sig:0.7,disp:[{del:56.0,tau:8.377000000000001e-12,alf:0.1},{del:5200.0,tau:1.32629e-07,alf:0.1},{del:0.0,tau:0.000159155,alf:0.2},{del:0.0,tau:0.015915,alf:0.0}]},
+"Eye (Ciliary Body)":{density:1090.4,ef:4.0,sig:0.2,disp:[{del:50.0,tau:7.234e-12,alf:0.1},{del:7000.0,tau:3.53678e-07,alf:0.1},{del:1200000.0,tau:0.00031831,alf:0.1},{del:25000000.0,tau:0.002274,alf:0.0}]},
+"Eye (Cornea)":{density:1061.64554,ef:4.0,sig:0.4,disp:[{del:48.0,tau:7.958e-12,alf:0.1},{del:4000.0,tau:1.59155e-07,alf:0.05},{del:100000.0,tau:1.5915e-05,alf:0.2},{del:40000000.0,tau:0.015915,alf:0.0}]},
+"Eye (Iris)":{density:1090.4,ef:4.0,sig:0.2,disp:[{del:50.0,tau:7.234e-12,alf:0.1},{del:7000.0,tau:3.53678e-07,alf:0.1},{del:1200000.0,tau:0.00031831,alf:0.1},{del:25000000.0,tau:0.002274,alf:0.0}]},
+"Eye (Lens)":{density:1075.5,ef:3.0,sig:0.2,disp:[{del:32.0,tau:8.842e-12,alf:0.1},{del:100.0,tau:1.061e-08,alf:0.2},{del:1000.0,tau:1.5915e-05,alf:0.2},{del:5000.0,tau:0.015915,alf:0.0}]},
+"Eye (Retina)":{density:1036.28,ef:4.0,sig:0.02,disp:[{del:45.0,tau:7.958e-12,alf:0.1},{del:400.0,tau:1.5915e-08,alf:0.15},{del:200000.0,tau:0.00010610299999999998,alf:0.22},{del:45000000.0,tau:0.005305,alf:0.0}]},
+"Eye (Sclera)":{density:1032.0,ef:4.0,sig:0.5,disp:[{del:50.0,tau:7.958e-12,alf:0.1},{del:4000.0,tau:1.59155e-07,alf:0.1},{del:100000.0,tau:0.000159155,alf:0.2},{del:5000000.0,tau:0.015915,alf:0.0}]},
+"Eye (Vitreous Humor)":{density:1004.5,ef:4.0,sig:1.5,disp:[{del:65.0,tau:7.234e-12,alf:0.0},{del:30.0,tau:1.59155e-07,alf:0.1},{del:0.0,tau:0.000159155,alf:0.0},{del:0.0,tau:0.015915,alf:0.0}]},
+"Eye Lens (Cortex)":{density:1075.5,ef:4.0,sig:0.3,disp:[{del:42.0,tau:7.958e-12,alf:0.1},{del:1500.0,tau:7.9577e-08,alf:0.1},{del:200000.0,tau:0.000159155,alf:0.1},{del:40000000.0,tau:0.015915,alf:0.0}]},
+"Eye Lens (Nucleus)":{density:1075.5,ef:3.0,sig:0.2,disp:[{del:32.0,tau:8.842e-12,alf:0.1},{del:100.0,tau:1.061e-08,alf:0.2},{del:1000.0,tau:1.5915e-05,alf:0.2},{del:5000.0,tau:0.015915,alf:0.0}]},
+"Fat":{density:911.0,ef:2.5,sig:0.035,disp:[{del:9.0,tau:7.958e-12,alf:0.2},{del:35.0,tau:1.5915e-08,alf:0.1},{del:33000.0,tau:0.000159155,alf:0.05},{del:10000000.0,tau:0.015915,alf:0.01}]},
+"Fat (Average Infiltrated)":{density:911.0,ef:2.5,sig:0.035,disp:[{del:9.0,tau:7.958e-12,alf:0.2},{del:35.0,tau:1.5915e-08,alf:0.1},{del:33000.0,tau:0.000159155,alf:0.05},{del:10000000.0,tau:0.015915,alf:0.01}]},
+"Fat (Not Infiltrated)":{density:911.0,ef:2.5,sig:0.01,disp:[{del:3.0,tau:7.958e-12,alf:0.2},{del:15.0,tau:1.5915e-08,alf:0.1},{del:33000.0,tau:0.000159155,alf:0.05},{del:10000000.0,tau:0.007958,alf:0.01}]},
+"Gallbladder":{density:1070.5,ef:4.0,sig:0.9,disp:[{del:55.0,tau:7.578999999999999e-12,alf:0.05},{del:40.0,tau:1.592e-09,alf:0.0},{del:1000.0,tau:0.000159155,alf:0.2},{del:10000.0,tau:0.015915,alf:0.0}]},
+"Heart Lumen":{density:1049.75,ef:4.0,sig:0.7,disp:[{del:56.0,tau:8.377000000000001e-12,alf:0.1},{del:5200.0,tau:1.32629e-07,alf:0.1},{del:0.0,tau:0.000159155,alf:0.2},{del:0.0,tau:0.015915,alf:0.0}]},
+"Heart Muscle":{density:1080.8,ef:4.0,sig:0.05,disp:[{del:50.0,tau:7.958e-12,alf:0.1},{del:1200.0,tau:1.59155e-07,alf:0.05},{del:450000.0,tau:7.2343e-05,alf:0.22},{del:25000000.0,tau:0.004547,alf:0.0}]},
+"Hippocampus":{density:1044.5,ef:4.0,sig:0.02,disp:[{del:45.0,tau:7.958e-12,alf:0.1},{del:400.0,tau:1.5915e-08,alf:0.15},{del:200000.0,tau:0.00010610299999999998,alf:0.22},{del:45000000.0,tau:0.005305,alf:0.0}]},
+"Hypophysis":{density:1053.0,ef:4.0,sig:0.5,disp:[{del:55.0,tau:7.958e-12,alf:0.1},{del:2500.0,tau:1.59155e-07,alf:0.1},{del:100000.0,tau:0.000159155,alf:0.2},{del:40000000.0,tau:0.015915,alf:0.0}]},
+"Hypothalamus":{density:1044.5,ef:4.0,sig:0.02,disp:[{del:45.0,tau:7.958e-12,alf:0.1},{del:400.0,tau:1.5915e-08,alf:0.15},{del:200000.0,tau:0.00010610299999999998,alf:0.22},{del:45000000.0,tau:0.005305,alf:0.0}]},
+"Intervertebral Disc":{density:1099.5,ef:3.0,sig:0.83,disp:[{del:58.36,tau:1.0779999999999999e-11,alf:0.72},{del:0.0,tau:1.4468600000000003e-07,alf:0.15},{del:0.0,tau:0.00031831,alf:0.1},{del:0.0,tau:0.015915,alf:0.0}]},
+"Kidney":{density:1066.25,ef:4.0,sig:0.05,disp:[{del:47.0,tau:7.958e-12,alf:0.1},{del:3500.0,tau:1.98944e-07,alf:0.22},{del:250000.0,tau:7.9577e-05,alf:0.22},{del:30000000.0,tau:0.004547,alf:0.0}]},
+"Kidney (Cortex)":{density:1049.0,ef:4.0,sig:0.05,disp:[{del:47.0,tau:7.958e-12,alf:0.1},{del:3500.0,tau:1.98944e-07,alf:0.22},{del:250000.0,tau:7.9577e-05,alf:0.22},{del:30000000.0,tau:0.004547,alf:0.0}]},
+"Kidney (Medulla)":{density:1044.0,ef:4.0,sig:0.05,disp:[{del:47.0,tau:7.958e-12,alf:0.1},{del:3500.0,tau:1.98944e-07,alf:0.22},{del:250000.0,tau:7.9577e-05,alf:0.22},{del:30000000.0,tau:0.004547,alf:0.0}]},
+"Large Intestine":{density:1088.0,ef:4.0,sig:0.01,disp:[{del:50.0,tau:7.958e-12,alf:0.1},{del:3000.0,tau:1.59155e-07,alf:0.2},{del:100000.0,tau:0.000159155,alf:0.2},{del:40000000.0,tau:0.001592,alf:0.0}]},
+"Large Intestine Lumen":{density:1045.2,ef:4.0,sig:0.2,disp:[{del:50.0,tau:7.234e-12,alf:0.1},{del:7000.0,tau:3.53678e-07,alf:0.1},{del:1200000.0,tau:0.00031831,alf:0.1},{del:25000000.0,tau:0.002274,alf:0.0}]},
+"Larynx":{density:1099.5,ef:4.0,sig:0.15,disp:[{del:38.0,tau:1.3263e-11,alf:0.15},{del:2500.0,tau:1.4468600000000003e-07,alf:0.15},{del:100000.0,tau:0.00031831,alf:0.1},{del:40000000.0,tau:0.015915,alf:0.0}]},
+"Liver":{density:1078.75,ef:4.0,sig:0.02,disp:[{del:39.0,tau:8.842e-12,alf:0.1},{del:6000.0,tau:5.30516e-07,alf:0.2},{del:50000.0,tau:2.2736e-05,alf:0.2},{del:30000000.0,tau:0.015915,alf:0.05}]},
+"Lung":{density:394.0,ef:2.5,sig:0.03,disp:[{del:18.0,tau:7.958e-12,alf:0.1},{del:500.0,tau:6.3662e-08,alf:0.1},{del:250000.0,tau:0.000159155,alf:0.2},{del:40000000.0,tau:0.007958,alf:0.0}]},
+"Lung (Deflated)":{density:1050.0,ef:4.0,sig:0.2,disp:[{del:45.0,tau:7.958e-12,alf:0.1},{del:1000.0,tau:1.59155e-07,alf:0.1},{del:500000.0,tau:0.000159155,alf:0.2},{del:10000000.0,tau:0.015915,alf:0.0}]},
+"Lung (Inflated)":{density:394.0,ef:2.5,sig:0.03,disp:[{del:18.0,tau:7.958e-12,alf:0.1},{del:500.0,tau:6.3662e-08,alf:0.1},{del:250000.0,tau:0.000159155,alf:0.2},{del:40000000.0,tau:0.007958,alf:0.0}]},
+"Lymph":{density:1019.0,ef:0.0,sig:0.0,disp:[{del:0.0,tau:0.0,alf:0.0},{del:0.0,tau:0.0,alf:0.0},{del:0.0,tau:0.0,alf:0.0},{del:0.0,tau:0.0,alf:0.0}]},
+"Lymphnode":{density:1035.0,ef:3.0,sig:0.59,disp:[{del:51.1,tau:7.21e-12,alf:0.14},{del:91.0,tau:2.3e-09,alf:0.0},{del:0.0,tau:0.000159155,alf:0.2},{del:0.0,tau:0.015915,alf:0.0}]},
+"Mandible":{density:1908.0,ef:2.5,sig:0.02,disp:[{del:10.0,tau:1.3263e-11,alf:0.2},{del:180.0,tau:7.9577e-08,alf:0.2},{del:5000.0,tau:0.000159155,alf:0.2},{del:100000.0,tau:0.015915,alf:0.0}]},
+"Medulla Oblongata":{density:1045.5,ef:4.0,sig:0.04,disp:[{del:40.0,tau:7.958e-12,alf:0.1},{del:700.0,tau:1.5915e-08,alf:0.15},{del:200000.0,tau:0.00010610299999999998,alf:0.22},{del:45000000.0,tau:0.005305,alf:0.0}]},
+"Meniscus":{density:1099.5,ef:4.0,sig:0.15,disp:[{del:38.0,tau:1.3263e-11,alf:0.15},{del:2500.0,tau:1.4468600000000003e-07,alf:0.15},{del:100000.0,tau:0.00031831,alf:0.1},{del:40000000.0,tau:0.015915,alf:0.0}]},
+"Midbrain":{density:1045.5,ef:4.0,sig:0.04,disp:[{del:40.0,tau:7.958e-12,alf:0.1},{del:700.0,tau:1.5915e-08,alf:0.15},{del:200000.0,tau:0.00010610299999999998,alf:0.22},{del:45000000.0,tau:0.005305,alf:0.0}]},
+"Mucous Membrane":{density:1102.0,ef:4.0,sig:0.2,disp:[{del:50.0,tau:7.234e-12,alf:0.1},{del:7000.0,tau:3.53678e-07,alf:0.1},{del:1200000.0,tau:0.00031831,alf:0.1},{del:25000000.0,tau:0.002274,alf:0.0}]},
+"Muscle":{density:1090.4,ef:4.0,sig:0.2,disp:[{del:50.0,tau:7.234e-12,alf:0.1},{del:7000.0,tau:3.53678e-07,alf:0.1},{del:1200000.0,tau:0.00031831,alf:0.1},{del:25000000.0,tau:0.002274,alf:0.0}]},
+"Nerve":{density:1075.0,ef:4.0,sig:0.006,disp:[{del:26.0,tau:7.958e-12,alf:0.1},{del:500.0,tau:1.0610300000000001e-07,alf:0.15},{del:70000.0,tau:1.5915e-05,alf:0.2},{del:40000000.0,tau:0.015915,alf:0.0}]},
+"Ovary":{density:1048.0,ef:4.0,sig:0.3,disp:[{del:40.0,tau:8.842e-12,alf:0.15},{del:400.0,tau:1.5915e-08,alf:0.25},{del:100000.0,tau:0.000159155,alf:0.27},{del:40000000.0,tau:0.015915,alf:0.0}]},
+"Pancreas":{density:1086.5,ef:4.0,sig:0.5,disp:[{del:55.0,tau:7.958e-12,alf:0.1},{del:2500.0,tau:1.59155e-07,alf:0.1},{del:100000.0,tau:0.000159155,alf:0.2},{del:40000000.0,tau:0.015915,alf:0.0}]},
+"Penis":{density:1101.5,ef:4.0,sig:0.25,disp:[{del:40.0,tau:8.842e-12,alf:0.1},{del:50.0,tau:3.183e-09,alf:0.1},{del:100000.0,tau:0.000159155,alf:0.2},{del:10000000.0,tau:0.001592,alf:0.0}]},
+"Pharynx":{density:1.164091553,ef:1.0,sig:0.0,disp:[{del:0.0,tau:0.0,alf:0.0},{del:0.0,tau:0.0,alf:0.0},{del:0.0,tau:0.0,alf:0.0},{del:0.0,tau:0.0,alf:0.0}]},
+"Pineal Body":{density:1053.0,ef:4.0,sig:0.5,disp:[{del:55.0,tau:7.958e-12,alf:0.1},{del:2500.0,tau:1.59155e-07,alf:0.1},{del:100000.0,tau:0.000159155,alf:0.2},{del:40000000.0,tau:0.015915,alf:0.0}]},
+"Placenta":{density:1018.126075,ef:4.0,sig:0.7,disp:[{del:56.0,tau:8.377000000000001e-12,alf:0.1},{del:5200.0,tau:1.32629e-07,alf:0.1},{del:0.0,tau:0.000159155,alf:0.2},{del:0.0,tau:0.015915,alf:0.0}]},
+"Pons":{density:1045.5,ef:4.0,sig:0.04,disp:[{del:40.0,tau:7.958e-12,alf:0.1},{del:700.0,tau:1.5915e-08,alf:0.15},{del:200000.0,tau:0.00010610299999999998,alf:0.22},{del:45000000.0,tau:0.005305,alf:0.0}]},
+"Prostate":{density:1045.0,ef:4.0,sig:0.4,disp:[{del:55.0,tau:7.958e-12,alf:0.1},{del:5000.0,tau:1.59155e-07,alf:0.1},{del:100000.0,tau:0.000159155,alf:0.2},{del:40000000.0,tau:0.015915,alf:0.0}]},
+"Salivary Gland":{density:1048.0,ef:3.0,sig:0.67,disp:[{del:51.8,tau:7.58e-12,alf:0.15},{del:82.0,tau:2.26e-09,alf:0.0},{del:0.0,tau:0.000159155,alf:0.2},{del:0.0,tau:0.015915,alf:0.0}]},
+"SAT (Subcutaneous Fat)":{density:911.0,ef:2.5,sig:0.035,disp:[{del:9.0,tau:7.958e-12,alf:0.2},{del:35.0,tau:1.5915e-08,alf:0.1},{del:33000.0,tau:0.000159155,alf:0.05},{del:10000000.0,tau:0.015915,alf:0.01}]},
+"Scalp":{density:1109.0,ef:4.0,sig:0.0002,disp:[{del:32.0,tau:7.234e-12,alf:0.0},{del:1100.0,tau:3.2481000000000005e-08,alf:0.2},{del:0.0,tau:0.000159155,alf:0.2},{del:0.0,tau:0.015915,alf:0.2}]},
+"Seminal vesicle":{density:1045.0,ef:4.0,sig:0.4,disp:[{del:55.0,tau:7.958e-12,alf:0.1},{del:5000.0,tau:1.59155e-07,alf:0.1},{del:100000.0,tau:0.000159155,alf:0.2},{del:40000000.0,tau:0.015915,alf:0.0}]},
+"Skin":{density:1109.0,ef:4.0,sig:0.0002,disp:[{del:32.0,tau:7.234e-12,alf:0.0},{del:1100.0,tau:3.2481000000000005e-08,alf:0.2},{del:0.0,tau:0.000159155,alf:0.2},{del:0.0,tau:0.015915,alf:0.2}]},
+"Skull":{density:1908.0,ef:2.5,sig:0.02,disp:[{del:10.0,tau:1.3263e-11,alf:0.2},{del:180.0,tau:7.9577e-08,alf:0.2},{del:5000.0,tau:0.000159155,alf:0.2},{del:100000.0,tau:0.015915,alf:0.0}]},
+"Skull (Cancellous)":{density:1178.333333,ef:2.5,sig:0.07,disp:[{del:18.0,tau:1.3263e-11,alf:0.22},{del:300.0,tau:7.9577e-08,alf:0.25},{del:20000.0,tau:0.000159155,alf:0.2},{del:20000000.0,tau:0.015915,alf:0.0}]},
+"Skull (Cortical)":{density:1908.0,ef:2.5,sig:0.02,disp:[{del:10.0,tau:1.3263e-11,alf:0.2},{del:180.0,tau:7.9577e-08,alf:0.2},{del:5000.0,tau:0.000159155,alf:0.2},{del:100000.0,tau:0.015915,alf:0.0}]},
+"Small Intestine":{density:1030.0,ef:4.0,sig:0.5,disp:[{del:50.0,tau:7.958e-12,alf:0.1},{del:10000.0,tau:1.59155e-07,alf:0.1},{del:500000.0,tau:0.000159155,alf:0.2},{del:40000000.0,tau:0.015915,alf:0.0}]},
+"Small Intestine Lumen":{density:1045.2,ef:4.0,sig:0.2,disp:[{del:50.0,tau:7.234e-12,alf:0.1},{del:7000.0,tau:3.53678e-07,alf:0.1},{del:1200000.0,tau:0.00031831,alf:0.1},{del:25000000.0,tau:0.002274,alf:0.0}]},
+"Spinal Cord":{density:1075.0,ef:4.0,sig:0.006,disp:[{del:26.0,tau:7.958e-12,alf:0.1},{del:500.0,tau:1.0610300000000001e-07,alf:0.15},{del:70000.0,tau:1.5915e-05,alf:0.2},{del:40000000.0,tau:0.015915,alf:0.0}]},
+"Spleen":{density:1089.0,ef:4.0,sig:0.03,disp:[{del:48.0,tau:7.958e-12,alf:0.1},{del:2500.0,tau:6.3662e-08,alf:0.15},{del:200000.0,tau:0.000265258,alf:0.25},{del:50000000.0,tau:0.006366,alf:0.0}]},
+"Stomach":{density:1088.0,ef:4.0,sig:0.5,disp:[{del:60.0,tau:7.958e-12,alf:0.1},{del:2000.0,tau:7.9577e-08,alf:0.1},{del:100000.0,tau:0.000159155,alf:0.2},{del:40000000.0,tau:0.015915,alf:0.0}]},
+"Stomach Lumen":{density:1045.2,ef:4.0,sig:0.2,disp:[{del:50.0,tau:7.234e-12,alf:0.1},{del:7000.0,tau:3.53678e-07,alf:0.1},{del:1200000.0,tau:0.00031831,alf:0.1},{del:25000000.0,tau:0.002274,alf:0.0}]},
+"Tendon\Ligament":{density:1142.0,ef:4.0,sig:0.25,disp:[{del:42.0,tau:1.2243e-11,alf:0.1},{del:60.0,tau:6.366e-09,alf:0.1},{del:60000.0,tau:0.00031831,alf:0.22},{del:20000000.0,tau:0.0013260000000000001,alf:0.0}]},
+"Testis":{density:1082.0,ef:4.0,sig:0.4,disp:[{del:55.0,tau:7.958e-12,alf:0.1},{del:5000.0,tau:1.59155e-07,alf:0.1},{del:100000.0,tau:0.000159155,alf:0.2},{del:40000000.0,tau:0.015915,alf:0.0}]},
+"Thalamus":{density:1044.5,ef:4.0,sig:0.02,disp:[{del:45.0,tau:7.958e-12,alf:0.1},{del:400.0,tau:1.5915e-08,alf:0.15},{del:200000.0,tau:0.00010610299999999998,alf:0.22},{del:45000000.0,tau:0.005305,alf:0.0}]},
+"Thymus":{density:1023.0,ef:3.0,sig:0.55,disp:[{del:53.2,tau:7.28e-12,alf:0.24},{del:121.6,tau:2.4700000000000004e-09,alf:0.0},{del:0.0,tau:0.000159155,alf:0.2},{del:0.0,tau:0.015915,alf:0.0}]},
+"Thyroid Gland":{density:1050.0,ef:4.0,sig:0.5,disp:[{del:55.0,tau:7.958e-12,alf:0.1},{del:2500.0,tau:1.59155e-07,alf:0.1},{del:100000.0,tau:0.000159155,alf:0.2},{del:40000000.0,tau:0.015915,alf:0.0}]},
+"Tongue":{density:1090.4,ef:4.0,sig:0.25,disp:[{del:50.0,tau:7.958e-12,alf:0.1},{del:4000.0,tau:1.59155e-07,alf:0.1},{del:100000.0,tau:0.000159155,alf:0.2},{del:40000000.0,tau:0.015915,alf:0.0}]},
+"Tooth":{density:2180.0,ef:2.5,sig:0.02,disp:[{del:10.0,tau:1.3263e-11,alf:0.2},{del:180.0,tau:7.9577e-08,alf:0.2},{del:5000.0,tau:0.000159155,alf:0.2},{del:100000.0,tau:0.015915,alf:0.0}]},
+"Tooth (Dentine)":{density:2063.0,ef:2.5,sig:0.02,disp:[{del:10.0,tau:1.3263e-11,alf:0.2},{del:180.0,tau:7.9577e-08,alf:0.2},{del:5000.0,tau:0.000159155,alf:0.2},{del:100000.0,tau:0.015915,alf:0.0}]},
+"Tooth (Enamel)":{density:2958.333333,ef:2.5,sig:0.02,disp:[{del:10.0,tau:1.3263e-11,alf:0.2},{del:180.0,tau:7.9577e-08,alf:0.2},{del:5000.0,tau:0.000159155,alf:0.2},{del:100000.0,tau:0.015915,alf:0.0}]},
+"Trachea":{density:1080.0,ef:2.5,sig:0.3,disp:[{del:38.0,tau:7.958e-12,alf:0.1},{del:400.0,tau:6.3662e-08,alf:0.1},{del:50000.0,tau:1.5915e-05,alf:0.2},{del:1000000.0,tau:0.015915,alf:0.0}]},
+"Trachea Lumen":{density:1.164091553,ef:1.0,sig:0.0,disp:[{del:0.0,tau:0.0,alf:0.0},{del:0.0,tau:0.0,alf:0.0},{del:0.0,tau:0.0,alf:0.0},{del:0.0,tau:0.0,alf:0.0}]},
+"Ureter\Urethra":{density:1101.5,ef:4.0,sig:0.25,disp:[{del:40.0,tau:8.842e-12,alf:0.1},{del:50.0,tau:3.183e-09,alf:0.1},{del:100000.0,tau:0.000159155,alf:0.2},{del:10000000.0,tau:0.001592,alf:0.0}]},
+"Urinary Bladder Wall":{density:1086.0,ef:2.5,sig:0.2,disp:[{del:16.0,tau:8.842e-12,alf:0.1},{del:400.0,tau:1.59155e-07,alf:0.1},{del:100000.0,tau:0.000159155,alf:0.2},{del:10000000.0,tau:0.015915,alf:0.0}]},
+"Urine":{density:1023.613204,ef:3.0,sig:1.75,disp:[{del:65.5,tau:6.93e-12,alf:0.0},{del:28.4,tau:1.78e-09,alf:0.0},{del:0.0,tau:0.000159155,alf:0.0},{del:0.0,tau:0.015915,alf:0.0}]},
+"Uterus":{density:1104.5,ef:4.0,sig:0.2,disp:[{del:55.0,tau:7.958e-12,alf:0.1},{del:800.0,tau:3.1831e-08,alf:0.1},{del:300000.0,tau:0.000159155,alf:0.2},{del:35000000.0,tau:0.0010609999999999999,alf:0.0}]},
+"Vagina":{density:1088.0,ef:4.0,sig:0.01,disp:[{del:50.0,tau:7.958e-12,alf:0.1},{del:3000.0,tau:1.59155e-07,alf:0.2},{del:100000.0,tau:0.000159155,alf:0.2},{del:40000000.0,tau:0.001592,alf:0.0}]},
+"Vertebrae":{density:1908.0,ef:2.5,sig:0.02,disp:[{del:10.0,tau:1.3263e-11,alf:0.2},{del:180.0,tau:7.9577e-08,alf:0.2},{del:5000.0,tau:0.000159155,alf:0.2},{del:100000.0,tau:0.015915,alf:0.0}]},
+"Water":{density:994.035466,ef:4.57,sig:0.0,disp:[{del:78.32,tau:8.380000000000001e-12,alf:0.0},{del:1.75,tau:1.1000000000000002e-12,alf:0.0},{del:0.0,tau:0.0,alf:0.0},{del:0.0,tau:0.0,alf:0.0}]}
+};
+const TNAMES=["Adrenal Gland", "Air", "Bile", "Blood", "Blood Plasma", "Blood Serum", "Blood Vessel Wall", "Bone (Cancellous)", "Bone (Cortical)", "Bone Marrow (Red)", "Bone Marrow (Yellow)", "Brain", "Brain (Grey Matter)", "Brain (White Matter)", "Breast Fat", "Breast Gland", "Bronchi", "Bronchi lumen", "Cartilage", "Cerebellum", "Cerebrospinal Fluid", "Cervix", "Commissura Anterior", "Commissura Posterior", "Connective Tissue", "Diaphragm", "Ductus Deferens", "Dura", "Epididymis", "Esophagus", "Esophagus Lumen", "Extracellular Fluids", "Eye (Aqueous Humor)", "Eye (Choroid)", "Eye (Ciliary Body)", "Eye (Cornea)", "Eye (Iris)", "Eye (Lens)", "Eye (Retina)", "Eye (Sclera)", "Eye (Vitreous Humor)", "Eye Lens (Cortex)", "Eye Lens (Nucleus)", "Fat", "Fat (Average Infiltrated)", "Fat (Not Infiltrated)", "Gallbladder", "Heart Lumen", "Heart Muscle", "Hippocampus", "Hypophysis", "Hypothalamus", "Intervertebral Disc", "Kidney", "Kidney (Cortex)", "Kidney (Medulla)", "Large Intestine", "Large Intestine Lumen", "Larynx", "Liver", "Lung", "Lung (Deflated)", "Lung (Inflated)", "Lymph", "Lymphnode", "Mandible", "Medulla Oblongata", "Meniscus", "Midbrain", "Mucous Membrane", "Muscle", "Nerve", "Ovary", "Pancreas", "Penis", "Pharynx", "Pineal Body", "Placenta", "Pons", "Prostate", "SAT (Subcutaneous Fat)", "Salivary Gland", "Scalp", "Seminal vesicle", "Skin", "Skull", "Skull (Cancellous)", "Skull (Cortical)", "Small Intestine", "Small Intestine Lumen", "Spinal Cord", "Spleen", "Stomach", "Stomach Lumen", "Tendon\\Ligament", "Testis", "Thalamus", "Thymus", "Thyroid Gland", "Tongue", "Tooth", "Tooth (Dentine)", "Tooth (Enamel)", "Trachea", "Trachea Lumen", "Ureter\\Urethra", "Urinary Bladder Wall", "Urine", "Uterus", "Vagina", "Vertebrae", "Water"];
+const IFAC_DATA={
+"Skin":{"pts":[[10,1136.0,0.0002],[11,1136.0,0.0002],[13,1136.0,0.0002],[14,1136.0,0.0002],[16,1136.0,0.0002],[18,1136.0,0.0002],[20,1136.0,0.0002],[22,1136.0,0.0002],[25,1136.0,0.0002],[28,1136.0,0.0002],[31,1136.0,0.0002],[35,1136.0,0.0002],[40,1136.0,0.0002],[44,1136.0,0.0002],[50,1136.0,0.0002],[56,1136.0,0.0002],[63,1136.0,0.0002],[70,1136.0,0.0002],[79,1136.0,0.0002],[88,1135.9,0.0002],[99,1135.9,0.0002],[111,1135.9,0.0002],[124,1135.9,0.0002],[139,1135.9,0.0002],[156,1135.9,0.0002],[175,1135.9,0.0002],[197,1135.9,0.0002],[220,1135.9,0.0002],[247,1135.9,0.0002],[277,1135.9,0.0002],[311,1135.9,0.0002],[349,1135.8,0.0002],[391,1135.8,0.0002],[438,1135.8,0.0002],[492,1135.8,0.0002],[551,1135.8,0.0002],[618,1135.7,0.0002],[693,1135.7,0.0002],[777,1135.7,0.0002],[872,1135.7,0.0002],[977,1135.6,0.0002],[1096,1135.6,0.0002],[1229,1135.6,0.0002],[1378,1135.5,0.0002],[1545,1135.5,0.0002],[1733,1135.4,0.0002],[1943,1135.4,0.0002],[2179,1135.3,0.0002],[2444,1135.2,0.0002],[2740,1135.1,0.0002],[3073,1135.1,0.0002],[3446,1135.0,0.000201],[3864,1134.9,0.000201],[4333,1134.8,0.000201],[4859,1134.6,0.000201],[5449,1134.5,0.000201],[6110,1134.4,0.000202],[6852,1134.2,0.000202],[7684,1134.0,0.000203],[8616,1133.8,0.000203],[9662,1133.6,0.000204],[10835,1133.4,0.000205],[12150,1133.1,0.000206],[13625,1132.9,0.000207],[15278,1132.6,0.000209],[17133,1132.2,0.000211],[19212,1131.8,0.000213],[21544,1131.4,0.000216],[24159,1131.0,0.00022],[27092,1130.5,0.000224],[30380,1129.9,0.00023],[34067,1129.3,0.000237],[38202,1128.6,0.000245],[42839,1127.9,0.000255],[48039,1127.1,0.000268],[53870,1126.2,0.000283],[60408,1125.1,0.000302],[67740,1124.0,0.000326],[75962,1122.8,0.000354],[85182,1121.4,0.000389],[95521,1119.9,0.000432],[107120,1118.2,0.000484],[120120,1116.3,0.000548],[134700,1114.2,0.000626],[151040,1111.8,0.000722],[169380,1109.2,0.000838],[189940,1106.2,0.000981],[212990,1102.9,0.001154],[238840,1099.2,0.001366],[267830,1095.1,0.001624],[300340,1090.5,0.001938],[336790,1085.3,0.002319],[377670,1079.5,0.002781],[423510,1072.9,0.00334],[474920,1065.6,0.004017],[532560,1057.3,0.004833],[597200,1048.1,0.005815],[669690,1037.7,0.006995],[750970,1026.1,0.008408],[842120,1013.1,0.010094],[944330,998.61,0.012099],[1059000,982.48,0.014474],[1187500,964.57,0.017275],[1331600,944.78,0.020561],[1493200,923.0,0.024395],[1674500,899.14,0.028843],[1877700,873.17,0.033968],[2105600,845.07,0.039831],[2361200,814.9,0.046487],[2647800,782.76,0.05398],[2969200,748.8,0.062343],[3329600,713.27,0.071592],[3733700,676.45,0.081724],[4186900,638.68,0.092716],[4695100,600.35,0.10453],[5264900,561.87,0.1171],[5904000,523.64,0.13034],[6620600,486.08,0.14418],[7424200,449.56,0.1585],[8325300,414.4,0.17322],[9335800,380.89,0.18822],[10469000,349.23,0.20341],[11740000,319.58,0.21872],[13164000,292.02,0.23406],[14762000,266.59,0.24937],[16554000,243.27,0.26462],[18563000,222.0,0.27975],[20817000,202.7,0.29476],[23343000,185.26,0.30962],[26176000,169.55,0.32434],[29354000,155.45,0.33893],[32916000,142.83,0.35338],[36912000,131.54,0.36772],[41392000,121.46,0.38197],[46416000,112.47,0.39615],[52050000,104.47,0.41028],[58367000,97.334,0.42439],[65452000,90.981,0.43851],[73396000,85.322,0.45265],[82304000,80.28,0.46686],[92294000,75.784,0.48115],[103500000,71.774,0.49556],[116060000,68.194,0.51011],[130150000,64.995,0.52484],[145940000,62.135,0.53978],[163660000,59.574,0.55497],[183520000,57.281,0.57045],[205790000,55.224,0.58627],[230770000,53.377,0.60248],[258780000,51.718,0.61913],[290190000,50.226,0.63631],[325420000,48.882,0.65411],[364910000,47.671,0.67262],[409200000,46.578,0.69198],[458870000,45.592,0.71235],[514570000,44.7,0.73393],[577020000,43.892,0.75696],[647060000,43.16,0.78174],[725600000,42.496,0.80865],[813670000,41.892,0.83815],[912430000,41.342,0.87084],[1023200000,40.839,0.90745],[1147400000,40.378,0.94888],[1286600000,39.954,0.99627],[1442800000,39.561,1.0511],[1617900000,39.194,1.115],[1814300000,38.849,1.1903],[2034500000,38.52,1.2798],[2281400000,38.201,1.3868],[2558400000,37.889,1.5155],[2868900000,37.575,1.6712],[3217100000,37.252,1.8602],[3607600000,36.914,2.0902],[4045400000,36.55,2.3706],[4536500000,36.15,2.7125],[5087100000,35.703,3.129],[5704500000,35.193,3.6352],[6396900000,34.608,4.2483],[7173300000,33.93,4.9867],[8044000000,33.143,5.87],[9020400000,32.231,6.9173],[10115000000,31.178,8.1451],[11343000000,29.975,9.5659],[12720000000,28.617,11.184],[14264000000,27.108,12.995],[15995000000,25.462,14.98],[17936000000,23.704,17.108],[20113000000,21.87,19.336],[22555000000,20.003,21.609],[25292000000,18.149,23.871],[28362000000,16.355,26.064],[31804000000,14.661,28.14],[35665000000,13.098,30.058],[39994000000,11.687,31.794],[44848000000,10.438,33.336],[50291000000,9.3508,34.683],[56395000000,8.4188,35.843],[63240000000,7.6299,36.831],[70916000000,6.9693,37.665],[79524000000,6.4209,38.363],[89176000000,5.969,38.947],[100000000000,5.5987,39.433]]},
+"Fat":{"pts":[[10,7973500.0,0.012207],[11,7585600.0,0.012634],[13,7150800.0,0.013114],[14,6672600.0,0.013645],[16,6157900.0,0.014218],[18,5616700.0,0.014822],[20,5061100.0,0.015445],[22,4504800.0,0.016072],[25,3961500.0,0.016686],[28,3443700.0,0.017275],[31,2961400.0,0.017826],[35,2522000.0,0.018331],[40,2129200.0,0.018786],[44,1784400.0,0.019188],[50,1486300.0,0.019539],[56,1231900.0,0.019842],[63,1017300.0,0.020101],[70,837900.0,0.020321],[79,689140.0,0.020507],[88,566550.0,0.020665],[99,466040.0,0.020798],[111,383960.0,0.020912],[124,317130.0,0.021009],[139,262830.0,0.021093],[156,218780.0,0.021167],[175,183050.0,0.021233],[197,154080.0,0.021295],[220,130560.0,0.021352],[247,111410.0,0.021408],[277,95787.0,0.021465],[311,82968.0,0.021522],[349,72383.0,0.021583],[391,63567.0,0.021647],[438,56146.0,0.021717],[492,49820.0,0.021793],[551,44349.0,0.021876],[618,39548.0,0.021965],[693,35274.0,0.022061],[777,31421.0,0.022164],[872,27917.0,0.022271],[977,24712.0,0.022382],[1096,21776.0,0.022495],[1229,19091.0,0.022607],[1378,16649.0,0.022718],[1545,14443.0,0.022825],[1733,12468.0,0.022928],[1943,10714.0,0.023025],[2179,9170.7,0.023115],[2444,7824.9,0.023199],[2740,6659.8,0.023276],[3073,5658.2,0.023347],[3446,4801.9,0.023412],[3864,4073.3,0.023472],[4333,3455.6,0.023526],[4859,2933.4,0.023577],[5449,2492.8,0.023624],[6110,2121.5,0.023668],[6852,1808.7,0.023709],[7684,1545.2,0.023748],[8616,1323.0,0.023785],[9662,1135.6,0.02382],[10835,977.28,0.023854],[12150,843.29,0.023887],[13625,729.68,0.023918],[15278,633.17,0.023949],[17133,550.98,0.023979],[19212,480.84,0.024009],[21544,420.84,0.024038],[24159,369.37,0.024067],[27092,325.13,0.024096],[30380,287.01,0.024124],[34067,254.07,0.024152],[38202,225.55,0.02418],[42839,200.8,0.024208],[48039,179.27,0.024236],[53870,160.5,0.024264],[60408,144.11,0.024292],[67740,129.77,0.024319],[75962,117.19,0.024347],[85182,106.15,0.024375],[95521,96.437,0.024403],[107120,87.881,0.024431],[120120,80.334,0.024459],[134700,73.668,0.024487],[151040,67.773,0.024515],[169380,62.553,0.024544],[189940,57.926,0.024572],[212990,53.821,0.024601],[238840,50.174,0.024631],[267830,46.933,0.02466],[300340,44.048,0.02469],[336790,41.479,0.024721],[377670,39.188,0.024753],[423510,37.143,0.024785],[474920,35.316,0.024818],[532560,33.68,0.024852],[597200,32.215,0.024888],[669690,30.898,0.024926],[750970,29.713,0.024966],[842120,28.643,0.025008],[944330,27.673,0.025054],[1059000,26.791,0.025104],[1187500,25.983,0.025159],[1331600,25.238,0.025219],[1493200,24.546,0.025287],[1674500,23.897,0.025363],[1877700,23.28,0.025449],[2105600,22.688,0.025547],[2361200,22.111,0.025659],[2647800,21.54,0.025788],[2969200,20.969,0.025935],[3329600,20.39,0.026105],[3733700,19.796,0.026298],[4186900,19.181,0.026518],[4695100,18.543,0.026768],[5264900,17.878,0.027047],[5904000,17.186,0.027358],[6620600,16.469,0.0277],[7424200,15.732,0.028072],[8325300,14.98,0.02847],[9335800,14.221,0.028891],[10469000,13.467,0.029329],[11740000,12.725,0.02978],[13164000,12.008,0.030236],[14762000,11.323,0.030692],[16554000,10.678,0.031142],[18563000,10.078,0.031581],[20817000,9.5282,0.032007],[23343000,9.0291,0.032416],[26176000,8.5806,0.032806],[29354000,8.1812,0.033178],[32916000,7.8282,0.033531],[36912000,7.5182,0.033865],[41392000,7.2474,0.034184],[46416000,7.0118,0.034487],[52050000,6.8075,0.034777],[58367000,6.6308,0.035057],[65452000,6.4782,0.035328],[73396000,6.3465,0.035592],[82304000,6.2328,0.035853],[92294000,6.1347,0.036112],[103500000,6.0499,0.036373],[116060000,5.9765,0.036638],[130150000,5.9128,0.03691],[145940000,5.8575,0.037193],[163660000,5.8091,0.037492],[183520000,5.7668,0.037811],[205790000,5.7296,0.038156],[230770000,5.6966,0.038533],[258780000,5.6673,0.038952],[290190000,5.6411,0.039421],[325420000,5.6174,0.039954],[364910000,5.5958,0.040563],[409200000,5.576,0.041267],[458870000,5.5575,0.042087],[514570000,5.5401,0.043049],[577020000,5.5235,0.044183],[647060000,5.5074,0.045529],[725600000,5.4917,0.047131],[813670000,5.4759,0.049046],[912430000,5.46,0.05134],[1023200000,5.4437,0.054094],[1147400000,5.4268,0.057405],[1286600000,5.409,0.06139],[1442800000,5.3901,0.066187],[1617900000,5.3698,0.071962],[1814300000,5.3478,0.07891],[2034500000,5.3239,0.087264],[2281400000,5.2977,0.097295],[2558400000,5.2689,0.10932],[2868900000,5.2372,0.1237],[3217100000,5.2021,0.14086],[3607600000,5.1633,0.16127],[4045400000,5.1204,0.18547],[4536500000,5.0731,0.21404],[5087100000,5.021,0.24763],[5704500000,4.9636,0.28692],[6396900000,4.9009,0.33262],[7173300000,4.8326,0.38545],[8044000000,4.7585,0.44611],[9020400000,4.6788,0.51525],[10115000000,4.5935,0.59345],[11343000000,4.5031,0.68115],[12720000000,4.4081,0.77863],[14264000000,4.3092,0.88598],[15995000000,4.2071,1.0031],[17936000000,4.103,1.1296],[20113000000,3.9978,1.265],[22555000000,3.8927,1.4084],[25292000000,3.7888,1.559],[28362000000,3.6872,1.7157],[31804000000,3.5889,1.8774],[35665000000,3.4946,2.0429],[39994000000,3.4051,2.2111],[44848000000,3.3209,2.3811],[50291000000,3.2422,2.552],[56395000000,3.1694,2.7229],[63240000000,3.1024,2.8934],[70916000000,3.0411,3.0628],[79524000000,2.9853,3.2309],[89176000000,2.9347,3.3975],[100000000000,2.8891,3.5624]]},
+"Brain (Grey Matter)":{"pts":[[10,40699000.0,0.027512],[11,39683000.0,0.029209],[13,38474000.0,0.031226],[14,37056000.0,0.033594],[16,35415000.0,0.036333],[18,33548000.0,0.03945],[20,31463000.0,0.04293],[22,29185000.0,0.046733],[25,26752000.0,0.050796],[28,24217000.0,0.055029],[31,21642000.0,0.059329],[35,19094000.0,0.063583],[40,16638000.0,0.067686],[44,14328000.0,0.071545],[50,12206000.0,0.075092],[56,10299000.0,0.078283],[63,8616300.0,0.081099],[70,7157900.0,0.083543],[79,5912300.0,0.085635],[88,4861700.0,0.087403],[99,3985100.0,0.088885],[111,3260000.0,0.090117],[124,2664600.0,0.091138],[139,2178600.0,0.091982],[156,1783700.0,0.092682],[175,1464000.0,0.093263],[197,1205900.0,0.093752],[220,997820.0,0.094169],[247,830340.0,0.094532],[277,695530.0,0.094855],[311,586950.0,0.095154],[349,499350.0,0.095438],[391,428500.0,0.095719],[438,370960.0,0.096004],[492,323980.0,0.096303],[551,285360.0,0.096621],[618,253340.0,0.096966],[693,226510.0,0.097342],[777,203760.0,0.097754],[872,184220.0,0.098206],[977,167210.0,0.098701],[1096,152200.0,0.099239],[1229,138800.0,0.099822],[1378,126690.0,0.10045],[1545,115660.0,0.10112],[1733,105540.0,0.10183],[1943,96209.0,0.10257],[2179,87587.0,0.10335],[2444,79614.0,0.10415],[2740,72247.0,0.10498],[3073,65451.0,0.10583],[3446,59198.0,0.10669],[3864,53462.0,0.10756],[4333,48218.0,0.10843],[4859,43439.0,0.10932],[5449,39098.0,0.1102],[6110,35167.0,0.11108],[6852,31616.0,0.11197],[7684,28418.0,0.11285],[8616,25542.0,0.11373],[9662,22961.0,0.1146],[10835,20648.0,0.11548],[12150,18578.0,0.11636],[13625,16726.0,0.11723],[15278,15070.0,0.11811],[17133,13590.0,0.11898],[19212,12267.0,0.11987],[21544,11085.0,0.12075],[24159,10027.0,0.12164],[27092,9081.6,0.12254],[30380,8234.9,0.12345],[34067,7476.5,0.12437],[38202,6796.7,0.12529],[42839,6186.9,0.12623],[48039,5639.3,0.12718],[53870,5147.1,0.12815],[60408,4704.5,0.12913],[67740,4306.0,0.13013],[75962,3946.9,0.13115],[85182,3623.0,0.13218],[95521,3330.6,0.13324],[107120,3066.5,0.13431],[120120,2827.7,0.13541],[134700,2611.5,0.13654],[151040,2415.8,0.13769],[169380,2238.4,0.13887],[189940,2077.5,0.14008],[212990,1931.4,0.14132],[238840,1798.7,0.14259],[267830,1678.1,0.14391],[300340,1568.4,0.14526],[336790,1468.5,0.14665],[377670,1377.5,0.1481],[423510,1294.5,0.14959],[474920,1218.8,0.15115],[532560,1149.7,0.15277],[597200,1086.4,0.15446],[669690,1028.5,0.15624],[750970,975.34,0.15811],[842120,926.52,0.16009],[944330,881.57,0.16219],[1059000,840.09,0.16443],[1187500,801.67,0.16684],[1331600,765.98,0.16944],[1493200,732.69,0.17225],[1674500,701.47,0.17533],[1877700,672.04,0.17869],[2105600,644.12,0.1824],[2361200,617.45,0.18649],[2647800,591.8,0.19103],[2969200,566.93,0.19606],[3329600,542.66,0.20165],[3733700,518.8,0.20786],[4186900,495.21,0.21475],[4695100,471.77,0.22235],[5264900,448.4,0.23071],[5904000,425.08,0.23987],[6620600,401.81,0.24981],[7424200,378.65,0.26053],[8325300,355.68,0.27199],[9335800,333.04,0.28414],[10469000,310.87,0.29688],[11740000,289.34,0.31013],[13164000,268.6,0.32379],[14762000,248.8,0.33773],[16554000,230.07,0.35185],[18563000,212.51,0.36605],[20817000,196.19,0.38024],[23343000,181.13,0.39434],[26176000,167.35,0.40831],[29354000,154.8,0.42211],[32916000,143.46,0.4357],[36912000,133.24,0.44908],[41392000,124.08,0.46226],[46416000,115.9,0.47525],[52050000,108.6,0.48807],[58367000,102.12,0.50074],[65452000,96.355,0.51331],[73396000,91.241,0.5258],[82304000,86.705,0.53825],[92294000,82.683,0.55071],[103500000,79.114,0.56322],[116060000,75.946,0.57583],[130150000,73.132,0.58858],[145940000,70.63,0.60153],[163660000,68.403,0.61475],[183520000,66.417,0.62829],[205790000,64.644,0.64225],[230770000,63.06,0.65672],[258780000,61.64,0.67181],[290190000,60.366,0.68764],[325420000,59.221,0.70438],[364910000,58.19,0.72223],[409200000,57.258,0.74141],[458870000,56.414,0.76221],[514570000,55.647,0.78499],[577020000,54.948,0.81017],[647060000,54.308,0.83829],[725600000,53.719,0.87],[813670000,53.174,0.90609],[912430000,52.666,0.94756],[1023200000,52.189,0.99561],[1147400000,51.736,1.0517],[1286600000,51.302,1.1177],[1442800000,50.881,1.1958],[1617900000,50.466,1.2887],[1814300000,50.05,1.3996],[2034500000,49.629,1.5326],[2281400000,49.193,1.6923],[2558400000,48.736,1.8846],[2868900000,48.249,2.1162],[3217100000,47.723,2.3952],[3607600000,47.148,2.7308],[4045400000,46.514,3.1339],[4536500000,45.81,3.6167],[5087100000,45.022,4.1929],[5704500000,44.141,4.8774],[6396900000,43.152,5.6858],[7173300000,42.047,6.6342],[8044000000,40.817,7.738],[9020400000,39.454,9.0109],[10115000000,37.956,10.464],[11343000000,36.328,12.102],[12720000000,34.577,13.928],[14264000000,32.718,15.934],[15995000000,30.772,18.106],[17936000000,28.767,20.422],[20113000000,26.734,22.855],[22555000000,24.705,25.37],[25292000000,22.713,27.931],[28362000000,20.79,30.502],[31804000000,18.962,33.048],[35665000000,17.25,35.538],[39994000000,15.668,37.948],[44848000000,14.225,40.259],[50291000000,12.923,42.459],[56395000000,11.761,44.541],[63240000000,10.731,46.503],[70916000000,9.8268,48.348],[79524000000,9.0368,50.082],[89176000000,8.3503,51.712],[100000000000,7.7561,53.246]]},
+"Bone (Cortical)":{"pts":[[10,55153.0,0.020028],[11,49446.0,0.020031],[13,43884.0,0.020034],[14,38601.0,0.020037],[16,33701.0,0.02004],[18,29256.0,0.020042],[20,25305.0,0.020045],[22,21856.0,0.020047],[25,18891.0,0.020048],[28,16376.0,0.02005],[31,14267.0,0.020051],[35,12514.0,0.020052],[40,11067.0,0.020053],[44,9880.5,0.020054],[50,8910.7,0.020055],[56,8120.2,0.020055],[63,7476.4,0.020056],[70,6951.7,0.020057],[79,6522.9,0.020057],[88,6170.7,0.020058],[99,5879.1,0.020059],[111,5635.1,0.02006],[124,5428.0,0.020061],[139,5249.0,0.020062],[156,5090.7,0.020063],[175,4947.4,0.020065],[197,4814.0,0.020067],[220,4686.5,0.020069],[247,4561.7,0.020072],[277,4436.8,0.020075],[311,4309.6,0.020079],[349,4178.4,0.020083],[391,4041.8,0.020088],[438,3899.0,0.020093],[492,3749.6,0.0201],[551,3593.6,0.020107],[618,3431.2,0.020115],[693,3263.2,0.020123],[777,3090.7,0.020133],[872,2915.0,0.020143],[977,2737.8,0.020154],[1096,2560.8,0.020166],[1229,2385.8,0.020179],[1378,2214.3,0.020191],[1545,2048.2,0.020205],[1733,1888.8,0.020219],[1943,1737.1,0.020233],[2179,1594.2,0.020247],[2444,1460.6,0.020261],[2740,1336.6,0.020275],[3073,1222.4,0.020289],[3446,1117.8,0.020304],[3864,1022.5,0.020318],[4333,936.05,0.020332],[4859,858.03,0.020345],[5449,787.81,0.020359],[6110,724.8,0.020373],[6852,668.39,0.020386],[7684,617.96,0.0204],[8616,572.95,0.020413],[9662,532.81,0.020426],[10835,497.03,0.02044],[12150,465.15,0.020453],[13625,436.73,0.020467],[15278,411.4,0.02048],[17133,388.8,0.020494],[19212,368.63,0.020508],[21544,350.6,0.020522],[24159,334.48,0.020537],[27092,320.04,0.020551],[30380,307.08,0.020567],[34067,295.44,0.020583],[38202,284.97,0.020599],[42839,275.52,0.020617],[48039,266.98,0.020635],[53870,259.24,0.020655],[60408,252.2,0.020676],[67740,245.79,0.020698],[75962,239.91,0.020722],[85182,234.52,0.020749],[95521,229.53,0.020778],[107120,224.9,0.020811],[120120,220.57,0.020848],[134700,216.5,0.020889],[151040,212.63,0.020936],[169380,208.92,0.020989],[189940,205.33,0.02105],[212990,201.83,0.021121],[238840,198.36,0.021203],[267830,194.9,0.021298],[300340,191.41,0.021408],[336790,187.84,0.021537],[377670,184.16,0.021687],[423510,180.35,0.021861],[474920,176.36,0.022064],[532560,172.17,0.022299],[597200,167.74,0.02257],[669690,163.06,0.022882],[750970,158.11,0.023238],[842120,152.88,0.023644],[944330,147.37,0.024103],[1059000,141.59,0.024617],[1187500,135.56,0.025191],[1331600,129.31,0.025823],[1493200,122.88,0.026516],[1674500,116.33,0.027266],[1877700,109.7,0.028073],[2105600,103.08,0.028932],[2361200,96.509,0.029838],[2647800,90.065,0.030785],[2969200,83.804,0.031766],[3329600,77.78,0.032776],[3733700,72.038,0.033806],[4186900,66.612,0.034852],[4695100,61.527,0.035906],[5264900,56.798,0.036965],[5904000,52.431,0.038024],[6620600,48.422,0.039079],[7424200,44.763,0.040129],[8325300,41.439,0.041171],[9335800,38.432,0.042205],[10469000,35.722,0.043231],[11740000,33.286,0.04425],[13164000,31.102,0.045261],[14762000,29.147,0.046266],[16554000,27.4,0.047268],[18563000,25.841,0.048266],[20817000,24.449,0.049264],[23343000,23.208,0.050263],[26176000,22.102,0.051266],[29354000,21.115,0.052275],[32916000,20.234,0.053293],[36912000,19.447,0.054321],[41392000,18.744,0.055364],[46416000,18.116,0.056425],[52050000,17.553,0.057506],[58367000,17.049,0.058613],[65452000,16.596,0.05975],[73396000,16.19,0.060921],[82304000,15.824,0.062134],[92294000,15.494,0.063396],[103500000,15.196,0.064715],[116060000,14.927,0.066102],[130150000,14.683,0.06757],[145940000,14.462,0.069132],[163660000,14.26,0.070807],[183520000,14.076,0.072618],[205790000,13.907,0.074589],[230770000,13.752,0.076754],[258780000,13.609,0.07915],[290190000,13.476,0.081826],[325420000,13.352,0.084836],[364910000,13.236,0.088252],[409200000,13.126,0.092155],[458870000,13.021,0.096646],[514570000,12.921,0.10185],[577020000,12.823,0.10791],[647060000,12.728,0.115],[725600000,12.633,0.12334],[813670000,12.538,0.13317],[912430000,12.442,0.14481],[1023200000,12.343,0.15861],[1147400000,12.241,0.17499],[1286600000,12.134,0.19445],[1442800000,12.021,0.21758],[1617900000,11.9,0.24505],[1814300000,11.771,0.27765],[2034500000,11.632,0.31626],[2281400000,11.481,0.36189],[2558400000,11.317,0.41565],[2868900000,11.14,0.47879],[3217100000,10.946,0.55261],[3607600000,10.736,0.63852],[4045400000,10.508,0.73796],[4536500000,10.263,0.85236],[5087100000,9.9986,0.98308],[5704500000,9.7167,1.1314],[6396900000,9.4175,1.2982],[7173300000,9.1025,1.4845],[8044000000,8.7736,1.6905],[9020400000,8.4333,1.9162],[10115000000,8.0846,2.1612],[11343000000,7.7309,2.4246],[12720000000,7.3758,2.7052],[14264000000,7.0231,3.0011],[15995000000,6.6764,3.3104],[17936000000,6.3392,3.631],[20113000000,6.0144,3.9605],[22555000000,5.7046,4.2968],[25292000000,5.4118,4.6377],[28362000000,5.1373,4.9813],[31804000000,4.882,5.3259],[35665000000,4.6462,5.6702],[39994000000,4.4299,6.013],[44848000000,4.2325,6.3536],[50291000000,4.0532,6.6914],[56395000000,3.8912,7.0261],[63240000000,3.7452,7.3576],[70916000000,3.614,7.686],[79524000000,3.4965,8.0116],[89176000000,3.3914,8.3346],[100000000000,3.2975,8.6554]]},
+"Blood":{"pts":[[10,5260.0,0.7],[11,5260.0,0.7],[13,5260.0,0.7],[14,5260.0,0.7],[16,5260.0,0.7],[18,5260.0,0.7],[20,5260.0,0.7],[22,5260.0,0.7],[25,5260.0,0.7],[28,5259.9,0.7],[31,5259.9,0.7],[35,5259.9,0.7],[40,5259.9,0.7],[44,5259.9,0.7],[50,5259.9,0.7],[56,5259.9,0.7],[63,5259.9,0.7],[70,5259.9,0.7],[79,5259.9,0.7],[88,5259.8,0.7],[99,5259.8,0.7],[111,5259.8,0.7],[124,5259.8,0.7],[139,5259.8,0.7],[156,5259.7,0.7],[175,5259.7,0.7],[197,5259.7,0.7],[220,5259.6,0.7],[247,5259.6,0.7],[277,5259.6,0.7],[311,5259.5,0.7],[349,5259.5,0.7],[391,5259.4,0.7],[438,5259.3,0.7],[492,5259.3,0.7],[551,5259.2,0.7],[618,5259.1,0.7],[693,5259.0,0.7],[777,5258.9,0.7],[872,5258.8,0.7],[977,5258.6,0.7],[1096,5258.5,0.7],[1229,5258.3,0.7],[1378,5258.1,0.7],[1545,5257.9,0.7],[1733,5257.7,0.7],[1943,5257.4,0.7],[2179,5257.2,0.7],[2444,5256.9,0.7],[2740,5256.5,0.7],[3073,5256.1,0.7],[3446,5255.7,0.70001],[3864,5255.2,0.70001],[4333,5254.6,0.70001],[4859,5254.0,0.70001],[5449,5253.4,0.70001],[6110,5252.6,0.70002],[6852,5251.8,0.70002],[7684,5250.8,0.70002],[8616,5249.8,0.70003],[9662,5248.6,0.70004],[10835,5247.2,0.70004],[12150,5245.7,0.70006],[13625,5244.0,0.70007],[15278,5242.1,0.70009],[17133,5239.9,0.70011],[19212,5237.4,0.70013],[21544,5234.7,0.70016],[24159,5231.5,0.7002],[27092,5227.9,0.70025],[30380,5223.8,0.70031],[34067,5219.1,0.70039],[38202,5213.7,0.70048],[42839,5207.5,0.7006],[48039,5200.4,0.70074],[53870,5192.3,0.70092],[60408,5182.8,0.70114],[67740,5171.9,0.70142],[75962,5159.3,0.70175],[85182,5144.6,0.70217],[95521,5127.6,0.70268],[107120,5107.7,0.70332],[120120,5084.6,0.7041],[134700,5057.7,0.70506],[151040,5026.3,0.70623],[169380,4989.6,0.70767],[189940,4946.8,0.70943],[212990,4897.0,0.71156],[238840,4839.1,0.71415],[267830,4771.8,0.71728],[300340,4694.1,0.72104],[336790,4604.6,0.72553],[377670,4502.0,0.73086],[423510,4385.1,0.73714],[474920,4253.1,0.74449],[532560,4105.1,0.75299],[597200,3941.0,0.76272],[669690,3761.0,0.77374],[750970,3566.1,0.78605],[842120,3357.9,0.79962],[944330,3138.9,0.81435],[1059000,2912.2,0.83011],[1187500,2681.2,0.84669],[1331600,2449.9,0.86388],[1493200,2222.1,0.88142],[1674500,2001.5,0.89906],[1877700,1791.1,0.91656],[2105600,1593.6,0.93369],[2361200,1410.8,0.95028],[2647800,1243.7,0.9662],[2969200,1092.8,0.98135],[3329600,957.89,0.99568],[3733700,838.33,1.0092],[4186900,733.21,1.0219],[4695100,641.36,1.0338],[5264900,561.56,1.0449],[5904000,492.5,1.0554],[6620600,432.95,1.0653],[7424200,381.73,1.0746],[8325300,337.75,1.0834],[9335800,300.03,1.0919],[10469000,267.69,1.0999],[11740000,239.98,1.1076],[13164000,216.21,1.1151],[14762000,195.81,1.1223],[16554000,178.29,1.1294],[18563000,163.22,1.1363],[20817000,150.24,1.143],[23343000,139.04,1.1496],[26176000,129.35,1.1562],[29354000,120.96,1.1627],[32916000,113.68,1.1691],[36912000,107.35,1.1756],[41392000,101.83,1.182],[46416000,97.007,1.1884],[52050000,92.789,1.1949],[58367000,89.09,1.2014],[65452000,85.84,1.208],[73396000,82.979,1.2146],[82304000,80.455,1.2213],[92294000,78.225,1.2282],[103500000,76.251,1.2351],[116060000,74.5,1.2423],[130150000,72.945,1.2497],[145940000,71.56,1.2573],[163660000,70.326,1.2653],[183520000,69.224,1.2736],[205790000,68.238,1.2824],[230770000,67.354,1.2918],[258780000,66.56,1.3019],[290190000,65.844,1.3128],[325420000,65.198,1.3247],[364910000,64.613,1.3379],[409200000,64.081,1.3527],[458870000,63.595,1.3694],[514570000,63.149,1.3884],[577020000,62.737,1.4104],[647060000,62.353,1.4359],[725600000,61.992,1.4658],[813670000,61.65,1.5012],[912430000,61.321,1.5434],[1023200000,61.001,1.5937],[1147400000,60.685,1.6543],[1286600000,60.367,1.7274],[1442800000,60.042,1.8158],[1617900000,59.704,1.923],[1814300000,59.347,2.0534],[2034500000,58.963,2.2118],[2281400000,58.545,2.4045],[2558400000,58.084,2.6387],[2868900000,57.57,2.9231],[3217100000,56.993,3.2679],[3607600000,56.34,3.6848],[4045400000,55.599,4.1874],[4536500000,54.757,4.7909],[5087100000,53.798,5.5121],[5704500000,52.709,6.3691],[6396900000,51.476,7.3807],[7173300000,50.086,8.5657],[8044000000,48.532,9.9416],[9020400000,46.807,11.523],[10115000000,44.912,13.321],[11343000000,42.854,15.339],[12720000000,40.647,17.576],[14264000000,38.314,20.018],[15995000000,35.885,22.647],[17936000000,33.396,25.431],[20113000000,30.887,28.335],[22555000000,28.401,31.317],[25292000000,25.977,34.333],[28362000000,23.653,37.342],[31804000000,21.457,40.303],[35665000000,19.413,43.184],[39994000000,17.536,45.959],[44848000000,15.832,48.608],[50291000000,14.303,51.121],[56395000000,12.943,53.493],[63240000000,11.743,55.723],[70916000000,10.692,57.817],[79524000000,9.7771,59.781],[89176000000,8.9839,61.627],[100000000000,8.2988,63.364]]},
+"Liver":{"pts":[[10,15056000.0,0.027714],[11,13548000.0,0.028603],[13,12071000.0,0.029491],[14,10654000.0,0.030361],[16,9320500.0,0.031198],[18,8089100.0,0.031991],[20,6970800.0,0.032732],[22,5970600.0,0.033414],[25,5087900.0,0.034037],[28,4318100.0,0.0346],[31,3653400.0,0.035108],[35,3084400.0,0.035564],[40,2600500.0,0.035973],[44,2191500.0,0.036339],[50,1847200.0,0.036669],[56,1558400.0,0.036966],[63,1316800.0,0.037236],[70,1115000.0,0.037481],[79,946630.0,0.037707],[88,806200.0,0.037916],[99,689060.0,0.038111],[111,591300.0,0.038294],[124,509620.0,0.038468],[139,441290.0,0.038633],[156,384030.0,0.038792],[175,335960.0,0.038946],[197,295510.0,0.039096],[220,261380.0,0.039243],[247,232520.0,0.039388],[277,208040.0,0.039532],[311,187220.0,0.039676],[349,169450.0,0.039821],[391,154230.0,0.039967],[438,141140.0,0.040116],[492,129860.0,0.040269],[551,120080.0,0.040426],[618,111560.0,0.04059],[693,104120.0,0.040761],[777,97576.0,0.040941],[872,91789.0,0.041133],[977,86637.0,0.041337],[1096,82018.0,0.041558],[1229,77843.0,0.041797],[1378,74038.0,0.042058],[1545,70537.0,0.042344],[1733,67283.0,0.042659],[1943,64230.0,0.043007],[2179,61334.0,0.043392],[2444,58561.0,0.043819],[2740,55883.0,0.044292],[3073,53276.0,0.044815],[3446,50722.0,0.045392],[3864,48208.0,0.046025],[4333,45728.0,0.046717],[4859,43278.0,0.047469],[5449,40861.0,0.048281],[6110,38483.0,0.049153],[6852,36151.0,0.05008],[7684,33877.0,0.051061],[8616,31673.0,0.052091],[9662,29549.0,0.053165],[10835,27518.0,0.054278],[12150,25589.0,0.055424],[13625,23769.0,0.056601],[15278,22063.0,0.057803],[17133,20475.0,0.059028],[19212,19004.0,0.060276],[21544,17649.0,0.061546],[24159,16405.0,0.062841],[27092,15268.0,0.064165],[30380,14230.0,0.065522],[34067,13284.0,0.06692],[38202,12424.0,0.06837],[42839,11640.0,0.069881],[48039,10925.0,0.071467],[53870,10271.0,0.073144],[60408,9670.0,0.074928],[67740,9116.2,0.076839],[75962,8602.4,0.078896],[85182,8122.9,0.081123],[95521,7672.2,0.083542],[107120,7245.6,0.086176],[120120,6838.9,0.089047],[134700,6448.9,0.092177],[151040,6072.6,0.095584],[169380,5707.9,0.099283],[189940,5353.5,0.10328],[212990,5008.5,0.10759],[238840,4672.7,0.1122],[267830,4346.3,0.11711],[300340,4029.9,0.1223],[336790,3724.4,0.12774],[377670,3431.0,0.13342],[423510,3150.7,0.13929],[474920,2884.6,0.14534],[532560,2633.4,0.15152],[597200,2397.9,0.1578],[669690,2178.4,0.16416],[750970,1975.0,0.17056],[842120,1787.7,0.17699],[944330,1615.9,0.18343],[1059000,1459.1,0.18986],[1187500,1316.6,0.19628],[1331600,1187.6,0.20268],[1493200,1071.1,0.20905],[1674500,966.11,0.21541],[1877700,871.76,0.22174],[2105600,787.08,0.22806],[2361200,711.18,0.23438],[2647800,643.21,0.24069],[2969200,582.37,0.24701],[3329600,527.93,0.25335],[3733700,479.23,0.25972],[4186900,435.65,0.26612],[4695100,396.64,0.27256],[5264900,361.71,0.27905],[5904000,330.41,0.2856],[6620600,302.36,0.29221],[7424200,277.19,0.29891],[8325300,254.6,0.30568],[9335800,234.3,0.31255],[10469000,216.05,0.31951],[11740000,199.63,0.32657],[13164000,184.84,0.33375],[14762000,171.52,0.34105],[16554000,159.5,0.34847],[18563000,148.65,0.35602],[20817000,138.86,0.36371],[23343000,130.01,0.37155],[26176000,122.0,0.37953],[29354000,114.75,0.38768],[32916000,108.19,0.39599],[36912000,102.25,0.40448],[41392000,96.865,0.41315],[46416000,91.98,0.42201],[52050000,87.548,0.43107],[58367000,83.525,0.44035],[65452000,79.872,0.44985],[73396000,76.553,0.45959],[82304000,73.536,0.46959],[92294000,70.793,0.47986],[103500000,68.299,0.49042],[116060000,66.029,0.5013],[130150000,63.963,0.51254],[145940000,62.081,0.52416],[163660000,60.367,0.53621],[183520000,58.805,0.54875],[205790000,57.381,0.56183],[230770000,56.081,0.57554],[258780000,54.894,0.58997],[290190000,53.809,0.60524],[325420000,52.817,0.6215],[364910000,51.908,0.63891],[409200000,51.075,0.6577],[458870000,50.31,0.67814],[514570000,49.605,0.70055],[577020000,48.955,0.72533],[647060000,48.352,0.753],[725600000,47.792,0.78416],[813670000,47.268,0.81956],[912430000,46.776,0.86014],[1023200000,46.309,0.90703],[1147400000,45.864,0.96162],[1286600000,45.434,1.0256],[1442800000,45.014,1.1011],[1617900000,44.599,1.1906],[1814300000,44.182,1.2971],[2034500000,43.757,1.4243],[2281400000,43.318,1.5767],[2558400000,42.857,1.7594],[2868900000,42.366,1.9786],[3217100000,41.837,2.2415],[3607600000,41.259,2.5565],[4045400000,40.623,2.933],[4536500000,39.92,3.3816],[5087100000,39.137,3.9138],[5704500000,38.265,4.542],[6396900000,37.294,5.2784],[7173300000,36.216,6.1353],[8044000000,35.026,7.1234],[9020400000,33.721,8.2514],[10115000000,32.303,9.5246],[11343000000,30.78,10.944],[12720000000,29.162,12.504],[14264000000,27.47,14.196],[15995000000,25.724,16.001],[17936000000,23.953,17.9],[20113000000,22.184,19.865],[22555000000,20.446,21.869],[25292000000,18.766,23.883],[28362000000,17.167,25.88],[31804000000,15.668,27.835],[35665000000,14.282,29.729],[39994000000,13.016,31.548],[44848000000,11.873,33.28],[50291000000,10.851,34.92],[56395000000,9.9461,36.468],[63240000000,9.1499,37.925],[70916000000,8.4541,39.294],[79524000000,7.8491,40.582],[89176000000,7.3252,41.795],[100000000000,6.8729,42.941]]},
+"Cerebrospinal Fluid":{"pts":[[10,109.0,2.0],[11,109.0,2.0],[13,109.0,2.0],[14,109.0,2.0],[16,109.0,2.0],[18,109.0,2.0],[20,109.0,2.0],[22,109.0,2.0],[25,109.0,2.0],[28,109.0,2.0],[31,109.0,2.0],[35,109.0,2.0],[40,109.0,2.0],[44,109.0,2.0],[50,109.0,2.0],[56,109.0,2.0],[63,109.0,2.0],[70,109.0,2.0],[79,109.0,2.0],[88,109.0,2.0],[99,109.0,2.0],[111,109.0,2.0],[124,109.0,2.0],[139,109.0,2.0],[156,109.0,2.0],[175,109.0,2.0],[197,109.0,2.0],[220,109.0,2.0],[247,109.0,2.0],[277,109.0,2.0],[311,109.0,2.0],[349,109.0,2.0],[391,109.0,2.0],[438,109.0,2.0],[492,109.0,2.0],[551,109.0,2.0],[618,109.0,2.0],[693,109.0,2.0],[777,109.0,2.0],[872,109.0,2.0],[977,109.0,2.0],[1096,109.0,2.0],[1229,109.0,2.0],[1378,109.0,2.0],[1545,109.0,2.0],[1733,109.0,2.0],[1943,109.0,2.0],[2179,109.0,2.0],[2444,109.0,2.0],[2740,109.0,2.0],[3073,109.0,2.0],[3446,109.0,2.0],[3864,109.0,2.0],[4333,109.0,2.0],[4859,109.0,2.0],[5449,109.0,2.0],[6110,109.0,2.0],[6852,109.0,2.0],[7684,109.0,2.0],[8616,109.0,2.0],[9662,109.0,2.0],[10835,109.0,2.0],[12150,109.0,2.0],[13625,109.0,2.0],[15278,109.0,2.0],[17133,109.0,2.0],[19212,109.0,2.0],[21544,109.0,2.0],[24159,109.0,2.0],[27092,109.0,2.0],[30380,109.0,2.0],[34067,109.0,2.0],[38202,109.0,2.0],[42839,109.0,2.0],[48039,109.0,2.0],[53870,109.0,2.0],[60408,109.0,2.0],[67740,109.0,2.0],[75962,109.0,2.0],[85182,109.0,2.0],[95521,109.0,2.0],[107120,109.0,2.0],[120120,109.0,2.0],[134700,109.0,2.0],[151040,109.0,2.0],[169380,109.0,2.0],[189940,109.0,2.0],[212990,109.0,2.0],[238840,109.0,2.0],[267830,109.0,2.0],[300340,109.0,2.0],[336790,109.0,2.0],[377670,109.0,2.0],[423510,109.0,2.0],[474920,109.0,2.0],[532560,109.0,2.0],[597200,109.0,2.0],[669690,109.0,2.0],[750970,109.0,2.0],[842120,109.0,2.0],[944330,109.0,2.0],[1059000,108.99,2.0],[1187500,108.99,2.0],[1331600,108.99,2.0],[1493200,108.99,2.0001],[1674500,108.99,2.0001],[1877700,108.98,2.0001],[2105600,108.98,2.0001],[2361200,108.97,2.0001],[2647800,108.97,2.0002],[2969200,108.96,2.0002],[3329600,108.95,2.0003],[3733700,108.94,2.0003],[4186900,108.92,2.0004],[4695100,108.91,2.0005],[5264900,108.88,2.0006],[5904000,108.85,2.0008],[6620600,108.82,2.001],[7424200,108.77,2.0012],[8325300,108.72,2.0016],[9335800,108.64,2.002],[10469000,108.55,2.0025],[11740000,108.44,2.0031],[13164000,108.3,2.0039],[14762000,108.13,2.0048],[16554000,107.92,2.006],[18563000,107.65,2.0075],[20817000,107.32,2.0094],[23343000,106.91,2.0117],[26176000,106.41,2.0145],[29354000,105.8,2.018],[32916000,105.06,2.0221],[36912000,104.17,2.0271],[41392000,103.11,2.0331],[46416000,101.86,2.0402],[52050000,100.42,2.0483],[58367000,98.777,2.0576],[65452000,96.938,2.0681],[73396000,94.923,2.0796],[82304000,92.765,2.092],[92294000,90.511,2.105],[103500000,88.213,2.1183],[116060000,85.933,2.1317],[130150000,83.727,2.1449],[145940000,81.645,2.1576],[163660000,79.725,2.1697],[183520000,77.991,2.1811],[205790000,76.456,2.1919],[230770000,75.117,2.2021],[258780000,73.967,2.2119],[290190000,72.988,2.2217],[325420000,72.163,2.2316],[364910000,71.47,2.2421],[409200000,70.891,2.2536],[458870000,70.404,2.2666],[514570000,69.994,2.2817],[577020000,69.645,2.2995],[647060000,69.343,2.321],[725600000,69.077,2.347],[813670000,68.837,2.3787],[912430000,68.612,2.4177],[1023200000,68.395,2.4656],[1147400000,68.179,2.5246],[1286600000,67.957,2.5974],[1442800000,67.721,2.6872],[1617900000,67.464,2.7977],[1814300000,67.18,2.9339],[2034500000,66.86,3.1014],[2281400000,66.496,3.307],[2558400000,66.079,3.5591],[2868900000,65.598,3.8674],[3217100000,65.042,4.2435],[3607600000,64.398,4.701],[4045400000,63.652,5.2553],[4536500000,62.789,5.9242],[5087100000,61.793,6.7274],[5704500000,60.649,7.6863],[6396900000,59.339,8.8237],[7173300000,57.851,10.163],[8044000000,56.171,11.725],[9020400000,54.291,13.531],[10115000000,52.21,15.597],[11343000000,49.932,17.93],[12720000000,47.47,20.533],[14264000000,44.847,23.395],[15995000000,42.093,26.496],[17936000000,39.248,29.805],[20113000000,36.357,33.281],[22555000000,33.469,36.875],[25292000000,30.631,40.536],[28362000000,27.889,44.209],[31804000000,25.281,47.846],[35665000000,22.837,51.401],[39994000000,20.579,54.839],[44848000000,18.519,58.134],[50291000000,16.66,61.266],[56395000000,15.002,64.227],[63240000000,13.533,67.015],[70916000000,12.243,69.633],[79524000000,11.118,72.088],[89176000000,10.14,74.393],[100000000000,9.2945,76.558]]}
+,
+"Muscle":{"pts":[[10,25700000.0,0.20197],[11,25574000.0,0.20246],[13,25417000.0,0.20307],[14,25222000.0,0.20383],[16,24982000.0,0.20477],[18,24687000.0,0.20593],[20,24326000.0,0.20734],[22,23888000.0,0.20906],[25,23360000.0,0.21113],[28,22729000.0,0.2136],[31,21986000.0,0.21651],[35,21120000.0,0.21991],[40,20129000.0,0.2238],[44,19013000.0,0.22819],[50,17782000.0,0.23304],[56,16455000.0,0.23827],[63,15058000.0,0.24379],[70,13624000.0,0.24948],[79,12189000.0,0.2552],[88,10789000.0,0.26081],[99,9457400.0,0.26619],[111,8220000.0,0.27124],[124,7094500.0,0.27591],[139,6090000.0,0.28017],[156,5208000.0,0.28402],[175,4444000.0,0.28749],[197,3789100.0,0.29062],[220,3232000.0,0.29347],[247,2760400.0,0.29609],[277,2361900.0,0.29853],[311,2025100.0,0.30085],[349,1739800.0,0.30307],[391,1497200.0,0.30523],[438,1289900.0,0.30734],[492,1111900.0,0.30942],[551,958340.0,0.31146],[618,825500.0,0.31345],[693,710310.0,0.3154],[777,610360.0,0.31728],[872,523690.0,0.31909],[977,448670.0,0.32082],[1096,383890.0,0.32246],[1229,328120.0,0.324],[1378,280260.0,0.32545],[1545,239330.0,0.3268],[1733,204430.0,0.32806],[1943,174740.0,0.32925],[2179,149540.0,0.33035],[2444,128200.0,0.33138],[2740,110150.0,0.33235],[3073,94885.0,0.33327],[3446,81991.0,0.33414],[3864,71097.0,0.33496],[4333,61888.0,0.33575],[4859,54098.0,0.3365],[5449,47500.0,0.33723],[6110,41905.0,0.33794],[6852,37152.0,0.33863],[7684,33107.0,0.33931],[8616,29657.0,0.33997],[9662,26708.0,0.34063],[10835,24181.0,0.34129],[12150,22010.0,0.34194],[13625,20140.0,0.3426],[15278,18524.0,0.34327],[17133,17125.0,0.34394],[19212,15909.0,0.34463],[21544,14849.0,0.34534],[24159,13923.0,0.34607],[27092,13110.0,0.34683],[30380,12393.0,0.34763],[34067,11760.0,0.34848],[38202,11196.0,0.34939],[42839,10693.0,0.35037],[48039,10241.0,0.35143],[53870,9831.9,0.3526],[60408,9458.3,0.35389],[67740,9114.1,0.35534],[75962,8793.5,0.35697],[85182,8491.1,0.35882],[95521,8202.1,0.36092],[107120,7921.8,0.36333],[120120,7645.9,0.36609],[134700,7370.6,0.36926],[151040,7092.1,0.37289],[169380,6807.3,0.37704],[189940,6513.6,0.38175],[212990,6208.9,0.38709],[238840,5892.3,0.39307],[267830,5563.5,0.39971],[300340,5223.5,0.407],[336790,4874.2,0.41491],[377670,4518.7,0.42338],[423510,4160.8,0.43233],[474920,3805.1,0.44164],[532560,3456.3,0.45119],[597200,3119.0,0.46085],[669690,2797.3,0.4705],[750970,2494.8,0.48003],[842120,2213.9,0.48932],[944330,1956.3,0.49832],[1059000,1722.6,0.50695],[1187500,1512.7,0.51519],[1331600,1325.7,0.52301],[1493200,1160.5,0.53043],[1674500,1015.4,0.53745],[1877700,888.65,0.5441],[2105600,778.33,0.5504],[2361200,682.64,0.5564],[2647800,599.83,0.56211],[2969200,528.3,0.56757],[3329600,466.56,0.57281],[3733700,413.3,0.57787],[4186900,367.35,0.58276],[4695100,327.69,0.58752],[5264900,293.43,0.59216],[5904000,263.81,0.59671],[6620600,238.15,0.60118],[7424200,215.91,0.60558],[8325300,196.58,0.60994],[9335800,179.77,0.61425],[10469000,165.11,0.61854],[11740000,152.3,0.62281],[13164000,141.1,0.62708],[14762000,131.28,0.63134],[16554000,122.65,0.6356],[18563000,115.07,0.63988],[20817000,108.38,0.64417],[23343000,102.47,0.64848],[26176000,97.253,0.65282],[29354000,92.63,0.65719],[32916000,88.529,0.6616],[36912000,84.887,0.66605],[41392000,81.649,0.67055],[46416000,78.765,0.6751],[52050000,76.194,0.67971],[58367000,73.901,0.68439],[65452000,71.851,0.68914],[73396000,70.019,0.69398],[82304000,68.379,0.69892],[92294000,66.91,0.70398],[103500000,65.592,0.70917],[116060000,64.41,0.71451],[130150000,63.348,0.72004],[145940000,62.393,0.72578],[163660000,61.533,0.73178],[183520000,60.759,0.7381],[205790000,60.061,0.74478],[230770000,59.43,0.75192],[258780000,58.859,0.7596],[290190000,58.342,0.76795],[325420000,57.872,0.77712],[364910000,57.445,0.78728],[409200000,57.054,0.79868],[458870000,56.695,0.81158],[514570000,56.365,0.82635],[577020000,56.059,0.8434],[647060000,55.773,0.86327],[725600000,55.504,0.88662],[813670000,55.249,0.91427],[912430000,55.003,0.9472],[1023200000,54.764,0.98667],[1147400000,54.527,1.0342],[1286600000,54.29,1.0916],[1442800000,54.047,1.1612],[1617900000,53.796,1.2458],[1814300000,53.53,1.3487],[2034500000,53.246,1.4742],[2281400000,52.937,1.6271],[2558400000,52.597,1.8136],[2868900000,52.218,2.0407],[3217100000,51.792,2.317],[3607600000,51.311,2.6526],[4045400000,50.764,3.0591],[4536500000,50.139,3.5501],[5087100000,49.426,4.1409],[5704500000,48.612,4.8482],[6396900000,47.683,5.6907],[7173300000,46.629,6.6875],[8044000000,45.437,7.8581],[9020400000,44.098,9.2211],[10115000000,42.608,10.793],[11343000000,40.964,12.586],[12720000000,39.171,14.606],[14264000000,37.241,16.853],[15995000000,35.192,19.318],[17936000000,33.048,21.982],[20113000000,30.841,24.816],[22555000000,28.605,27.786],[25292000000,26.379,30.848],[28362000000,24.198,33.959],[31804000000,22.097,37.073],[35665000000,20.104,40.15],[39994000000,18.242,43.152],[44848000000,16.524,46.051],[50291000000,14.961,48.825],[56395000000,13.554,51.461],[63240000000,12.299,53.951],[70916000000,11.19,56.295],[79524000000,10.216,58.496],[89176000000,9.3674,60.561],[100000000000,8.6307,62.499]]}
+};
+
+const PRESETS={
+  head:[{t:'Skin',d:1.5},{t:'Fat',d:2},{t:'Skull (Cortical)',d:3},{t:'Skull (Cancellous)',d:4},{t:'Skull (Cortical)',d:3},{t:'Dura',d:1},{t:'Cerebrospinal Fluid',d:2},{t:'Brain (Grey Matter)',d:30}],
+  trunk:[{t:'Skin',d:2},{t:'Fat',d:10},{t:'Muscle',d:30},{t:'Liver',d:20}],
+  arm:[{t:'Skin',d:1.5},{t:'Fat',d:5},{t:'Muscle',d:20},{t:'Bone (Cortical)',d:5}],
+  eye:[{t:'Eye (Cornea)',d:0.5},{t:'Eye (Lens)',d:4},{t:'Eye (Vitreous Humor)',d:16}],
+  breast:[{t:'Skin',d:2},{t:'Breast Fat',d:20},{t:'Breast Gland',d:15},{t:'Muscle',d:10}]
+};
+
+// ── Propriétés thermiques par tissu (IT'IS Thermal Database, valeurs typiques) ──
+//  k  : conductivité thermique [W/m/K]
+//  c  : capacité thermique massique [J/kg/K]
+//  w  : perfusion sanguine [mL/min/kg]
+//  Qm : production de chaleur métabolique basale [W/kg]
+//  La densité ρ est reprise de TISSUES[name].density.
+const THERMAL={
+  "Skin":{k:0.37,c:3391,w:106,Qm:1.50},
+  "Fat":{k:0.21,c:2348,w:33,Qm:0.51},
+  "Fat (Average Infiltrated)":{k:0.21,c:2348,w:33,Qm:0.51},
+  "Fat (Not Infiltrated)":{k:0.21,c:2348,w:33,Qm:0.51},
+  "SAT (Subcutaneous Fat)":{k:0.21,c:2348,w:33,Qm:0.51},
+  "Breast Fat":{k:0.21,c:2348,w:33,Qm:0.51},
+  "Muscle":{k:0.49,c:3421,w:37,Qm:0.91},
+  "Heart Muscle":{k:0.56,c:3686,w:1026,Qm:33.0},
+  "Bone (Cortical)":{k:0.32,c:1313,w:10,Qm:0.15},
+  "Skull (Cortical)":{k:0.32,c:1313,w:10,Qm:0.15},
+  "Skull":{k:0.32,c:1313,w:10,Qm:0.15},
+  "Mandible":{k:0.32,c:1313,w:10,Qm:0.15},
+  "Vertebrae":{k:0.32,c:1313,w:10,Qm:0.15},
+  "Bone (Cancellous)":{k:0.31,c:2274,w:31,Qm:0.31},
+  "Skull (Cancellous)":{k:0.31,c:2274,w:31,Qm:0.31},
+  "Bone Marrow (Red)":{k:0.28,c:2666,w:27,Qm:0.30},
+  "Bone Marrow (Yellow)":{k:0.19,c:2001,w:6,Qm:0.10},
+  "Dura":{k:0.44,c:3364,w:44,Qm:0.74},
+  "Cerebrospinal Fluid":{k:0.57,c:4096,w:0,Qm:0},
+  "Brain":{k:0.51,c:3630,w:470,Qm:9.0},
+  "Brain (Grey Matter)":{k:0.55,c:3696,w:763,Qm:14.9},
+  "Brain (White Matter)":{k:0.48,c:3583,w:212,Qm:4.5},
+  "Cerebellum":{k:0.51,c:3653,w:763,Qm:14.9},
+  "Liver":{k:0.52,c:3540,w:860,Qm:11.0},
+  "Kidney":{k:0.53,c:3763,w:2393,Qm:43.0},
+  "Spleen":{k:0.54,c:3596,w:773,Qm:23.0},
+  "Lung":{k:0.39,c:3886,w:399,Qm:7.0},
+  "Lung (Inflated)":{k:0.39,c:3886,w:399,Qm:7.0},
+  "Lung (Deflated)":{k:0.39,c:3886,w:399,Qm:7.0},
+  "Eye (Cornea)":{k:0.58,c:4178,w:0,Qm:0},
+  "Eye (Lens)":{k:0.43,c:3133,w:0,Qm:0},
+  "Eye Lens (Cortex)":{k:0.43,c:3133,w:0,Qm:0},
+  "Eye Lens (Nucleus)":{k:0.43,c:3133,w:0,Qm:0},
+  "Eye (Vitreous Humor)":{k:0.59,c:4047,w:0,Qm:0},
+  "Eye (Aqueous Humor)":{k:0.58,c:3997,w:0,Qm:0},
+  "Eye (Sclera)":{k:0.58,c:4178,w:0,Qm:0},
+  "Breast Gland":{k:0.33,c:2960,w:51,Qm:0.70},
+  "Blood":{k:0.52,c:3617,w:0,Qm:0},
+  "Cartilage":{k:0.49,c:3568,w:0,Qm:0},
+  "Tendon\\Ligament":{k:0.47,c:2372,w:9,Qm:0.40},
+  "Connective Tissue":{k:0.47,c:2372,w:35,Qm:0.50},
+  "Nerve":{k:0.49,c:3613,w:39,Qm:0.91},
+  "Spinal Cord":{k:0.49,c:3630,w:160,Qm:4.5},
+  "Stomach":{k:0.53,c:3556,w:289,Qm:8.0},
+  "Tongue":{k:0.50,c:3421,w:37,Qm:0.91},
+  "Thyroid Gland":{k:0.52,c:3609,w:4380,Qm:87.0}
+};
+// Tissu mou générique (repli si le tissu n'est pas tabulé)
+const THERMAL_DEFAULT={k:0.49,c:3500,w:40,Qm:0.90};
+// Propriétés du sang artériel (perfusion de Pennes)
+const RHO_B=1050, C_B=3617;
+// Renvoie {k,c,rho,omega[1/s],Qm,w[mL/min/kg]} pour un tissu donné
+function thermProps(name){
+  const tp=THERMAL[name]||THERMAL_DEFAULT;
+  const rho=(TISSUES[name]&&TISSUES[name].density)||1050;
+  const omega=tp.w*rho*1e-6/60;   // mL/min/kg → s⁻¹ (m³sang/m³tissu/s)
+  return {k:tp.k,c:tp.c,rho,omega,Qm:tp.Qm,w:tp.w,tabulated:!!THERMAL[name]};
+}
+function thermGamma(tp){ return tp.omega*RHO_B*C_B/(tp.rho*tp.c); }  // taux de perte perfusionnelle [1/s]
+
+let layers=PRESETS['head'].map(l=>({...l}));
+let lastResult=null;
+let activePreset='head';
+
+// Arithmétique complexe
+function cadd(a,b){return{re:a.re+b.re,im:a.im+b.im};}
+function csub(a,b){return{re:a.re-b.re,im:a.im-b.im};}
+function cmul(a,b){return{re:a.re*b.re-a.im*b.im,im:a.re*b.im+a.im*b.re};}
+function cdiv(a,b){const d=b.re*b.re+b.im*b.im;return{re:(a.re*b.re+a.im*b.im)/d,im:(a.im*b.re-a.re*b.im)/d};}
+function cabs(a){return Math.sqrt(a.re*a.re+a.im*a.im);}
+function csqrt(a){const r=cabs(a),ang=Math.atan2(a.im,a.re)/2;return{re:Math.sqrt(r)*Math.cos(ang),im:Math.sqrt(r)*Math.sin(ang)};}
+function cexp(a){const e=Math.exp(a.re);return{re:e*Math.cos(a.im),im:e*Math.sin(a.im)};}
+
+// Cole-Cole
+function coleCole(f,tissue){
+  const w=2*Math.PI*f;
+  let re=tissue.ef,im=0;
+  for(const d of tissue.disp){
+    if(!d.del||!d.tau)continue;
+    const wt=w*d.tau,alpha=1-d.alf;
+    const mag=Math.pow(wt,alpha),ang=alpha*Math.PI/2;
+    const pr=mag*Math.cos(ang),pi_=mag*Math.sin(ang);
+    const D=(1+pr)*(1+pr)+pi_*pi_;
+    re+=d.del*(1+pr)/D; im-=d.del*pi_/D;
+  }
+  im-=tissue.sig/(w*EPS0);
+  return{re,im};
+}
+
+function layerParams(f,tname){
+  const t=TISSUES[tname]||{ef:1,sig:0,disp:[],density:1000};
+  const w=2*Math.PI*f;
+  const eps=coleCole(f,t);
+  // k² = ω²μ₀ε₀ε̂
+  const karg={re:w*w*MU0*EPS0*eps.re, im:w*w*MU0*EPS0*eps.im};
+  let k=csqrt(karg);
+  if(k.im>0) k={re:k.re,im:-k.im}; // convention Im(k)≤0
+  // η = ωμ₀/k (impédance d'onde du milieu)
+  const eta=cdiv({re:w*MU0,im:0},k);
+  // σ_eff(f) = ωε₀ε'' : conductivité effective (pertes ohmiques + diélectriques) — pour le SAR
+  const sigmaEff=-eps.im*w*EPS0;
+  return{k,eta,eps,sigma:t.sig||0,sigmaEff,rho:t.density||1000,name:tname};
+}
+
+function runTMM(f,E0,layerDefs){
+  const lp=layerDefs.map(l=>({...layerParams(f,l.t),d:l.d/1000}));
+  const totalD=lp.reduce((s,l)=>s+l.d,0);
+  const zBounds=[0]; for(const l of lp) zBounds.push(zBounds[zBounds.length-1]+l.d);
+  const Npts=600; const dz_step=totalD/(Npts-1);
+
+  // ── TMM rigoureuse : amplitudes aller/retour (A,B) dans chaque couche ──
+  // Régions : 0 = air, puis lp[0..M-1]. La dernière couche est traitée comme
+  // semi-infinie (pas d'onde de retour au-delà : B_M = 0).
+  const eta0={re:377,im:0};
+  const k0={re:2*Math.PI*f*Math.sqrt(MU0*EPS0),im:0};
+  const regions=[{eta:eta0,k:k0,d:0}].concat(lp.map(l=>({eta:l.eta,k:l.k,d:l.d})));
+  const M=lp.length;                                   // indice de la dernière région
+  const C1={re:1,im:0},CZ={re:0,im:0},HALF={re:0.5,im:0};
+  function mat2(A,B){return[[cadd(cmul(A[0][0],B[0][0]),cmul(A[0][1],B[1][0])),cadd(cmul(A[0][0],B[0][1]),cmul(A[0][1],B[1][1]))],[cadd(cmul(A[1][0],B[0][0]),cmul(A[1][1],B[1][0])),cadd(cmul(A[1][0],B[0][1]),cmul(A[1][1],B[1][1]))]];}
+  // Matrice d'interface i→i+1 (continuité E, H) : ½[[1+r,1-r],[1-r,1+r]], r=η_{i+1}/η_i
+  function ifaceD(i){const r=cdiv(regions[i+1].eta,regions[i].eta);return[[cmul(HALF,cadd(C1,r)),cmul(HALF,csub(C1,r))],[cmul(HALF,csub(C1,r)),cmul(HALF,cadd(C1,r))]];}
+  // Propagation dans la région i : diag(e^{-jkd}, e^{+jkd})
+  function propP(i){const arg=cmul(regions[i].k,{re:regions[i].d,im:0});return[[cexp(cmul({re:0,im:-1},arg)),CZ],[CZ,cexp(cmul({re:0,im:1},arg))]];}
+  // Matrice globale T : [A_M;B_M] = T · [A_0;B_0]
+  let T=[[C1,CZ],[CZ,C1]];
+  for(let i=0;i<M;i++) T=mat2(ifaceD(i),mat2(propP(i),T));
+  const A0={re:E0,im:0};
+  const B0=cmul({re:-1,im:0},cdiv(cmul(T[1][0],A0),T[1][1]));   // impose B_M = 0
+  const R=cdiv(B0,A0);
+  // Amplitudes (A,B) par couche — substitution avant
+  const amps=[{A:A0,B:B0}]; let cur=[A0,B0];
+  for(let i=0;i<M;i++){
+    const D=ifaceD(i),P=propP(i);
+    const u=cadd(cmul(P[0][0],cur[0]),cmul(P[0][1],cur[1]));
+    const v=cadd(cmul(P[1][0],cur[0]),cmul(P[1][1],cur[1]));
+    const A=cadd(cmul(D[0][0],u),cmul(D[0][1],v));
+    const B=cadd(cmul(D[1][0],u),cmul(D[1][1],v));
+    cur=[A,B]; amps.push({A,B});
+  }
+  // Profil E(z) et SAR(z) — solution exacte E = A·e^{-jkζ} + B·e^{+jkζ}
+  const zArr=[],eArr=[],sarArr=[];
+  for(let i=0;i<Npts;i++){
+    const z=totalD*i/(Npts-1);
+    zArr.push(z*1000);
+    let li=lp.length-1;
+    for(let ii=0;ii<lp.length;ii++){if(z<=zBounds[ii+1]+1e-10){li=ii;break;}}
+    const zl=z-zBounds[li];
+    const a=amps[li+1], k=lp[li].k;
+    const ef=cexp(cmul({re:0,im:-1},cmul(k,{re:zl,im:0})));
+    const eb=cexp(cmul({re:0,im: 1},cmul(k,{re:zl,im:0})));
+    const Ez=cadd(cmul(a.A,ef),cmul(a.B,eb));
+    const Eabs=cabs(Ez);
+    eArr.push(Eabs);
+    sarArr.push(lp[li].sigmaEff*Eabs*Eabs/lp[li].rho);
+  }
+
+  // SAR 10g adaptatif
+  const TARGET=0.01;
+  const rhoArr=lp.map((l,_)=>l.rho);
+  const sar10gArr=new Array(Npts).fill(0);
+  for(let i=0;i<Npts;i++){
+    let li2=lp.length-1;
+    const zi=totalD*i/(Npts-1);
+    for(let ii=0;ii<lp.length;ii++){if(zi<=zBounds[ii+1]+1e-10){li2=ii;break;}}
+    const rhoI=lp[li2].rho;
+    const S=Math.pow(TARGET/rhoI,2/3);
+    let mass=0,num=0,j=i;
+    while(j<Npts){
+      let lj=lp.length-1;
+      const zj=totalD*j/(Npts-1);
+      for(let ii=0;ii<lp.length;ii++){if(zj<=zBounds[ii+1]+1e-10){lj=ii;break;}}
+      const dm=lp[lj].rho*S*dz_step;
+      if(mass+dm>=TARGET){const frac=(TARGET-mass)/dm;num+=sarArr[j]*lp[lj].rho*S*dz_step*frac;mass=TARGET;break;}
+      num+=sarArr[j]*lp[lj].rho*S*dz_step; mass+=dm; j++;
+    }
+    sar10gArr[i]=mass>=TARGET*0.99?num/TARGET:0;
+  }
+  for(let i=Npts-1;i>=0;i--){if(sar10gArr[i]===0&&i>0)sar10gArr[i]=sar10gArr[i-1];else break;}
+  return{zArr,sarArr,sar10gArr,eArr,lp,R,zBounds};
+}
+
+// Format helpers
+function fmtF(f){if(f>=1e9)return(f/1e9).toFixed(3)+' GHz';if(f>=1e6)return(f/1e6).toFixed(3)+' MHz';if(f>=1e3)return(f/1e3).toFixed(1)+' kHz';return f+' Hz';}
+function fmtFshort(f){if(f>=1e9)return(f/1e9).toFixed(2)+'GHz';if(f>=1e6)return(f/1e6).toFixed(1)+'MHz';if(f>=1e3)return(f/1e3).toFixed(0)+'kHz';return f.toFixed(0)+'Hz';}
+function fmtTau(t){if(!t)return'—';if(t<1e-9)return(t*1e12).toFixed(1)+'ps';if(t<1e-6)return(t*1e9).toFixed(1)+'ns';if(t<1e-3)return(t*1e6).toFixed(1)+'µs';return(t*1e3).toFixed(1)+'ms';}
+
+// ── Source EM ─────────────────────────────────────────────────────────────────
+function getEinc(){
+  const f=parseFloat(document.getElementById('freq').value)||2.45e9;
+  const mode=document.getElementById('ff-mode')?.value||'einc';
+  const cat=document.getElementById('src-cat').value;
+  if(cat==='near') return computeNearE(f);
+  if(mode==='einc') return parseFloat(document.getElementById('einc-val').value)||10;
+  if(mode==='icnirp98'){
+    if(f<1e6) return 87;
+    if(f<=10e6) return 87*Math.sqrt(1e6/f);
+    if(f<=400e6) return 28;
+    if(f<=2e9) return 1.375*Math.sqrt(f/1e6);
+    return 61;
+  }
+  if(mode==='icnirp20'){
+    if(f<10e6) return 83;
+    if(f<=400e6) return 27.7;
+    if(f<=2e9) return 1.375*Math.sqrt(f/1e6)*0.9;
+    return 58;
+  }
+  if(mode==='fcc_fm'){
+    const erp=(parseFloat(document.getElementById('fcc-erp')?.value)||100)*1000;
+    const d=parseFloat(document.getElementById('fcc-dist')?.value)||50;
+    return Math.sqrt(30*erp)/d;
+  }
+  return 10;
+}
+
+function computeNearE(f){
+  const w=2*Math.PI*f;
+  const r=parseFloat(document.getElementById('near-dist')?.value)||0.05;
+  const tp=document.getElementById('near-type')?.value||'edipole';
+  let E=0;
+  if(tp==='edipole'){
+    const Il=parseFloat(document.getElementById('near-moment')?.value)||1e-5;
+    const k0=w/3e8, kr=k0*r;
+    E=377*Il*k0*k0/(4*Math.PI)*Math.sqrt(1+1/(kr*kr)+1/(kr*kr*kr*kr))/r;
+    const formulaEl=document.getElementById('near-formula');
+    if(formulaEl) formulaEl.textContent='E ≈ η0·Il·k²/(4πr) × |1+1/(jkr)-1/(kr)²|';
+  } else if(tp==='mdipole'){
+    const Il=parseFloat(document.getElementById('near-moment')?.value)||1e-5;
+    const k0=w/3e8, kr=k0*r;
+    E=377*Il*k0*k0/(4*Math.PI*r)*Math.sqrt(1+1/(kr*kr));
+    const formulaEl=document.getElementById('near-formula');
+    if(formulaEl) formulaEl.textContent='E ≈ η0·Il·k²/(4πr) × |1+1/(jkr)|';
+  } else {
+    const I=parseFloat(document.getElementById('near-current')?.value)||1;
+    const a=parseFloat(document.getElementById('near-radius')?.value)||0.05;
+    const k0=w/3e8, ka=k0*a;
+    const warnEl=document.getElementById('near-loop-warn');
+    if(warnEl){
+      if(ka>0.5){
+        warnEl.style.display='block';
+        warnEl.textContent='⚠ ka='+ka.toFixed(2)+' > 0.5 : boucle non quasi-statique à f='+fmtF(f)+'. Formule invalide — utiliser dipôle électrique.';
+      } else { warnEl.style.display='none'; }
+    }
+    E=MU0*I*a*a*w/(4*Math.pow(r*r+a*a,1.5));
+    const formulaEl=document.getElementById('near-formula');
+    if(formulaEl) formulaEl.textContent='E ≈ μ₀·I·a²·ω / (4·(r²+a²)^{3/2})';
+  }
+  const disp=document.getElementById('near-einc-display');
+  if(disp) disp.textContent='E estimé à la surface : '+E.toFixed(5)+' V/m à '+fmtF(f);
+  return E;
+}
+
+function updateNearDisplay(){computeNearE(parseFloat(document.getElementById('freq').value)||2.45e9);}
+
+function onSrcCat(){
+  const c=document.getElementById('src-cat').value;
+  document.getElementById('ff-panel').style.display=c==='ff'?'':'none';
+  document.getElementById('near-panel').style.display=c==='near'?'':'none';
+  renderSchema();
+}
+
+function onFfMode(){
+  const m=document.getElementById('ff-mode').value;
+  document.getElementById('einc-field').style.display=m==='einc'?'':'none';
+  document.getElementById('fcc-fields').style.display=m==='fcc_fm'?'':'none';
+  const info=document.getElementById('icnirp-info');
+  if(m==='icnirp98'||m==='icnirp20'){
+    info.style.display='';
+    const E=getEinc();
+    info.textContent=(m==='icnirp98'?'ICNIRP 1998':'ICNIRP 2020')+' — limite E₀ = '+E.toFixed(1)+' V/m à '+fmtF(parseFloat(document.getElementById('freq').value)||2.45e9);
+  } else { info.style.display='none'; }
+  renderSchema();
+}
+
+function onNearType(){
+  const tp=document.getElementById('near-type').value;
+  document.getElementById('near-moment-field').style.display=tp!=='loop'?'':'none';
+  document.getElementById('near-radius-field').style.display=tp==='loop'?'':'none';
+  document.getElementById('near-current-field').style.display=tp==='loop'?'':'none';
+  updateNearDisplay();
+  renderSchema();
+}
+
+function onFreqChange(){updateNearDisplay();onFfMode();renderSchema();}
+
+// ── Calcul ────────────────────────────────────────────────────────────────────
+function compute(){
+  const f=parseFloat(document.getElementById('freq').value);
+  const E0=getEinc();
+  if(!f||isNaN(f)||!E0||E0<=0){alert('Vérifier fréquence et source.');return;}
+  const r=runTMM(f,E0,layers);
+  lastResult={f,E0,r};
+  renderResults(f,E0,r);
+  switchTab('results');
+  renderSchema();
+  document.getElementById('th-sar-hint').textContent='Dernier calcul : SAR pic = '+Math.max(...r.sarArr).toFixed(4)+' W/kg @ '+fmtF(f);
+}
+
+// ── Affichage résultats ───────────────────────────────────────────────────────
+function renderResults(f,E0,r){
+  document.getElementById('no-result').style.display='none';
+  document.getElementById('results-content').style.display='';
+  const sarPic=Math.max(...r.sarArr);
+  const sar10gPic=Math.max(...r.sar10gArr);
+  const Emax=Math.max(...r.eArr);
+  const Rpct=(cabs(r.R)*100).toFixed(1);
+  document.getElementById('metrics-grid').innerHTML=
+    '<div class="metric"><div class="mlbl">E incident</div><div class="mval">'+E0.toFixed(3)+'<span class="munit">V/m</span></div></div>'+
+    '<div class="metric"><div class="mlbl">SAR pic</div><div class="mval">'+sarPic.toFixed(4)+'<span class="munit">W/kg</span></div></div>'+
+    '<div class="metric"><div class="mlbl">SAR 10g</div><div class="mval">'+sar10gPic.toFixed(4)+'<span class="munit">W/kg</span></div></div>'+
+    '<div class="metric"><div class="mlbl">Réflexion |R|</div><div class="mval">'+Rpct+'<span class="munit">%</span></div></div>';
+  // Alerte ICNIRP
+  const warn=document.getElementById('icnirp-warn');
+  const icnirpLim=f>10e6&&f<=400e6?2:(f<=2e9?2:2);
+  if(sarPic>icnirpLim){warn.style.display='block';warn.textContent='⚠ SAR pic ('+sarPic.toFixed(3)+' W/kg) dépasse la limite ICNIRP de '+icnirpLim+' W/kg à '+fmtF(f)+'.';}
+  else warn.style.display='none';
+  // Légende couches
+  const leg=document.getElementById('layer-legend');
+  leg.innerHTML=r.lp.map((l,i)=>'<span><span class="lc" style="background:'+LCOLORS[i%LCOLORS.length]+'"></span>'+l.name+' <b>'+(l.d*1000).toFixed(l.d*1000<2?1:0)+'mm</b></span>').join('');
+  // Table diélectriques
+  const tbody=document.getElementById('diel-res-body');
+  tbody.innerHTML=r.lp.map((l,i)=>{
+    const t=TISSUES[l.name];
+    const eps=t?coleCole(f,t):{re:1,im:0};
+    const ep=eps.re.toFixed(2);
+    const s=t?(-eps.im*2*Math.PI*f*EPS0).toFixed(4):'—';  // σ_eff(f) = ωε₀ε''
+    const k=layerParams(f,l.name);
+    const ds=k.k.im<0?(1000/Math.abs(k.k.im)).toFixed(1):'∞';
+    return '<tr><td>'+(i+1)+'</td><td>'+l.name+'</td><td>'+ep+'</td><td>'+s+'</td><td>'+ds+'</td><td>'+(l.rho||'—')+'</td></tr>';
+  }).join('');
+  plotSAR(r);
+  plotE(r);
+  renderSARMap(r,'sar-map-r');
+}
+
+// Plugins Chart.js pour couches colorées
+function makeLayerPlugin(zBounds,lp,totalD){
+  return{id:'layers',beforeDatasetsDraw(chart){
+    const{ctx,chartArea:{left,right,top,bottom},scales:{x}}=chart;
+    ctx.save();
+    lp.forEach((l,i)=>{
+      const x0=x.getPixelForValue(zBounds[i]*1000);
+      const x1=x.getPixelForValue(zBounds[i+1]*1000);
+      ctx.fillStyle=LCOLORS[i%LCOLORS.length]+'28';
+      ctx.fillRect(Math.max(x0,left),top,Math.min(x1,right)-Math.max(x0,left),bottom-top);
+      ctx.beginPath();ctx.moveTo(Math.max(x0,left),top);ctx.lineTo(Math.max(x0,left),bottom);
+      ctx.strokeStyle=LCOLORS[i%LCOLORS.length]+'88';ctx.lineWidth=1;ctx.setLineDash([4,3]);ctx.stroke();ctx.setLineDash([]);
+    });
+    ctx.restore();
+  }};
+}
+
+let cSAR=null,cE=null;
+function plotSAR(r){
+  const totalD=r.lp.reduce((s,l)=>s+l.d,0);
+  const plugin=makeLayerPlugin(r.zBounds,r.lp,totalD);
+  const ctx=document.getElementById('sar-chart').getContext('2d');
+  if(cSAR) cSAR.destroy();
+  cSAR=new Chart(ctx,{type:'line',
+    data:{datasets:[
+      {label:'SAR local (W/kg)',data:r.zArr.map((z,i)=>({x:z,y:r.sarArr[i]})),borderColor:'#D85A30',backgroundColor:'rgba(216,90,48,0.06)',borderWidth:1.8,pointRadius:0,tension:0,fill:true},
+      {label:'SAR 10g (W/kg)',data:r.zArr.map((z,i)=>({x:z,y:r.sar10gArr[i]})),borderColor:'#378ADD',backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,borderDash:[6,3],tension:0.2}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{font:{size:11},boxWidth:20}},'layers':plugin},
+      scales:{x:{type:'linear',title:{display:true,text:'Profondeur z (mm)'}},y:{title:{display:true,text:'SAR (W/kg)'},beginAtZero:true}}},
+    plugins:[plugin]});
+}
+function plotE(r){
+  const totalD=r.lp.reduce((s,l)=>s+l.d,0);
+  const plugin=makeLayerPlugin(r.zBounds,r.lp,totalD);
+  const ctx=document.getElementById('e-chart').getContext('2d');
+  if(cE) cE.destroy();
+  cE=new Chart(ctx,{type:'line',
+    data:{datasets:[{label:'|E| (V/m)',data:r.zArr.map((z,i)=>({x:z,y:r.eArr[i]})),borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,0.06)',borderWidth:2,pointRadius:0,tension:0.2,fill:true}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{font:{size:11},boxWidth:20}}},
+      scales:{x:{type:'linear',title:{display:true,text:'Profondeur z (mm)'}},y:{title:{display:true,text:'|E| (V/m)'},beginAtZero:true}}},
+    plugins:[plugin]});
+}
+
+// ── Empilement ────────────────────────────────────────────────────────────────
+function renderStack(){
+  const tb=document.getElementById('stack-body');
+  tb.innerHTML=layers.map((l,i)=>`<tr>
+    <td>${i+1}</td>
+    <td><select onchange="layers[${i}].t=this.value;renderStack();">${TNAMES.map(n=>`<option value="${n}"${n===l.t?' selected':''}>${n}${IFAC_DATA[n]?' ★':''}</option>`).join('')}</select></td>
+    <td><input type="number" value="${l.d}" min="0.01" step="0.1" style="width:80px" onchange="layers[${i}].d=+this.value"></td>
+    <td><button class="btn btn-d btn-sm" onclick="layers.splice(${i},1);renderStack();">✕</button></td>
+  </tr>`).join('');
+}
+
+function addLayer(){layers.push({t:'Muscle',d:10});renderStack();}
+
+function loadPreset(n){
+  layers=PRESETS[n].map(l=>({...l}));
+  activePreset=n;
+  const fp={head:2450000000,trunk:915000000,arm:2450000000,eye:2450000000,breast:3000000000};
+  document.getElementById('freq').value=fp[n]||2450000000;
+  renderStack();
+  setTimeout(renderSchema,0);
+  ['head','trunk','arm','eye','breast'].forEach(p=>{
+    const btn=document.getElementById('ps-'+p);
+    if(!btn)return;
+    btn.style.fontWeight=p===n?'700':'500';
+    btn.style.background=p===n?'rgba(13,148,136,0.08)':'';
+  });
+}
+
+// ── Export CSV ────────────────────────────────────────────────────────────────
+function exportCSV(){
+  if(!lastResult)return;
+  const{zArr,sarArr,sar10gArr,eArr}=lastResult.r;
+  let csv='z (mm),SAR (W/kg),SAR 10g (W/kg),|E| (V/m)\n';
+  zArr.forEach((z,i)=>{csv+=z.toFixed(2)+','+sarArr[i].toFixed(6)+','+sar10gArr[i].toFixed(6)+','+eArr[i].toFixed(4)+'\n';});
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv); a.download='dosimetrie_EM.csv'; a.click();
+}
+
+// ── Diélectriques ─────────────────────────────────────────────────────────────
+function switchTab(name){
+  const names=['source','onde','stack','results','diel','therm','valid'];
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',names[i]===name));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  if(name==='diel') switchDielTab('props');
+  if(name==='source') renderSchema();
+  if(name==='therm') runThermal();
+  if(name==='valid') runValidation();
+  if(name==='onde') ondeLambda();
+}
+
+// ── Onde EM (pédagogie) : longueur d'onde λ = c/f et frontière champ proche/lointain ──
+function ondeLambda(){
+  const fEl=document.getElementById('onde-f'), uEl=document.getElementById('onde-fu');
+  if(!fEl||!uEl)return;
+  const f=parseFloat(fEl.value)*parseFloat(uEl.value);
+  const out=document.getElementById('onde-lam-out'), note=document.getElementById('onde-nf-note');
+  if(!f||f<=0){ if(out)out.textContent=''; if(note)note.textContent=''; return; }
+  const c=2.998e8, lam=c/f;
+  const fmtL=x=> x>=1000?(x/1000).toFixed(x/1000<10?2:0)+' km'
+    : x>=1?x.toFixed(2)+' m' : x>=1e-2?(x*100).toFixed(1)+' cm'
+    : x>=1e-3?(x*1000).toFixed(1)+' mm' : x>=1e-6?(x*1e6).toFixed(1)+' µm' : (x*1e9).toFixed(1)+' nm';
+  if(out) out.innerHTML='Longueur d\'onde dans le vide : <b style="color:var(--navy);font-size:15px">λ = '+fmtL(lam)+'</b>';
+  if(note) note.innerHTML='À cette fréquence : frontière champ proche / lointain ≈ <b>'+fmtL(lam/(2*Math.PI))+'</b> de la source.';
+}
+function ondePreset(val,unit){
+  const fEl=document.getElementById('onde-f'), uEl=document.getElementById('onde-fu');
+  if(fEl) fEl.value=val; if(uEl) uEl.value=unit;
+  ondeLambda();
+}
+
+function switchDielTab(name){
+  ['props','cc','prop'].forEach(n=>{
+    const btn=document.getElementById('dtab-'+n);
+    const pnl=document.getElementById('dpanel-'+n);
+    if(btn) btn.classList.toggle('active',n===name);
+    if(pnl) pnl.style.display=n===name?'block':'none';
+  });
+  if(name==='props') plotDiel();
+  else if(name==='cc') plotColeCole();
+  else if(name==='prop') plotProp();
+}
+
+function onDielTissue(){
+  const active=['props','cc','prop'].find(n=>document.getElementById('dtab-'+n)?.classList.contains('active'))||'props';
+  switchDielTab(active);
+}
+
+let cEps=null,cSig=null,cDiff=null;
+function plotDiel(){
+  if(!document.getElementById('diel-tissue'))return;
+  const tname=document.getElementById('diel-tissue').value;
+  const src=document.getElementById('diel-source').value;
+  const tissue=TISSUES[tname]; if(!tissue)return;
+  const ifacTissue=IFAC_DATA[tname];
+  const note=document.getElementById('diel-ifac-note');
+  const diffSec=document.getElementById('diel-diff-section');
+
+  const epsData=[],sigData=[];
+  for(let e=1;e<=11;e+=0.05){
+    const f=Math.pow(10,e),w=2*Math.PI*f;
+    const eps=coleCole(f,tissue);
+    epsData.push({x:e,y:Math.max(1,eps.re)});
+    sigData.push({x:e,y:Math.max(1e-6,-eps.im*w*EPS0+tissue.sig)});
+  }
+
+  let ifacEpsData=[],ifacSigData=[];
+  const showIFAC=(src==='both'||src==='ifac')&&ifacTissue;
+  if(showIFAC){
+    ifacEpsData=ifacTissue.pts.map(p=>({x:Math.log10(p[0]),y:Math.max(1,p[1])}));
+    ifacSigData=ifacTissue.pts.map(p=>({x:Math.log10(p[0]),y:Math.max(1e-6,p[2])}));
+    note.style.display='';
+    note.textContent='Tissus avec données IFAC (★) : comparaison Gabriel 1996 vs IT’IS V5.0';
+  } else { note.style.display='none'; }
+
+  const tickCb=v=>Number.isInteger(v)?(['10Hz','100Hz','1kHz','10kHz','100kHz','1MHz','10MHz','100MHz','1GHz','10GHz','100GHz'][Math.round(v-1)]||''):null;
+  const axX={type:'linear',min:1,max:11,title:{display:true,text:'Fréquence'},ticks:{callback:tickCb,maxTicksLimit:12}};
+
+  const dsEps=[];
+  if(src!=='ifac') dsEps.push({label:'IT’IS V5.0',data:epsData,borderColor:'var(--teal)',backgroundColor:'transparent',borderWidth:2,pointRadius:0,showLine:true,tension:0.2});
+  if(showIFAC) dsEps.push({label:'IFAC (Gabriel 1996)',data:ifacEpsData,borderColor:'var(--gold)',backgroundColor:'transparent',borderWidth:1.5,pointStyle:'cross',pointRadius:ifacEpsData.length<100?4:0,showLine:true,borderDash:[4,2]});
+
+  const dsSig=[];
+  if(src!=='ifac') dsSig.push({label:'IT’IS V5.0',data:sigData,borderColor:'var(--teal)',backgroundColor:'transparent',borderWidth:2,pointRadius:0,showLine:true,tension:0.2});
+  if(showIFAC) dsSig.push({label:'IFAC',data:ifacSigData,borderColor:'var(--gold)',backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,showLine:true,borderDash:[4,2]});
+
+  const ctx1=document.getElementById('diel-eps-chart').getContext('2d');
+  if(cEps) cEps.destroy();
+  cEps=new Chart(ctx1,{type:'scatter',data:{datasets:dsEps},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{font:{size:11},boxWidth:16}},
+               title:{display:true,text:"ε'(f) — "+tname}},
+      scales:{x:axX,y:{type:'logarithmic',title:{display:true,text:"ε'"},
+              ticks:{callback:v=>Number.isInteger(Math.log10(v))?v:null}}}}});
+
+  const ctx2=document.getElementById('diel-sig-chart').getContext('2d');
+  if(cSig) cSig.destroy();
+  cSig=new Chart(ctx2,{type:'scatter',data:{datasets:dsSig},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{font:{size:11},boxWidth:16}},
+               title:{display:true,text:"σ(f) [S/m] — "+tname}},
+      scales:{x:axX,y:{type:'logarithmic',title:{display:true,text:"σ (S/m)"},
+              ticks:{callback:v=>Number.isInteger(Math.log10(v))?v:null}}}}});
+
+  if(showIFAC&&src==='both'){
+    diffSec.style.display='';
+    const diffData=ifacEpsData.map(p=>{
+      const itisP=epsData.find(d=>Math.abs(d.x-p.x)<0.03);
+      if(!itisP)return null;
+      return{x:p.x,y:(itisP.y-p.y)/p.y*100};
+    }).filter(Boolean);
+    const ctx3=document.getElementById('diel-diff-chart').getContext('2d');
+    if(cDiff) cDiff.destroy();
+    cDiff=new Chart(ctx3,{type:'scatter',data:{datasets:[{
+      label:"Δε' IT’IS−IFAC (%)",data:diffData,
+      borderColor:'var(--navy)',backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,showLine:true}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:true,labels:{font:{size:11}}}},
+        scales:{x:axX,y:{title:{display:true,text:"Δε' (%)"},suggestedMin:-50,suggestedMax:50}}}});
+  } else { diffSec.style.display='none'; }
+}
+
+
+// ── Cole-Cole diagram ─────────────────────────────────────────────────────────
+let cCC=null;
+function plotColeCole(){
+  const tname=document.getElementById('diel-tissue').value;
+  const tissue=TISSUES[tname]; if(!tissue)return;
+  const freqs=[];
+  for(let e=1;e<=11;e+=0.04) freqs.push(Math.pow(10,e));
+  const data=freqs.map(f=>{
+    const w=2*Math.PI*f;
+    let re=tissue.ef,im=0;
+    for(const d of tissue.disp){
+      if(!d.del)continue;
+      const wt=w*d.tau,alpha=1-d.alf,mag=Math.pow(wt,alpha),ang=alpha*Math.PI/2;
+      const pr=mag*Math.cos(ang),pi_=mag*Math.sin(ang),D=(1+pr)*(1+pr)+pi_*pi_;
+      re+=d.del*(1+pr)/D; im-=d.del*pi_/D;
+    }
+    im-=tissue.sig/(w*EPS0);
+    return{x:Math.max(0.1,re),y:Math.max(0,-im)};
+  });
+  const ctx=document.getElementById('cc-chart').getContext('2d');
+  if(cCC) cCC.destroy();
+  cCC=new Chart(ctx,{type:'scatter',
+    data:{datasets:[{
+      label:"ε''(ε') — "+tname,
+      data,borderColor:'var(--navy)',backgroundColor:'rgba(26,46,74,0.05)',
+      borderWidth:2,pointRadius:0,showLine:true,tension:0,fill:true}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{font:{size:11},boxWidth:16}}},
+      scales:{
+        x:{type:'logarithmic',title:{display:true,text:"ε' (permittivité relative)"},
+           ticks:{callback:v=>Number.isInteger(Math.log10(v))?v.toExponential(0):null}},
+        y:{type:'logarithmic',title:{display:true,text:"ε'' (pertes diélectriques)"},
+           min:1e-2,ticks:{callback:v=>Number.isInteger(Math.log10(v))?v.toExponential(0):null}}
+      }}});
+  const tbody=document.getElementById('cc-params-body');
+  if(!tbody)return;
+  tbody.innerHTML='';
+  const names=['α (Hz–kHz)','β (kHz–MHz)','δ (~100MHz)','γ (GHz)'];
+  const cols=['#D85A30','#378ADD','#1D9E75','#9F3FAE'];
+  tissue.disp.forEach((d,i)=>{
+    if(!d.del)return;
+    const fc=d.tau>0?1/(2*Math.PI*d.tau):0;
+    const tr=document.createElement('tr');
+    tr.style.borderBottom='1px solid var(--border)';
+    tr.innerHTML='<td style="padding:3px 4px;color:'+cols[i]+';font-weight:700">'+(names[i]||'')+'</td>'+
+      '<td style="padding:3px 4px">'+d.del.toExponential(2)+'</td>'+
+      '<td style="padding:3px 4px">'+fmtTau(d.tau)+'</td>'+
+      '<td style="padding:3px 4px">'+d.alf.toFixed(2)+'</td>'+
+      '<td style="padding:3px 4px">'+fmtFshort(fc)+'</td>';
+    tbody.appendChild(tr);
+  });
+  document.getElementById('cc-einf').textContent=tissue.ef;
+  document.getElementById('cc-sig').textContent=tissue.sig.toExponential(2);
+  document.getElementById('cc-rho').textContent=tissue.density?tissue.density.toFixed(0):'—';
+}
+
+
+// ── Propagation : δs, λn, tan(δ) ─────────────────────────────────────────────
+let cPropDs=null,cPropLn=null;
+function plotProp(){
+  const tname=document.getElementById('diel-tissue').value;
+  const tissue=TISSUES[tname]; if(!tissue)return;
+  const freqs=[];
+  for(let e=1;e<=11;e+=0.05) freqs.push(Math.pow(10,e));
+  const C=3e8;
+  const dsData=[],lnData=[],tanData=[];
+  freqs.forEach(f=>{
+    const w=2*Math.PI*f;
+    const eps=coleCole(f,tissue);
+    const epsp=Math.max(1,eps.re), epspp=Math.max(0,-eps.im);
+    const ratio=epspp/epsp;
+    const alpha_p=w*Math.sqrt(MU0*EPS0*epsp/2)*Math.sqrt(Math.sqrt(1+ratio*ratio)-1);
+    const lf=Math.log10(f);
+    dsData.push({x:lf,y:alpha_p>0?1000/alpha_p:1e6});
+    lnData.push({x:lf,y:C/f/Math.sqrt(epsp)*1000});
+    tanData.push({x:lf,y:ratio});
+  });
+  const tickCb=v=>{const f=Math.pow(10,v);return Number.isInteger(v)?fmtFshort(f):null;};
+  const fRef=parseFloat(document.getElementById('prop-freq')?.value)||2.45e9;
+  const wRef=2*Math.PI*fRef;
+  const epsRef=coleCole(fRef,tissue);
+  const epspR=Math.max(1,epsRef.re),epsppR=Math.max(0,-epsRef.im);
+  const ratioR=epsppR/epspR;
+  const alphaR=wRef*Math.sqrt(MU0*EPS0*epspR/2)*Math.sqrt(Math.sqrt(1+ratioR*ratioR)-1);
+  const betaR=wRef*Math.sqrt(MU0*EPS0*epspR/2)*Math.sqrt(Math.sqrt(1+ratioR*ratioR)+1);
+  const dsR=alphaR>0?1000/alphaR:1e6;
+  const lnR=C/fRef/Math.sqrt(epspR)*1000;
+  const tanR=ratioR;
+  const wrap=document.getElementById('prop-table-wrap');
+  if(wrap) wrap.innerHTML=`<div class="stitle0">Grandeurs à f = <b>${fmtF(fRef)}</b> — <b>${tname}</b></div>
+    <table style="max-width:620px"><thead><tr><th>Grandeur</th><th>Symbole</th><th>Valeur</th><th>Interprétation</th></tr></thead><tbody>
+    <tr><td>Permittivité rel.</td><td>ε'</td><td><b>${epspR.toFixed(2)}</b></td><td>—</td></tr>
+    <tr><td>Pertes diél.</td><td>ε''</td><td><b>${epsppR.toFixed(3)}</b></td><td>—</td></tr>
+    <tr><td>Tangente de pertes</td><td>tan(δ) = ε''/ε'</td><td><b>${tanR.toFixed(4)}</b></td><td>${tanR>1?'Conducteur dominant':'Diélectrique dominant'}</td></tr>
+    <tr><td>Atténuation</td><td>α</td><td><b>${alphaR.toFixed(2)} Np/m</b></td><td>—</td></tr>
+    <tr><td>Épaisseur de peau</td><td>δs = 1/α</td><td><b>${dsR.toFixed(2)} mm</b></td><td>E = E₀/e à δs &nbsp; | &nbsp; ≤3δs : <5% &nbsp; | &nbsp; 5δs : <1%</td></tr>
+    <tr><td>Longueur d'onde libre</td><td>λ₀ = c/f</td><td><b>${(C/fRef*1000).toFixed(1)} mm</b></td><td>—</td></tr>
+    <tr><td>Longueur d'onde norm.</td><td>λn = λ₀/√ε'</td><td><b>${lnR.toFixed(2)} mm</b></td><td>λn/δs = ${(lnR/dsR).toFixed(2)}</td></tr>
+    </tbody></table>`;
+  const ctx1=document.getElementById('prop-ds-chart')?.getContext('2d');
+  if(ctx1){if(cPropDs) cPropDs.destroy();
+    cPropDs=new Chart(ctx1,{type:'scatter',data:{datasets:[{label:'δs (mm)',data:dsData,borderColor:'var(--teal)',backgroundColor:'rgba(13,148,136,0.06)',borderWidth:2,pointRadius:0,showLine:true,tension:0.2,fill:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{font:{size:11}}}},scales:{x:{title:{display:true,text:'log₁₀(f)'},ticks:{callback:tickCb}},y:{type:'logarithmic',title:{display:true,text:'δs (mm)'},ticks:{callback:v=>Number.isInteger(Math.log10(v))?v+'mm':null}}}}});}
+  const ctx2=document.getElementById('prop-ln-chart')?.getContext('2d');
+  if(ctx2){if(cPropLn) cPropLn.destroy();
+    cPropLn=new Chart(ctx2,{type:'scatter',data:{datasets:[{label:'λn (mm)',data:lnData,borderColor:'var(--navy)',backgroundColor:'transparent',borderWidth:2,pointRadius:0,showLine:true,tension:0.2,yAxisID:'y'},{label:'tan(δ)',data:tanData,borderColor:'var(--gold)',backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,showLine:true,borderDash:[5,3],yAxisID:'y2'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{font:{size:11}}}},scales:{x:{title:{display:true,text:'log₁₀(f)'},ticks:{callback:tickCb}},y:{type:'logarithmic',title:{display:true,text:'λn (mm)'},position:'left',ticks:{callback:v=>Number.isInteger(Math.log10(v))?v+'mm':null}},y2:{type:'logarithmic',title:{display:true,text:'tan(δ)'},position:'right',grid:{drawOnChartArea:false},ticks:{callback:v=>Number.isInteger(Math.log10(v))?v:null}}}}});}
+}
+
+// ── Schéma géométrique ────────────────────────────────────────────────────────
+function renderSchema(){
+  if(!document.getElementById('svg-layers'))return;
+  const lp=lastResult?lastResult.r.lp:null;
+  const f=lastResult?lastResult.f:2.45e9;
+  const E0=lastResult?lastResult.E0:10;
+  const srcCat=document.getElementById('src-cat').value;
+  const nearType=document.getElementById('near-type')?.value||'edipole';
+  const stackData=lp?lp:PRESETS[activePreset||'head'].map(l=>({name:l.t,d:l.d/1000,rho:TISSUES[l.t]?TISSUES[l.t].density:1000}));
+  const N=stackData.length;
+  const totalD=stackData.reduce((s,l)=>s+(l.d||l.d),0);
+  const PX=85/totalD;
+  const shapeMap={head:{cx:195,cy:205,rx:0.88,ry:1.15,label:'Coupe coronale — Tête'},trunk:{cx:185,cy:210,rx:1.35,ry:0.82,label:'Coupe transversale — Tronc'},arm:{cx:200,cy:210,rx:0.95,ry:1.05,label:'Coupe transversale — Membre'},eye:{cx:210,cy:210,rx:1.0,ry:0.92,label:'Coupe sagittale — Œil'},breast:{cx:190,cy:210,rx:1.10,ry:1.0,label:'Coupe sagittale — Sein'}};
+  const shape=shapeMap[activePreset]||shapeMap['head'];
+  const{cx,cy}=shape; const BASE_RX=shape.rx,BASE_RY=shape.ry;
+  let radii=[],rCum=totalD;
+  for(let i=0;i<N;i++){radii.push(rCum*PX);rCum-=(stackData[i].d||stackData[i].d);}
+  radii.push(Math.max(0,rCum*PX));
+  const gL=document.getElementById('svg-layers'),gS=document.getElementById('svg-source'),gLb=document.getElementById('svg-labels');
+  gL.innerHTML='';gS.innerHTML='';gLb.innerHTML='';
+  for(let i=0;i<N;i++){
+    const el=document.createElementNS('http://www.w3.org/2000/svg','ellipse');
+    el.setAttribute('cx',cx);el.setAttribute('cy',cy);
+    el.setAttribute('rx',(radii[i]*BASE_RX).toFixed(1));el.setAttribute('ry',(radii[i]*BASE_RY).toFixed(1));
+    el.setAttribute('fill',LCOLORS[i%LCOLORS.length]);el.setAttribute('fill-opacity','0.62');
+    el.setAttribute('stroke',LCOLORS[i%LCOLORS.length]);el.setAttribute('stroke-width','0.8');el.setAttribute('stroke-opacity','0.9');
+    gL.appendChild(el);
+  }
+  if(radii[N]>8){const elC=document.createElementNS('http://www.w3.org/2000/svg','ellipse');elC.setAttribute('cx',cx);elC.setAttribute('cy',cy);elC.setAttribute('rx',(radii[N]*BASE_RX).toFixed(1));elC.setAttribute('ry',(radii[N]*BASE_RY).toFixed(1));elC.setAttribute('fill',LCOLORS[(N-1)%LCOLORS.length]);elC.setAttribute('fill-opacity','0.75');gL.appendChild(elC);}
+  const outerRX=radii[0]*BASE_RX,outerRY=radii[0]*BASE_RY;
+  const lineH=16,yStart=cy-(N-1)*lineH/2,xLabel=cx+outerRX+18;
+  for(let i=0;i<N;i++){
+    const yAnno=yStart+i*lineH;
+    const rMid=Math.max((radii[i]+radii[i+1])/2,radii[0]*0.55);
+    const rxA=rMid*BASE_RX,ryA=rMid*BASE_RY;
+    const dy=yAnno-cy,sinR=Math.abs(dy)/Math.max(ryA,1),cosR=sinR<1?Math.sqrt(1-sinR*sinR):0;
+    const xEdge=cx+rxA*cosR;
+    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',xEdge.toFixed(1));line.setAttribute('y1',yAnno.toFixed(1));
+    line.setAttribute('x2',(xLabel-3).toFixed(1));line.setAttribute('y2',yAnno.toFixed(1));
+    line.setAttribute('stroke',LCOLORS[i%LCOLORS.length]);line.setAttribute('stroke-width','0.9');line.setAttribute('opacity','0.75');
+    gLb.appendChild(line);
+    const dot=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    dot.setAttribute('cx',xEdge.toFixed(1));dot.setAttribute('cy',yAnno.toFixed(1));dot.setAttribute('r','2.5');
+    dot.setAttribute('fill',LCOLORS[i%LCOLORS.length]);dot.setAttribute('opacity','0.95');
+    gLb.appendChild(dot);
+    const d_val=stackData[i].d||stackData[i].d;
+    const dMm=(d_val*1000).toFixed(d_val*1000<2?1:0);
+    const sname=(stackData[i].name||stackData[i].t||'').replace('(Grey Matter)','GM').replace('(White Matter)','WM').replace(' (Cortical)','').replace(' (Cancellous)',' Can.').replace('Cerebrospinal Fluid','CSF').replace('Subcutaneous ','').replace(' (Inflated)','');
+    const txt=document.createElementNS('http://www.w3.org/2000/svg','text');
+    txt.setAttribute('x',(xLabel+2).toFixed(1));txt.setAttribute('y',(yAnno+4).toFixed(1));
+    txt.setAttribute('font-size','11');txt.setAttribute('fill',LCOLORS[i%LCOLORS.length]);
+    txt.setAttribute('font-family','system-ui,sans-serif');txt.setAttribute('font-weight','600');txt.setAttribute('text-anchor','start');
+    txt.textContent=sname+' '+dMm+'mm';
+    gLb.appendChild(txt);
+  }
+  // Label anatomique
+  const lbl=document.createElementNS('http://www.w3.org/2000/svg','text');
+  lbl.setAttribute('x','530');lbl.setAttribute('y','18');lbl.setAttribute('font-size','11');lbl.setAttribute('fill','#aaa');
+  lbl.setAttribute('font-family','system-ui,sans-serif');lbl.setAttribute('text-anchor','end');
+  lbl.textContent=shape.label; gLb.appendChild(lbl);
+  // Source
+  if(srcCat==='ff') drawFarField(gS,cx,cy,outerRX,outerRY);
+  else drawNearField(gS,cx,cy,outerRX,outerRY,nearType);
+  // Légende
+  document.getElementById('schema-legend').innerHTML=stackData.map((l,i)=>{
+    const dv=l.d||l.d; const dMm=(dv*1000).toFixed(dv*1000<2?1:0);
+    return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span style="width:11px;height:11px;border-radius:2px;background:${LCOLORS[i%LCOLORS.length]};display:inline-block;flex-shrink:0"></span><span><b>${l.name||l.t}</b> — ${dMm} mm</span></div>`;
+  }).join('');
+  document.getElementById('schema-hint').style.display=lastResult?'none':'';
+  // Cartographie de l'absorption
+  const mapWrap=document.getElementById('sar-map-wrap');
+  if(mapWrap){
+    if(lastResult){ mapWrap.style.display=''; renderSARMap(lastResult.r); }
+    else mapWrap.style.display='none';
+  }
+}
+
+// ── Cartographie de l'absorption (coupe en profondeur, shading interpolé) ──────
+function jetColor(t){
+  t=Math.max(0,Math.min(1,t));
+  const r=Math.max(0,Math.min(1,1.5-Math.abs(4*t-3)));
+  const g=Math.max(0,Math.min(1,1.5-Math.abs(4*t-2)));
+  const b=Math.max(0,Math.min(1,1.5-Math.abs(4*t-1)));
+  return [Math.round(r*255),Math.round(g*255),Math.round(b*255)];
+}
+let sarMapMode='local';
+function setSarMapMode(m){
+  sarMapMode=m;
+  ['sar-map-mode','sar-map-mode-r'].forEach(id=>{const e=document.getElementById(id); if(e) e.value=m;});
+  if(lastResult){ renderSARMap(lastResult.r,'sar-map'); renderSARMap(lastResult.r,'sar-map-r'); }
+}
+function renderSARMap(r,cid){
+  const cv=document.getElementById(cid||'sar-map'); if(!cv) return;
+  const ctx=cv.getContext('2d'), W=cv.width, H=cv.height, S=W/760;   // S = facteur d'échelle (netteté)
+  ctx.clearRect(0,0,W,H);
+  const padL=44*S, padR=104*S, padT=12*S, padB=30*S;
+  const x0=padL, y0=padT, mapW=W-padL-padR, mapH=H-padT-padB;
+  const sar=(sarMapMode==='10g'&&r.sar10gArr)?r.sar10gArr:r.sarArr;
+  const N=sar.length, sarMax=Math.max(...sar)||1, totalMm=r.zArr[N-1]||1;
+  // bande lissée : canvas offscreen 1×N étiré avec interpolation
+  const off=document.createElement('canvas'); off.width=N; off.height=1;
+  const octx=off.getContext('2d'), img=octx.createImageData(N,1);
+  for(let i=0;i<N;i++){ const c=jetColor(sar[i]/sarMax);
+    img.data[i*4]=c[0]; img.data[i*4+1]=c[1]; img.data[i*4+2]=c[2]; img.data[i*4+3]=255; }
+  octx.putImageData(img,0,0);
+  ctx.imageSmoothingEnabled=true;
+  ctx.drawImage(off,0,0,N,1, x0,y0, mapW,mapH);
+  ctx.strokeStyle='#cbd5e1'; ctx.lineWidth=1*S; ctx.strokeRect(x0,y0,mapW,mapH);
+  // frontières de couches + noms (uniquement si le nom tient dans la couche)
+  const fLay=Math.round(12*S); ctx.textAlign='center';
+  for(let k=0;k<r.lp.length;k++){
+    const xa=x0+(r.zBounds[k]*1000/totalMm)*mapW, xb=x0+(r.zBounds[k+1]*1000/totalMm)*mapW;
+    if(k>0){ ctx.strokeStyle='rgba(255,255,255,.85)'; ctx.lineWidth=1*S; ctx.beginPath(); ctx.moveTo(xa,y0); ctx.lineTo(xa,y0+mapH); ctx.stroke(); }
+    const nm=r.lp[k].name, cx=(xa+xb)/2;
+    ctx.font=fLay+'px system-ui,sans-serif';
+    if(ctx.measureText(nm).width < (xb-xa)-8*S){
+      ctx.lineWidth=3*S; ctx.strokeStyle='rgba(0,0,0,.55)'; ctx.strokeText(nm,cx,y0+fLay+3*S);
+      ctx.fillStyle='#fff'; ctx.fillText(nm,cx,y0+fLay+3*S); }
+  }
+  // axe profondeur
+  const fAx=Math.round(10*S); ctx.font=fAx+'px system-ui,sans-serif';
+  ctx.fillStyle='#64748b'; ctx.strokeStyle='#cbd5e1'; ctx.lineWidth=1*S; ctx.textAlign='center';
+  for(let i=0;i<=5;i++){ const z=totalMm*i/5, x=x0+(z/totalMm)*mapW;
+    ctx.beginPath(); ctx.moveTo(x,y0+mapH); ctx.lineTo(x,y0+mapH+4*S); ctx.stroke();
+    ctx.fillText(z.toFixed(z<10?1:0),x,y0+mapH+16*S); }
+  ctx.fillText('profondeur z (mm)',x0+mapW/2,H-4*S);
+  // flèche onde incidente
+  ctx.strokeStyle='#1a2e4a'; ctx.fillStyle='#1a2e4a'; ctx.lineWidth=1.5*S;
+  const ym=y0+mapH/2;
+  ctx.beginPath(); ctx.moveTo(8*S,ym); ctx.lineTo(x0-7*S,ym); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x0-7*S,ym); ctx.lineTo(x0-14*S,ym-5*S); ctx.lineTo(x0-14*S,ym+5*S); ctx.closePath(); ctx.fill();
+  ctx.save(); ctx.translate(13*S,ym); ctx.rotate(-Math.PI/2); ctx.textAlign='center'; ctx.font=fAx+'px system-ui,sans-serif'; ctx.fillText('onde',0,-3*S); ctx.restore();
+  // barre de couleur + unité (au-dessus, pas de coupure)
+  const cbX=x0+mapW+26*S, cbW=14*S;
+  for(let y=0;y<mapH;y++){ const c=jetColor(1-y/mapH);
+    ctx.fillStyle='rgb('+c[0]+','+c[1]+','+c[2]+')'; ctx.fillRect(cbX,y0+y,cbW,1); }
+  ctx.strokeStyle='#cbd5e1'; ctx.lineWidth=1*S; ctx.strokeRect(cbX,y0,cbW,mapH);
+  ctx.fillStyle='#475569'; ctx.textAlign='left'; ctx.font=fAx+'px system-ui,sans-serif';
+  ctx.fillText('W/kg',cbX,y0-4*S);
+  ctx.fillText(sarMax.toFixed(sarMax<1?3:2),cbX+cbW+5*S,y0+fAx*0.9);
+  ctx.fillText('0',cbX+cbW+5*S,y0+mapH);
+}
+
+function drawFarField(g,cx,cy,rx,ry){
+  // Décaler la source selon l'espace disponible à gauche
+  // cx - rx = bord gauche de l'ellipse. On veut les flèches dans [10, cx-rx-10]
+  const xEdge = cx - rx;
+  const arrowLen = Math.min(40, Math.max(20, xEdge - 15));
+  const startX = Math.max(8, xEdge - arrowLen - 8);
+  const endX = xEdge - 10;
+  const halfH = Math.min(ry * 0.82, 85);
+  const nW = 5;
+  for(let i=0;i<nW;i++){
+    const y = cy - halfH + i * halfH * 2 / (nW - 1);
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1', startX); line.setAttribute('y1', y);
+    line.setAttribute('x2', endX);   line.setAttribute('y2', y);
+    line.setAttribute('stroke','#378ADD'); line.setAttribute('stroke-width','1.5');
+    line.setAttribute('marker-end','url(#arrow-wave)');
+    g.appendChild(line);
+  }
+  // Ligne verticale de front d'onde
+  const vline = document.createElementNS('http://www.w3.org/2000/svg','line');
+  vline.setAttribute('x1', startX); vline.setAttribute('y1', cy - halfH - 5);
+  vline.setAttribute('x2', startX); vline.setAttribute('y2', cy + halfH + 5);
+  vline.setAttribute('stroke','#378ADD'); vline.setAttribute('stroke-width','1.2');
+  vline.setAttribute('opacity','0.5');
+  g.appendChild(vline);
+  // Labels
+  const lbl1 = document.createElementNS('http://www.w3.org/2000/svg','text');
+  lbl1.setAttribute('x', startX + 2); lbl1.setAttribute('y', cy - halfH - 10);
+  lbl1.setAttribute('font-size','11'); lbl1.setAttribute('fill','#378ADD');
+  lbl1.setAttribute('font-weight','600'); lbl1.textContent = 'Onde plane';
+  g.appendChild(lbl1);
+  const lbl2 = document.createElementNS('http://www.w3.org/2000/svg','text');
+  lbl2.setAttribute('x', startX + 2); lbl2.setAttribute('y', cy + halfH + 20);
+  lbl2.setAttribute('font-size','11'); lbl2.setAttribute('fill','#378ADD');
+  lbl2.setAttribute('font-weight','600'); lbl2.textContent = 'k →';
+  g.appendChild(lbl2);
+}
+
+function drawNearField(g,cx,cy,rx,ry,type){
+  // Position source: coller au bord gauche de l'ellipse avec un petit gap
+  const xEdge = cx - rx;
+  const srcX = Math.max(22, xEdge - 20);
+  const srcY = cy;
+  // Flèche vers l'ellipse
+  const arrX2 = xEdge - 8;
+
+  if(type==='edipole'){
+    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',srcX); line.setAttribute('y1',srcY-20);
+    line.setAttribute('x2',srcX); line.setAttribute('y2',srcY+20);
+    line.setAttribute('stroke','#D85A30'); line.setAttribute('stroke-width','3');
+    g.appendChild(line);
+    const arr=document.createElementNS('http://www.w3.org/2000/svg','line');
+    arr.setAttribute('x1',srcX+4); arr.setAttribute('y1',srcY);
+    arr.setAttribute('x2',arrX2);  arr.setAttribute('y2',srcY);
+    arr.setAttribute('stroke','#D85A30'); arr.setAttribute('stroke-width','1.5');
+    arr.setAttribute('marker-end','url(#arrow-red)');
+    g.appendChild(arr);
+    const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',srcX); t.setAttribute('y',srcY-26);
+    t.setAttribute('font-size','10'); t.setAttribute('fill','#D85A30');
+    t.setAttribute('text-anchor','middle'); t.setAttribute('font-weight','600');
+    t.textContent='Dipôle él.'; g.appendChild(t);
+  } else if(type==='mdipole'){
+    const c=document.createElementNS('http://www.w3.org/2000/svg','ellipse');
+    c.setAttribute('cx',srcX); c.setAttribute('cy',srcY);
+    c.setAttribute('rx','7'); c.setAttribute('ry','16');
+    c.setAttribute('fill','none'); c.setAttribute('stroke','#1D9E75');
+    c.setAttribute('stroke-width','2.5'); g.appendChild(c);
+    const arr=document.createElementNS('http://www.w3.org/2000/svg','line');
+    arr.setAttribute('x1',srcX+7); arr.setAttribute('y1',srcY);
+    arr.setAttribute('x2',arrX2);  arr.setAttribute('y2',srcY);
+    arr.setAttribute('stroke','#1D9E75'); arr.setAttribute('stroke-width','1.5');
+    arr.setAttribute('marker-end','url(#arrow-wave)'); g.appendChild(arr);
+    const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',srcX); t.setAttribute('y',srcY-22);
+    t.setAttribute('font-size','10'); t.setAttribute('fill','#1D9E75');
+    t.setAttribute('text-anchor','middle'); t.setAttribute('font-weight','600');
+    t.textContent='Dipôle mag.'; g.appendChild(t);
+  } else {
+    const c=document.createElementNS('http://www.w3.org/2000/svg','ellipse');
+    c.setAttribute('cx',srcX); c.setAttribute('cy',srcY);
+    c.setAttribute('rx','8'); c.setAttribute('ry','20');
+    c.setAttribute('fill','none'); c.setAttribute('stroke','#1D9E75');
+    c.setAttribute('stroke-width','2.5'); g.appendChild(c);
+    const arr=document.createElementNS('http://www.w3.org/2000/svg','line');
+    arr.setAttribute('x1',srcX+8); arr.setAttribute('y1',srcY);
+    arr.setAttribute('x2',arrX2);  arr.setAttribute('y2',srcY);
+    arr.setAttribute('stroke','#1D9E75'); arr.setAttribute('stroke-width','1.5');
+    arr.setAttribute('marker-end','url(#arrow-wave)'); g.appendChild(arr);
+    const tH=document.createElementNS('http://www.w3.org/2000/svg','text');
+    tH.setAttribute('x',srcX-14); tH.setAttribute('y',srcY+4);
+    tH.setAttribute('font-size','10'); tH.setAttribute('fill','#1D9E75');
+    tH.setAttribute('font-weight','700'); tH.textContent='H'; g.appendChild(tH);
+    const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',srcX); t.setAttribute('y',srcY-26);
+    t.setAttribute('font-size','10'); t.setAttribute('fill','#1D9E75');
+    t.setAttribute('text-anchor','middle'); t.setAttribute('font-weight','600');
+    t.textContent='Boucle (NFC)'; g.appendChild(t);
+  }
+}
+
+// ── Thermique ─────────────────────────────────────────────────────────────────
+let cThTime=null,cThSpace=null;
+
+function updateDC(){
+  const ton=parseFloat(document.getElementById('th-ton')?.value)||100;
+  const period=parseFloat(document.getElementById('th-period')?.value)||1000;
+  const DC=Math.min(100,ton/period*100);
+  const el=document.getElementById('th-dc-display');
+  if(el) el.textContent='DC = '+DC.toFixed(2)+'%';
+  return DC;
+}
+
+function onThMode(){
+  const mode=document.getElementById('th-mode')?.value||'continu';
+  const isPulse=mode==='pulse';
+  const tonP=document.getElementById('th-ton')?.parentElement;
+  const perP=document.getElementById('th-period')?.parentElement;
+  if(tonP) tonP.style.opacity=isPulse?'1':'0.4';
+  if(perP) perP.style.opacity=isPulse?'1':'0.4';
+}
+
+// Pré-remplit ω_b et τ depuis le tissu sélectionné, puis relance le calcul
+function onThTissue(){
+  const sel=document.getElementById('th-tissue'); if(!sel)return;
+  const tp=thermProps(sel.value);
+  document.getElementById('th-wb').value=tp.omega.toPrecision(3);
+  const g=thermGamma(tp);
+  if(g>0) document.getElementById('th-tau').value=Math.round(1/g);
+  const hint=document.getElementById('th-tissue-hint');
+  if(hint) hint.textContent='k='+tp.k+' · c='+tp.c+' · ρ='+Math.round(tp.rho)+' · w='+tp.w+' mL/min/kg'+(tp.tabulated?'':' (défaut)');
+  runThermal();
+}
+
+function useSARfromTMM(){
+  if(!lastResult||!document.getElementById('th-sar'))return;
+  const r=lastResult.r;
+  // pic de SAR local et tissu correspondant
+  let pIdx=0,pVal=-1;
+  for(let i=0;i<r.sarArr.length;i++){ if(r.sarArr[i]>pVal){pVal=r.sarArr[i];pIdx=i;} }
+  document.getElementById('th-sar').value=pVal.toFixed(4);
+  const zm=r.zArr[pIdx]/1000;
+  let li=r.lp.length-1;
+  for(let ii=0;ii<r.lp.length;ii++){ if(zm<=r.zBounds[ii+1]+1e-12){li=ii;break;} }
+  const tName=r.lp[li] && r.lp[li].name;
+  document.getElementById('th-sar-hint').textContent='SAR pic TMM ('+(tName||'?')+') à '+fmtF(lastResult.f);
+  const sel=document.getElementById('th-tissue');
+  if(sel && tName){ sel.value=tName; onThTissue(); return; }
+  runThermal();
+}
+
+function loadScenario(name){
+  if(!document.getElementById('th-sar'))return;
+  const presets={
+    icnirp:{sar:0.478,ton:100,period:100,mode:'continu',tissue:'Brain (Grey Matter)',tend:30,hint:'Réf. ICNIRP 1998 — E=61 V/m @2.45GHz, empilement tête TMM'},
+  };
+  const p=presets[name]; if(!p)return;
+  document.getElementById('th-sar').value=p.sar;
+  document.getElementById('th-mode').value=p.mode;
+  document.getElementById('th-ton').value=p.ton;
+  document.getElementById('th-period').value=p.period;
+  document.getElementById('th-tend').value=p.tend;
+  const sel=document.getElementById('th-tissue');
+  if(sel && p.tissue){ sel.value=p.tissue; }
+  document.getElementById('th-sar-hint').textContent=p.hint;
+  updateDC(); onThTissue();
+}
+
+function runThermal(){
+  if(!document.getElementById('th-sar'))return;
+  const SAR_input=parseFloat(document.getElementById('th-sar').value)||4;
+  const mode=document.getElementById('th-mode')?.value||'continu';
+  const ton_ms=parseFloat(document.getElementById('th-ton')?.value)||100;
+  const period_ms=parseFloat(document.getElementById('th-period')?.value)||1000;
+  const DC_pct=mode==='pulse'?Math.min(100,ton_ms/period_ms*100):100;
+  const DC=DC_pct/100;
+  const SAR=SAR_input*DC;
+  // Propriétés thermiques du tissu sélectionné
+  const tissue=document.getElementById('th-tissue')?.value||'Muscle';
+  const tp=thermProps(tissue);
+  const c=tp.c;
+  // ω_b éditable (pré-rempli depuis le tissu) ; γ = ω_b ρ_b c_b /(ρ c) [1/s]
+  const wbField=parseFloat(document.getElementById('th-wb').value);
+  const omega=isNaN(wbField)?tp.omega:wbField;
+  const gamma=omega*RHO_B*C_B/(tp.rho*c);
+  const tau=parseFloat(document.getElementById('th-tau').value)||(gamma>0?1/gamma:1e9);
+  const tend=(parseFloat(document.getElementById('th-tend').value)||30)*60;
+  const dt=1.0,Nt=Math.round(tend/dt)+1;
+  const t=[]; for(let i=0;i<Nt;i++) t.push(i*dt);
+  // ΔT(t) — formulation perturbative (métabolisme & perfusion basale supposés à l'équilibre à t=0)
+  const T0=[0]; for(let n=0;n<Nt-1;n++) T0.push(T0[n]+dt*SAR/c);                                  // adiabatique
+  const T1=[0]; for(let n=0;n<Nt-1;n++) T1.push(T1[n]+dt*(SAR/c-T1[n]/tau));                       // lumped τ
+  const T3=[0],T3inf=gamma>0?(SAR/c)/gamma:T0[Nt-1]; for(let n=0;n<Nt-1;n++) T3.push(T3[n]+dt*(SAR/c-gamma*T3[n])); // Pennes 0D
+  const step=Math.max(1,Math.round(Nt/200));
+  const tLbl=t.filter((_,i)=>i%step===0).map(v=>(v/60).toFixed(1));
+  const models=[
+    {id:'th-m0',data:T0,label:'Adiabatique',color:'#888'},
+    {id:'th-m1',data:T1,label:'Lumped τ='+Math.round(tau)+'s',color:'var(--blue)'},
+    {id:'th-m3',data:T3,label:'Pennes 0D ('+tissue+')',color:'var(--gold)'},
+  ];
+  const datasets=[];
+  models.forEach(m=>{
+    if(!document.getElementById(m.id)?.checked)return;
+    datasets.push({label:m.label,data:m.data.filter((_,i)=>i%step===0),borderColor:m.color,backgroundColor:'transparent',borderWidth:2,pointRadius:0,tension:0.1});
+  });
+  // Pennes continu pour comparaison si mode pulsé
+  if(mode==='pulse'){
+    const T3cont=[0];
+    for(let n=0;n<Nt-1;n++) T3cont.push(T3cont[n]+dt*(SAR_input/c-gamma*T3cont[n]));
+    const T3inf_cont=(SAR_input/c)/gamma;
+    const markerStep=Math.max(1,Math.round(120/dt/step));
+    datasets.push({
+      label:'Pennes continu (DC=100%, palier='+T3inf_cont.toFixed(2)+'°C)',
+      data:T3cont.filter((_,i)=>i%step===0),
+      borderColor:'var(--navy)',backgroundColor:'var(--navy)',
+      borderWidth:1.5,
+      pointRadius:T3cont.filter((_,i)=>i%step===0).map((_,i)=>i%markerStep===0?5:0),
+      pointStyle:'triangle',pointBorderColor:'var(--navy)',
+      tension:0.1,borderDash:[8,4]
+    });
+  }
+  datasets.push({label:'ΔT=1°C (réf. sensation / corps entier)',data:Array(tLbl.length).fill(1),borderColor:'#E24B4A',borderDash:[6,4],borderWidth:1.5,pointRadius:0,tension:0});
+  datasets.push({label:'ΔT=2°C (local tête/tronc, ICNIRP 2020)',data:Array(tLbl.length).fill(2),borderColor:'var(--gold2)',borderDash:[3,3],borderWidth:1.5,pointRadius:0,tension:0});
+  datasets.push({label:'ΔT=5°C (local membres, ICNIRP 2020)',data:Array(tLbl.length).fill(5),borderColor:'#9F3FAE',borderDash:[2,3],borderWidth:1,pointRadius:0,tension:0});
+  const idx15=Math.min(Math.round(15*60/dt),Nt-1);
+  const T3_15=T3[idx15],T3_inf=T3inf;
+  document.getElementById('th-metrics').innerHTML=
+    '<div class="metric"><div class="mlbl">SAR effectif</div><div class="mval">'+(SAR_input*DC).toFixed(4)+'<span class="munit">W/kg</span></div></div>'+
+    '<div class="metric"><div class="mlbl">ΔT Pennes @15min</div><div class="mval">'+T3_15.toFixed(3)+'<span class="munit">°C</span></div></div>'+
+    '<div class="metric"><div class="mlbl">ΔT Pennes palier</div><div class="mval">'+T3_inf.toFixed(3)+'<span class="munit">°C</span></div></div>'+
+    '<div class="metric"><div class="mlbl">τ thermique (1/γ)</div><div class="mval">'+(gamma>0?Math.round(1/gamma):'∞')+'<span class="munit">s</span></div></div>'+
+    '<div class="metric"><div class="mlbl">Duty cycle</div><div class="mval">'+DC_pct.toFixed(2)+'<span class="munit">%</span></div></div>';
+  const warn=document.getElementById('th-warn');
+  if(T3_inf>2){warn.style.display='block';warn.style.background='';warn.style.color='';warn.textContent='⚠ ΔT palier Pennes = '+T3_inf.toFixed(2)+'°C dépasse le seuil local tête/tronc ICNIRP 2020 (2°C)'+(DC<1?' — duty cycle '+(DC*100).toFixed(1)+'%':'')+'. Note : seuil membres = 5°C.';}
+  else if(T3_inf>1){warn.style.display='block';warn.style.background='var(--gold-light)';warn.style.color='var(--gold2)';warn.textContent='⚠ ΔT palier = '+T3_inf.toFixed(2)+'°C — entre 1°C et 2°C : sous le seuil local tête/tronc ICNIRP 2020, à surveiller.';}
+  else warn.style.display='none';
+  const pulseNote=document.getElementById('th-pulse-note');
+  if(pulseNote) pulseNote.style.display=mode==='pulse'?'':'none';
+  // Échelle Y : auto sur les seules courbes affichées (les seuils ne dilatent plus
+  // l'axe), ou valeur fixée à la main via le champ « Max Y ».
+  const shownMax=Math.max(0.02,
+    (document.getElementById('th-m0')?.checked?T0[T0.length-1]:0),
+    (document.getElementById('th-m1')?.checked?T1[T1.length-1]:0),
+    (document.getElementById('th-m3')?.checked?T3[T3.length-1]:0));
+  const ymaxField=parseFloat(document.getElementById('th-ymax')?.value);
+  const yMax=(ymaxField>0)?ymaxField:shownMax*1.15;
+  const ctx=document.getElementById('th-time-chart').getContext('2d');
+  if(cThTime) cThTime.destroy();
+  cThTime=new Chart(ctx,{type:'line',data:{labels:tLbl,datasets},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{font:{size:11},boxWidth:18}},
+        tooltip:{callbacks:{label:c=>c.dataset.label+' : '+(+c.parsed.y).toFixed(3)+' °C'}}},
+      scales:{x:{title:{display:true,text:'Temps (min)'},ticks:{maxTicksLimit:12}},
+              y:{title:{display:true,text:'ΔT (°C)'},beginAtZero:true,min:0,max:yMax}}}});
+  runThermal1D();
+  renderThermalMap();
+}
+
+// ── Cartographie thermique 2D : ΔT(z, t) (Pennes 1D multicouche, grille grossière) ──
+function renderThermalMap(){
+  const cv=document.getElementById('th-map'), wrap=document.getElementById('th-map-wrap');
+  if(!cv||!wrap) return;
+  if(!lastResult){ wrap.style.display='none'; return; }
+  wrap.style.display='';
+  const r=lastResult.r;
+  const mode=document.getElementById('th-mode')?.value||'continu';
+  const ton=parseFloat(document.getElementById('th-ton')?.value)||100;
+  const period=parseFloat(document.getElementById('th-period')?.value)||1000;
+  const DC=mode==='pulse'?Math.min(1,ton/period):1;
+  const SAR_in=parseFloat(document.getElementById('th-sar')?.value)||4;
+  const h=parseFloat(document.getElementById('th-h')?.value), hConv=isNaN(h)?8:h;
+  const tend=(parseFloat(document.getElementById('th-tend')?.value)||30)*60;
+  const totalMm=r.zArr[r.zArr.length-1]||1, totalD=totalMm/1000;
+  // grille spatiale grossière (carte illustrative → rapidité)
+  const Nz=140, dz=totalD/(Nz-1);
+  const kA=[],cA=[],aA=[],gA=[],sarZ=[];
+  const sarPic=Math.max(...r.sarArr)||1, norm=SAR_in/sarPic*DC;
+  for(let i=0;i<Nz;i++){
+    const zm=i*dz*1000;
+    let li=r.lp.length-1; for(let j=0;j<r.lp.length;j++){ if(i*dz<=r.zBounds[j+1]+1e-12){li=j;break;} }
+    const tp=thermProps(r.lp[li] && r.lp[li].name);
+    kA[i]=tp.k; cA[i]=tp.c; aA[i]=tp.k/(tp.rho*tp.c); gA[i]=tp.omega*RHO_B*C_B/(tp.rho*tp.c);
+    const idx=Math.min(r.sarArr.length-1,Math.round(zm/totalMm*(r.sarArr.length-1)));
+    sarZ[i]=r.sarArr[idx]*norm;
+  }
+  const aMax=Math.max(...aA), dt=Math.min(0.5,0.8*dz*dz/(2*aMax)), Nt=Math.max(2,Math.round(tend/dt)+1);
+  const Ncol=Math.min(180,Nt), colEvery=Math.max(1,Math.floor((Nt-1)/(Ncol-1)));
+  const cols=[]; let T=new Array(Nz).fill(0), Tmax=1e-6;
+  for(let n=0;n<Nt;n++){
+    if(n%colEvery===0||n===Nt-1){ cols.push(T.slice()); for(let i=0;i<Nz;i++) if(T[i]>Tmax) Tmax=T[i]; }
+    if(n===Nt-1) break;
+    const Tn=T.slice();
+    for(let i=1;i<Nz-1;i++){ const d2=(T[i+1]-2*T[i]+T[i-1])/(dz*dz); Tn[i]=T[i]+dt*(aA[i]*d2+sarZ[i]/cA[i]-gA[i]*T[i]); }
+    const Tg=T[1]-2*dz*hConv/kA[0]*T[0], d20=(T[1]-2*T[0]+Tg)/(dz*dz);
+    Tn[0]=T[0]+dt*(aA[0]*d20+sarZ[0]/cA[0]-gA[0]*T[0]); Tn[Nz-1]=0; T=Tn;
+  }
+  // dessin
+  const ctx=cv.getContext('2d'), W=cv.width, H=cv.height, S=W/760;
+  ctx.clearRect(0,0,W,H);
+  const padL=52*S,padR=104*S,padT=24*S,padB=30*S, x0=padL,y0=padT,mapW=W-padL-padR,mapH=H-padT-padB;
+  const NC=cols.length;
+  const off=document.createElement('canvas'); off.width=NC; off.height=Nz;
+  const octx=off.getContext('2d'), img=octx.createImageData(NC,Nz);
+  for(let c=0;c<NC;c++){ const Tc=cols[c]; for(let row=0;row<Nz;row++){
+    const cc=jetColor(Tc[row]/Tmax), p=(row*NC+c)*4; img.data[p]=cc[0];img.data[p+1]=cc[1];img.data[p+2]=cc[2];img.data[p+3]=255; } }
+  octx.putImageData(img,0,0);
+  ctx.imageSmoothingEnabled=true;
+  ctx.drawImage(off,0,0,NC,Nz, x0,y0, mapW,mapH);
+  ctx.strokeStyle='#cbd5e1'; ctx.lineWidth=1*S; ctx.strokeRect(x0,y0,mapW,mapH);
+  // frontières de couches (horizontales) + noms
+  const fLay=Math.round(11*S); ctx.font=fLay+'px system-ui,sans-serif'; ctx.textAlign='left';
+  for(let k=0;k<r.lp.length;k++){
+    const ya=y0+(r.zBounds[k]*1000/totalMm)*mapH, yb=y0+(r.zBounds[k+1]*1000/totalMm)*mapH;
+    if(k>0){ ctx.strokeStyle='rgba(255,255,255,.8)'; ctx.lineWidth=1*S; ctx.beginPath(); ctx.moveTo(x0,ya); ctx.lineTo(x0+mapW,ya); ctx.stroke(); }
+    if(yb-ya>fLay+5*S){ const nm=r.lp[k].name;
+      ctx.lineWidth=3*S; ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.strokeText(nm,x0+6*S,(ya+yb)/2+fLay*0.35);
+      ctx.fillStyle='#fff'; ctx.fillText(nm,x0+6*S,(ya+yb)/2+fLay*0.35); }
+  }
+  // axes
+  const fAx=Math.round(10*S); ctx.font=fAx+'px system-ui,sans-serif'; ctx.fillStyle='#64748b'; ctx.strokeStyle='#cbd5e1';
+  ctx.textAlign='center';
+  for(let i=0;i<=6;i++){ const tt=tend/60*i/6, x=x0+(i/6)*mapW;
+    ctx.beginPath(); ctx.moveTo(x,y0+mapH); ctx.lineTo(x,y0+mapH+4*S); ctx.stroke();
+    ctx.fillText(tt.toFixed(tt<10?1:0),x,y0+mapH+16*S); }
+  ctx.fillText('temps (min)',x0+mapW/2,H-4*S);
+  ctx.textAlign='right';
+  for(let i=0;i<=4;i++){ const zz=totalMm*i/4, y=y0+(i/4)*mapH;
+    ctx.beginPath(); ctx.moveTo(x0-4*S,y); ctx.lineTo(x0,y); ctx.stroke();
+    ctx.fillText(zz.toFixed(zz<10?1:0),x0-6*S,y+fAx*0.35); }
+  ctx.save(); ctx.translate(13*S,y0+mapH/2); ctx.rotate(-Math.PI/2); ctx.textAlign='center'; ctx.fillText('profondeur z (mm)',0,0); ctx.restore();
+  // colorbar
+  const cbX=x0+mapW+26*S, cbW=14*S;
+  for(let y=0;y<mapH;y++){ const cc=jetColor(1-y/mapH); ctx.fillStyle='rgb('+cc[0]+','+cc[1]+','+cc[2]+')'; ctx.fillRect(cbX,y0+y,cbW,1); }
+  ctx.strokeStyle='#cbd5e1'; ctx.lineWidth=1*S; ctx.strokeRect(cbX,y0,cbW,mapH);
+  ctx.fillStyle='#475569'; ctx.textAlign='left'; ctx.font=fAx+'px system-ui,sans-serif';
+  ctx.fillText('ΔT °C',cbX-2*S,y0-6*S);
+  ctx.fillText(Tmax.toFixed(Tmax<1?3:2),cbX+cbW+5*S,y0+fAx*0.9);
+  ctx.fillText('0',cbX+cbW+5*S,y0+mapH);
+}
+
+function runThermal1D(){
+  if(!document.getElementById('th-tslice'))return;
+  if(!lastResult){document.getElementById('th-note').style.display='';return;}
+  document.getElementById('th-note').style.display='none';
+  const r=lastResult.r;
+  const mode_1d=document.getElementById('th-mode')?.value||'continu';
+  const ton_1d=parseFloat(document.getElementById('th-ton')?.value)||100;
+  const period_1d=parseFloat(document.getElementById('th-period')?.value)||1000;
+  const DC=mode_1d==='pulse'?Math.min(1,ton_1d/period_1d):1;
+  const t_slice=(parseInt(document.getElementById('th-tslice').value)||15)*60;
+  const SAR_input_th=parseFloat(document.getElementById('th-sar').value)||4;
+  const h=parseFloat(document.getElementById('th-h')?.value); // coeff. convection surface
+  const hConv=isNaN(h)?8:h;
+  const sarPicTMM=Math.max(...r.sarArr);
+  const normFactor=sarPicTMM>0?SAR_input_th/sarPicTMM:1;
+  const sarZ=r.sarArr.map(s=>s*normFactor*DC);
+  const zArr=r.zArr;
+  const Nz=zArr.length;
+  const dz=(zArr[Nz-1]-zArr[0])/(Nz-1)/1000;
+  // Propriétés thermiques par nœud, mappées sur les couches de l'empilement TMM
+  const kArr=new Array(Nz),cArr=new Array(Nz),aArr=new Array(Nz),gArr=new Array(Nz);
+  for(let i=0;i<Nz;i++){
+    const zm=zArr[i]/1000;
+    let li=r.lp.length-1;
+    for(let ii=0;ii<r.lp.length;ii++){ if(zm<=r.zBounds[ii+1]+1e-12){li=ii;break;} }
+    const tpz=thermProps(r.lp[li] && r.lp[li].name);
+    kArr[i]=tpz.k; cArr[i]=tpz.c;
+    aArr[i]=tpz.k/(tpz.rho*tpz.c);                 // diffusivité thermique [m²/s]
+    gArr[i]=tpz.omega*RHO_B*C_B/(tpz.rho*tpz.c);   // perte perfusionnelle [1/s]
+  }
+  const aMax=Math.max(...aArr);
+  const dt_stab=dz*dz/(2*aMax);
+  const dt=Math.min(0.5,dt_stab*0.8);
+  const Nt=Math.round(t_slice/dt)+1;
+  let T=new Array(Nz).fill(0);
+  for(let n=0;n<Nt-1;n++){
+    const Tnew=T.slice();
+    // Intérieur : conduction (α propre au nœud) + source RF − perfusion
+    for(let i=1;i<Nz-1;i++){
+      const d2T=(T[i+1]-2*T[i]+T[i-1])/(dz*dz);
+      Tnew[i]=T[i]+dt*(aArr[i]*d2T+sarZ[i]/cArr[i]-gArr[i]*T[i]);
+    }
+    // Surface z=0 : convection peau↔air (Robin) via nœud fantôme  k ∂T/∂z = h·T_s
+    const Tghost=T[1]-2*dz*hConv/kArr[0]*T[0];
+    const d2T0=(T[1]-2*T[0]+Tghost)/(dz*dz);
+    Tnew[0]=T[0]+dt*(aArr[0]*d2T0+sarZ[0]/cArr[0]-gArr[0]*T[0]);
+    // Bord profond : température de cœur imposée (ΔT=0)
+    Tnew[Nz-1]=0;
+    T=Tnew;
+  }
+  // Échelle Y : auto sur les courbes (ΔT et SAR/10), sans la ligne de seuil ; ou valeur manuelle.
+  const dataMaxZ=Math.max(0.02,Math.max(...T),Math.max(...sarZ)/10);
+  const ymaxZField=parseFloat(document.getElementById('th-ymax-z')?.value);
+  const yMaxZ=(ymaxZField>0)?ymaxZField:dataMaxZ*1.15;
+  const ctx=document.getElementById('th-space-chart').getContext('2d');
+  if(cThSpace) cThSpace.destroy();
+  cThSpace=new Chart(ctx,{type:'scatter',
+    data:{datasets:[
+      {label:'ΔT(z)',data:zArr.map((z,i)=>({x:z,y:T[i]})),borderColor:'var(--gold)',backgroundColor:'rgba(217,119,6,0.07)',borderWidth:2,pointRadius:0,showLine:true,tension:0.2,fill:true},
+      {label:'SAR(z)/10 norm. (pic='+SAR_input_th.toFixed(2)+'W/kg)',data:zArr.map((z,i)=>({x:z,y:sarZ[i]/10})),borderColor:'var(--teal)',backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,showLine:true,tension:0.2,borderDash:[5,3]},
+      {label:'Seuil 1°C',data:[{x:0,y:1},{x:zArr[Nz-1],y:1}],borderColor:'#E24B4A',borderWidth:1,pointRadius:0,showLine:true,borderDash:[4,3]},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{font:{size:11},boxWidth:16}}},
+      scales:{x:{type:'linear',title:{display:true,text:'Profondeur z (mm)'},ticks:{maxTicksLimit:14}},
+              y:{title:{display:true,text:'ΔT (°C) ou SAR/10'},beginAtZero:true,min:0,max:yMaxZ}}}});
+}
+
+// ── Validation : moteur TMM vs solution analytique exacte (calcul live) ──────
+// Référence analytique exacte (Fresnel + onde plane à pertes) pour une monocouche
+// semi-infinie, calculée indépendamment du moteur TMM. E_inc = 19,41 V/m rms.
+const VALID_EINC=19.41;
+const VALID_GRD=[['|R| réflexion','R',''],['SAR surface','SAR',' W/kg'],['δ pénétration','delta',' mm']];
+function _validCase(name,f){
+  const ETA0=Math.sqrt(MU0/EPS0), C0=1/Math.sqrt(MU0*EPS0);
+  const t=TISSUES[name], w=2*Math.PI*f;
+  const eps=coleCole(f,t), se=csqrt(eps);
+  const eta1=cdiv({re:ETA0,im:0},se);
+  const G=cdiv(csub(eta1,{re:ETA0,im:0}),cadd(eta1,{re:ETA0,im:0}));
+  const Et=cmul({re:VALID_EINC,im:0},{re:1+G.re,im:G.im});
+  const sigEff=-eps.im*w*EPS0;
+  const delta_mm=1000/(-(w/C0)*se.im);
+  const ref={R:cabs(G), SAR:sigEff*cabs(Et)*cabs(Et)/t.density, delta:delta_mm};
+  // Épaisseur de dalle adaptative (~8 δ) : reste semi-infinie ET la grille (600 pts)
+  // résout la décroissance, même à haute fréquence (δ ~ mm).
+  const dslab=Math.min(400, Math.max(20, 8*delta_mm));
+  const r=runTMM(f,VALID_EINC,[{t:name,d:dslab}]);
+  // δ outil : point où |E| = |E_surf|/e, interpolé linéairement entre deux points
+  let dmm=null, e0=r.eArr[0], tgt=e0/Math.E;
+  for(let i=1;i<r.zArr.length;i++){
+    if(r.eArr[i]<=tgt){ const y0=r.eArr[i-1],y1=r.eArr[i];
+      const frac=(y0-y1)!==0?(y0-tgt)/(y0-y1):0;
+      dmm=r.zArr[i-1]+frac*(r.zArr[i]-r.zArr[i-1]); break; }
+  }
+  const tool={R:cabs(r.R), SAR:r.sarArr[0], delta:dmm};
+  return {ref,tool,sigEff,epsre:eps.re};
+}
+function _validRows(name,fLabel,c){
+  let html='', worst=0;
+  VALID_GRD.forEach((g,gi)=>{
+    const a=c.tool[g[1]], b=c.ref[g[1]], e=b?100*Math.abs(a-b)/Math.abs(b):0;
+    worst=Math.max(worst,e);
+    const col=e<2?'#16a34a':'#dc2626', dec=g[1]==='delta'?2:4;
+    html+='<tr>'+(gi===0?'<td rowspan="3"><b>'+name+'</b></td><td rowspan="3">'+fLabel+'</td>':'')+
+      '<td>'+g[0]+'</td><td>'+a.toFixed(dec)+g[2]+'</td><td>'+b.toFixed(dec)+g[2]+'</td>'+
+      '<td style="color:'+col+';font-weight:700">'+e.toFixed(2)+'%</td></tr>';
+  });
+  return {html,worst};
+}
+function fmtFreqLabel(f){ return f>=1e9?(f/1e9).toFixed(2)+' GHz':(f/1e6).toFixed(0)+' MHz'; }
+
+// Cas de l'utilisateur (tissu + fréquence au choix)
+function runValidationCase(){
+  const sel=document.getElementById('valid-tissue'), out=document.getElementById('valid-custom');
+  if(!sel||!out)return;
+  const name=sel.value;
+  const f=parseFloat(document.getElementById('valid-freq').value)*parseFloat(document.getElementById('valid-fu').value);
+  if(!name||!f||f<=0){ out.innerHTML=''; return; }
+  let warn='';
+  if(f<1e6||f>1e11) warn='<div class="warn" style="display:block;margin-bottom:.4rem">⚠ Hors plage usuelle du modèle Cole-Cole (≈ 1 MHz – 100 GHz) : résultat indicatif.</div>';
+  const c=_validCase(name,f), r=_validRows(name,fmtFreqLabel(f),c);
+  const vcol=r.worst<2?'#16a34a':'#dc2626', verdict=r.worst<2?('✓ accord à '+r.worst.toFixed(2)+' %'):('✗ écart '+r.worst.toFixed(2)+' %');
+  out.innerHTML=warn+
+    '<table style="margin-bottom:.3rem"><thead><tr><th>Tissu</th><th>Fréq.</th><th>Grandeur</th><th>Outil</th><th>Exact</th><th>Écart</th></tr></thead><tbody>'+r.html+'</tbody></table>'+
+    '<div style="font-size:12px;color:var(--text2)">'+"ε'="+c.epsre.toFixed(1)+', σ_eff='+c.sigEff.toFixed(3)+' S/m &nbsp;·&nbsp; <b style="color:'+vcol+'">'+verdict+'</b></div>';
+}
+
+// Cas de référence (4 tissus) + conservation de l'énergie
+function runValidation(){
+  const CASES=[{name:'Muscle',f:2.45e9},{name:'Skin',f:0.9e9},{name:'Brain (Grey Matter)',f:1.8e9},{name:'Fat',f:2.45e9}];
+  let html='', worst=0;
+  for(const cs of CASES){ const c=_validCase(cs.name,cs.f), r=_validRows(cs.name,fmtFreqLabel(cs.f),c); html+=r.html; worst=Math.max(worst,r.worst); }
+  document.getElementById('valid-body').innerHTML=html;
+  const ETA0=Math.sqrt(MU0/EPS0);
+  const head=[{t:'Skin',d:1.5},{t:'Fat',d:2},{t:'Skull (Cortical)',d:6},{t:'Brain (Grey Matter)',d:40}];
+  const rh=runTMM(2.45e9,VALID_EINC,head);
+  let Pabs=0, dz=(rh.zArr[1]-rh.zArr[0])/1000;
+  for(let i=0;i<rh.sarArr.length;i++){ let li=rh.lp.length-1, zm=rh.zArr[i]/1000;
+    for(let j=0;j<rh.lp.length;j++){ if(zm<=rh.zBounds[j+1]+1e-12){ li=j; break; } }
+    Pabs+=rh.sarArr[i]*rh.lp[li].rho*dz; }
+  const Sinc=VALID_EINC*VALID_EINC/ETA0, Ptheo=(1-cabs(rh.R)*cabs(rh.R))*Sinc, eH=100*Math.abs(Pabs-Ptheo)/Ptheo;
+  worst=Math.max(worst,eH);
+  const colE=eH<2?'#16a34a':'#dc2626';
+  document.getElementById('valid-energy').innerHTML=
+    'Tête (peau / graisse / os cortical / cerveau) @ 2,45 GHz : |R| = <b>'+cabs(rh.R).toFixed(3)+'</b>, SAR pic = <b>'+Math.max(...rh.sarArr).toFixed(4)+'</b> W/kg.<br>'+
+    'Puissance absorbée intégrée ∫SAR·ρ dz = <b>'+Pabs.toFixed(4)+'</b> W/m² &nbsp;vs&nbsp; (1−|R|²)·S<sub>inc</sub> = <b>'+Ptheo.toFixed(4)+'</b> W/m² '+
+    '→ écart <b style="color:'+colE+'">'+eH.toFixed(2)+'%</b> : l\'énergie est conservée (profil SAR(z) multicouche exact).';
+  const v=document.getElementById('valid-verdict');
+  v.textContent=worst<2?('✓ VALIDÉ — écart max '+worst.toFixed(2)+' %'):('✗ écart max '+worst.toFixed(2)+' %');
+  v.style.color=worst<2?'#16a34a':'#dc2626';
+  runValidationCase();
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+const ds=document.getElementById('diel-tissue');
+TNAMES.forEach(n=>{const o=document.createElement('option');o.textContent=n+(IFAC_DATA[n]?' ★':'');o.value=n;ds.appendChild(o);});
+ds.value='Brain (Grey Matter)';
+// Menu déroulant tissus thermiques
+const dth=document.getElementById('th-tissue');
+if(dth){
+  TNAMES.forEach(n=>{const o=document.createElement('option');o.textContent=n+(THERMAL[n]?' ★':'');o.value=n;dth.appendChild(o);});
+  dth.value='Muscle';
+}
+// Menu déroulant tissu pour le vérificateur de validation
+const dvt=document.getElementById('valid-tissue');
+if(dvt){
+  TNAMES.forEach(n=>{const o=document.createElement('option');o.textContent=n;o.value=n;dvt.appendChild(o);});
+  dvt.value='Muscle';
+}
+document.getElementById('dpanel-props').style.display='block';
+loadPreset('head');
+setTimeout(renderSchema,100);
+setTimeout(onThTissue,120);
+setTimeout(ondeLambda,130);
+
+
+</script>
+</body>
+</html>
