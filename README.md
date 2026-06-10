@@ -1,6 +1,7 @@
-# Hakeim Talleb — Outils de simulation
+# EMtools — Interactive electromagnetics simulation tools
 
-Site statique regroupant des outils libres de simulation et de modélisation.
+Par **Hakeim Talleb**. Site statique regroupant des outils libres de simulation et
+de modélisation en électromagnétisme (enseignement, recherche, sensibilisation).
 Site **indépendant** (sans lien avec NovaSens Expertise), destiné à héberger
 plusieurs outils au fil du temps.
 
