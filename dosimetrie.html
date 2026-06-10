@@ -228,10 +228,10 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
   <!-- Cartographie de l'absorption (coupe en profondeur) -->
   <div id="sar-map-wrap" style="display:none;margin-top:1.25rem">
     <div class="stitle" style="margin-top:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      Cartographie de l'absorption (DAS) — coupe en profondeur
+      <span data-i18n="map.sar">Cartographie de l'absorption (DAS) — coupe en profondeur</span>
       <select id="sar-map-mode" onchange="setSarMapMode(this.value)" style="text-transform:none;font-weight:400;font-size:12px;padding:2px 6px;width:auto">
-        <option value="local">DAS local</option>
-        <option value="10g">DAS 10 g (moyenné)</option>
+        <option value="local" data-i18n="map.local">DAS local</option>
+        <option value="10g" data-i18n="map.10g">DAS 10 g (moyenné)</option>
       </select>
     </div>
     <canvas id="sar-map" width="1520" height="200" style="width:100%;height:auto;border-radius:8px;border:0.5px solid var(--border)"></canvas>
@@ -267,10 +267,10 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
     <div class="metrics" id="metrics-grid"></div>
     <div id="icnirp-warn" class="warn"></div>
     <div class="stitle" style="border-top:none;padding-top:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      Cartographie de l'absorption (DAS) — coupe en profondeur
+      <span data-i18n="map.sar">Cartographie de l'absorption (DAS) — coupe en profondeur</span>
       <select id="sar-map-mode-r" onchange="setSarMapMode(this.value)" style="text-transform:none;font-weight:400;font-size:12px;padding:2px 6px;width:auto">
-        <option value="local">DAS local</option>
-        <option value="10g">DAS 10 g (moyenné)</option>
+        <option value="local" data-i18n="map.local">DAS local</option>
+        <option value="10g" data-i18n="map.10g">DAS 10 g (moyenné)</option>
       </select>
     </div>
     <canvas id="sar-map-r" width="1520" height="200" style="width:100%;height:auto;border-radius:8px;border:0.5px solid var(--border)"></canvas>
@@ -371,52 +371,52 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
 </div>
 
 <div id="tab-therm" class="panel">
-  <div class="stitle0">Modèles d'échauffement RF → ΔT(t) et ΔT(z)</div>
+  <div class="stitle0" data-i18n="th.models">Modèles d'échauffement RF → ΔT(t) et ΔT(z)</div>
   <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;padding:.9rem 1rem;background:var(--bg2);border-radius:8px;border:0.5px solid var(--border)">
     <div class="field" style="flex:0 0 180px">
-      <label>Tissu (thermique)</label>
+      <label data-i18n="th.tissue2">Tissu (thermique)</label>
       <select id="th-tissue" onchange="onThTissue()"></select>
       <div style="font-size:11px;color:var(--text2);margin-top:2px" id="th-tissue-hint">k, c, ρ, perfusion IT'IS</div>
     </div>
     <div class="field" style="flex:0 0 160px">
-      <label>SAR (W/kg)</label>
+      <label data-i18n="th.sarlbl">SAR (W/kg)</label>
       <input type="number" id="th-sar" value="4" min="0.001" step="any" oninput="runThermal()">
       <div style="font-size:11px;color:var(--text2);margin-top:2px" id="th-sar-hint">Saisir ou utiliser SAR pic TMM</div>
     </div>
     <div class="field" style="flex:0 0 150px">
-      <label>Durée (min)</label>
+      <label data-i18n="th.dur">Durée (min)</label>
       <input type="number" id="th-tend" value="30" min="1" max="120" step="1" oninput="runThermal()">
     </div>
     <div class="field" style="flex:0 0 160px">
-      <label>Durée pulse t_ON (ms)</label>
+      <label data-i18n="th.ton">Durée pulse t_ON (ms)</label>
       <input type="number" id="th-ton" value="100" min="1" step="1" oninput="updateDC();runThermal()">
     </div>
     <div class="field" style="flex:0 0 160px">
-      <label>Période T (ms)</label>
+      <label data-i18n="th.period">Période T (ms)</label>
       <input type="number" id="th-period" value="1000" min="1" step="1" oninput="updateDC();runThermal()">
       <div style="font-size:11px;color:var(--text2);margin-top:2px" id="th-dc-display">DC = 10.0%</div>
     </div>
     <div class="field" style="flex:0 0 100px">
-      <label>Mode</label>
+      <label data-i18n="th.modelbl">Mode</label>
       <select id="th-mode" onchange="onThMode();runThermal()">
-        <option value="pulse">Pulsé</option>
-        <option value="continu">Continu</option>
+        <option value="pulse" data-i18n="opt.pulse">Pulsé</option>
+        <option value="continu" data-i18n="opt.cont">Continu</option>
       </select>
     </div>
     <div class="field" style="flex:0 0 150px">
-      <label>Perfusion ω_b (s⁻¹)</label>
+      <label data-i18n="th.perf">Perfusion ω_b (s⁻¹)</label>
       <input type="number" id="th-wb" value="0.000672" min="0" step="any" oninput="runThermal()">
-      <div style="font-size:11px;color:var(--text2);margin-top:2px">auto depuis tissu</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:2px" data-i18n="th.perfhint">auto depuis tissu</div>
     </div>
     <div class="field" style="flex:0 0 160px">
-      <label>τ dissipation (s)</label>
+      <label data-i18n="th.tau">τ dissipation (s)</label>
       <input type="number" id="th-tau" value="1470" min="10" step="10" oninput="runThermal()">
-      <div style="font-size:11px;color:var(--text2);margin-top:2px">≈ 1/γ (modèle lumped)</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:2px" data-i18n="th.tauhint">≈ 1/γ (modèle lumped)</div>
     </div>
     <div class="field" style="flex:0 0 150px">
-      <label>Convection h (W/m²/K)</label>
+      <label data-i18n="th.conv">Convection h (W/m²/K)</label>
       <input type="number" id="th-h" value="8" min="0" step="0.5" oninput="runThermal1D()">
-      <div style="font-size:11px;color:var(--text2);margin-top:2px">surface peau↔air (1D)</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:2px" data-i18n="th.convhint">surface peau↔air (1D)</div>
     </div>
     <div style="display:flex;align-items:flex-end;padding-bottom:2px;gap:6px">
       <button class="btn btn-sm" onclick="useSARfromTMM()" style="background:var(--teal);color:#fff;border-color:transparent">↗ SAR TMM</button>
@@ -425,12 +425,12 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
   </div>
   <div id="th-metrics" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:1rem"></div>
   <div id="th-warn" class="warn" style="display:none"></div>
-  <div class="stitle" style="border-top:none;padding-top:0">Élévation de température ΔT(t)</div>
+  <div class="stitle" style="border-top:none;padding-top:0" data-i18n="th.dtt">Élévation de température ΔT(t)</div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:.5rem;font-size:12px">
-    <label style="display:flex;align-items:center;gap:4px;font-weight:normal;text-transform:none;letter-spacing:0;color:var(--text)"><input type="checkbox" id="th-m0" checked oninput="runThermal()"> Adiabatique (sans dissipation)</label>
-    <label style="display:flex;align-items:center;gap:4px;font-weight:normal;text-transform:none;letter-spacing:0;color:var(--text)"><input type="checkbox" id="th-m1" checked oninput="runThermal()"> Lumped τ</label>
-    <label style="display:flex;align-items:center;gap:4px;font-weight:normal;text-transform:none;letter-spacing:0;color:var(--text)"><input type="checkbox" id="th-m3" checked oninput="runThermal()"> Pennes 0D (perfusion)</label>
-    <label style="display:flex;align-items:center;gap:5px;font-weight:normal;text-transform:none;letter-spacing:0;color:var(--text);margin-left:auto">Max Y (°C)
+    <label style="display:flex;align-items:center;gap:4px;font-weight:normal;text-transform:none;letter-spacing:0;color:var(--text)"><input type="checkbox" id="th-m0" checked oninput="runThermal()"> <span data-i18n="th.m0">Adiabatique (sans dissipation)</span></label>
+    <label style="display:flex;align-items:center;gap:4px;font-weight:normal;text-transform:none;letter-spacing:0;color:var(--text)"><input type="checkbox" id="th-m1" checked oninput="runThermal()"> <span data-i18n="th.m1">Lumped τ</span></label>
+    <label style="display:flex;align-items:center;gap:4px;font-weight:normal;text-transform:none;letter-spacing:0;color:var(--text)"><input type="checkbox" id="th-m3" checked oninput="runThermal()"> <span data-i18n="th.m3">Pennes 0D (perfusion)</span></label>
+    <label style="display:flex;align-items:center;gap:5px;font-weight:normal;text-transform:none;letter-spacing:0;color:var(--text);margin-left:auto"><span data-i18n="th.maxy">Max Y (°C)</span>
       <input type="number" id="th-ymax" placeholder="auto" step="any" min="0" style="width:72px;padding:3px 6px" oninput="runThermal()">
       <button class="btn btn-sm" onclick="document.getElementById('th-ymax').value='';runThermal()" title="Échelle automatique">auto</button>
     </label>
@@ -737,7 +737,30 @@ const I18N={
   'res.profe':{fr:'Profil |E(z)|',en:'|E(z)| profile'},
   'res.dielf':{fr:'Propriétés diélectriques à la fréquence choisie',en:'Dielectric properties at the chosen frequency'},
   'res.export':{fr:'⬇ Exporter CSV',en:'⬇ Export CSV'},
-  'th.layer':{fr:'Couche',en:'Layer'},'th.rho':{fr:'ρ (kg/m³)',en:'ρ (kg/m³)'}
+  'th.layer':{fr:'Couche',en:'Layer'},'th.rho':{fr:'ρ (kg/m³)',en:'ρ (kg/m³)'},
+  // Thermique
+  'th.models':{fr:'Modèles d’échauffement RF → ΔT(t) et ΔT(z)',en:'RF heating models → ΔT(t) and ΔT(z)'},
+  'th.tissue2':{fr:'Tissu (thermique)',en:'Tissue (thermal)'},
+  'th.sarlbl':{fr:'SAR (W/kg)',en:'SAR (W/kg)'},
+  'th.dur':{fr:'Durée (min)',en:'Duration (min)'},
+  'th.ton':{fr:'Durée pulse t_ON (ms)',en:'Pulse width t_ON (ms)'},
+  'th.period':{fr:'Période T (ms)',en:'Period T (ms)'},
+  'th.modelbl':{fr:'Mode',en:'Mode'},
+  'opt.pulse':{fr:'Pulsé',en:'Pulsed'},'opt.cont':{fr:'Continu',en:'Continuous'},
+  'th.perf':{fr:'Perfusion ω_b (s⁻¹)',en:'Perfusion ω_b (s⁻¹)'},
+  'th.perfhint':{fr:'auto depuis tissu',en:'auto from tissue'},
+  'th.tau':{fr:'τ dissipation (s)',en:'τ dissipation (s)'},
+  'th.tauhint':{fr:'≈ 1/γ (modèle lumped)',en:'≈ 1/γ (lumped model)'},
+  'th.conv':{fr:'Convection h (W/m²/K)',en:'Convection h (W/m²/K)'},
+  'th.convhint':{fr:'surface peau↔air (1D)',en:'skin↔air surface (1D)'},
+  'th.dtt':{fr:'Élévation de température ΔT(t)',en:'Temperature rise ΔT(t)'},
+  'th.m0':{fr:'Adiabatique (sans dissipation)',en:'Adiabatic (no dissipation)'},
+  'th.m1':{fr:'Lumped τ',en:'Lumped τ'},
+  'th.m3':{fr:'Pennes 0D (perfusion)',en:'Pennes 0D (perfusion)'},
+  'th.maxy':{fr:'Max Y (°C)',en:'Max Y (°C)'},
+  // Cartographies
+  'map.sar':{fr:'Cartographie de l’absorption (DAS) — coupe en profondeur',en:'Absorption (SAR) map — depth cross-section'},
+  'map.local':{fr:'DAS local',en:'Local SAR'},'map.10g':{fr:'DAS 10 g (moyenné)',en:'10 g SAR (averaged)'}
 };
 function t(k){const e=I18N[k];return e?(e[LANG]||e.fr):k;}
 function applyLang(){
