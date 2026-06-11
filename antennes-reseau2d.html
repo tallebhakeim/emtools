@@ -101,6 +101,7 @@ footer a{color:var(--text2)}
         <select id="elem" onchange="recompute()">
           <option value="iso" data-i18n="elem.iso">Isotrope</option>
           <option value="cos" data-i18n="elem.cos">Broadside (cos θ)</option>
+          <option value="patch" data-i18n="elem.patch">Patch microruban (L∥x, W∥y)</option>
         </select>
       </div>
     </div>
@@ -135,6 +136,14 @@ footer a{color:var(--text2)}
     </div>
   </div>
 
+  <div class="panel">
+    <div class="ptitle" data-i18n="viz3d">Diagramme 3D (surface de gain, orientable)</div>
+    <div class="plotbox">
+      <div class="sub" data-i18n="p3d.sub">Glisser pour faire tourner. La surface r = gain(θ,φ) dans le demi-espace avant ; couleur = niveau en dB.</div>
+      <canvas id="cv_3d" width="900" height="420" style="cursor:grab"></canvas>
+    </div>
+  </div>
+
   <div class="warn hide" id="grating-warn" data-i18n="grat.warn">⚠ Lobe(s) de réseau présent(s) dans la zone visible : réduire dx/dy (≤ λ/2) ou limiter le dépointage.</div>
 
   <div class="warn" data-i18n-html="disclaimer"><b>Outil pédagogique —</b> facteur de réseau planaire (éléments identiques, amplitudes uniformes, sans couplage mutuel). La directivité suppose un rayonnement dans le demi-espace avant.</div>
@@ -165,7 +174,11 @@ let ELS=[], U0=0, V0=0, WSUM=1, ELEM='iso';
 function pattUV(u,v){
   let re=0,im=0; const du=u-U0, dv=v-V0;
   for(const e of ELS){ const ph=2*Math.PI*(e.x*du+e.y*dv); re+=e.w*Math.cos(ph); im+=e.w*Math.sin(ph); }
-  let ef=1; if(ELEM==='cos'){const r2=u*u+v*v; ef=Math.sqrt(Math.max(0,1-r2));}
+  let ef=1;
+  if(ELEM==='cos'){const r2=u*u+v*v; ef=Math.sqrt(Math.max(0,1-r2));}
+  else if(ELEM==='patch'){ const Le=0.49, W=0.5;          // representative microstrip patch element
+    const yy=Math.PI*W*v, slot=Math.abs(yy)<1e-6?1:Math.sin(yy)/yy;
+    ef=Math.abs(Math.cos(Math.PI*Le*u))*Math.abs(slot)*Math.sqrt(Math.max(0,1-v*v)); }
   return Math.hypot(re,im)*ef/WSUM;
 }
 function pattTP(th,ph){const st=Math.sin(th);return pattUV(st*Math.cos(ph),st*Math.sin(ph));}
@@ -230,7 +243,7 @@ function recompute(){
   $('m_beta').previousElementSibling.textContent = ring? t('m.nel') : t('m.beta');
   $('m_sll').textContent=c.sllDB<=-99?'—':c.sllDB.toFixed(1);
   $('grating-warn').classList.toggle('hide', !c.grat);
-  drawUV(c); drawCut(c);
+  drawUV(c); drawCut(c); draw3D();
 }
 const FLOOR=-30;
 function drawUV(c){
@@ -281,6 +294,30 @@ function drawCut(c){
   x.strokeStyle='#d97706';x.setLineDash([3,3]);x.beginPath();x.moveTo(sx(c.th0*180/Math.PI),y1);x.lineTo(sx(c.th0*180/Math.PI),y0);x.stroke();x.setLineDash([]);
 }
 
+// interactive 3D gain surface (orthographic projection, painter's algorithm)
+let _rotAz=-0.7, _rotEl=0.45;
+function draw3D(){
+  const cv=$('cv_3d'); if(!cv) return; cv.style.height='420px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const Nt=26, Np=54, floor=-28, V=[];
+  for(let i=0;i<=Nt;i++){const th=Math.PI/2*i/Nt, st=Math.sin(th), ct=Math.cos(th), row=[];
+    for(let j=0;j<=Np;j++){const ph=2*Math.PI*j/Np, u=st*Math.cos(ph), v=st*Math.sin(ph);
+      const p=pattUV(u,v), dB=20*Math.log10(Math.max(p,1e-5)), r=Math.max(0,(dB-floor)/(0-floor));
+      row.push({P:[r*st*Math.cos(ph),r*st*Math.sin(ph),r*ct], g:r});}
+    V.push(row);}
+  const ca=Math.cos(_rotAz),sa=Math.sin(_rotAz),ce=Math.cos(_rotEl),se=Math.sin(_rotEl);
+  const proj=P=>{const X=P[0]*ca-P[1]*sa, Y=P[0]*sa+P[1]*ca, Z=P[2]; return {sx:X, sy:Y*se+Z*ce, depth:Y*ce-Z*se};};
+  const cx=w/2, cy=h/2+25, scale=Math.min(w,h)*0.62;
+  const quads=[];
+  for(let i=0;i<Nt;i++)for(let j=0;j<Np;j++){
+    const pa=proj(V[i][j].P),pb=proj(V[i][j+1].P),pc=proj(V[i+1][j+1].P),pd=proj(V[i+1][j].P);
+    quads.push({pts:[pa,pb,pc,pd], depth:(pa.depth+pb.depth+pc.depth+pd.depth)/4, g:(V[i][j].g+V[i][j+1].g+V[i+1][j+1].g+V[i+1][j].g)/4});}
+  quads.sort((A,B)=>A.depth-B.depth);
+  quads.forEach(q=>{const [r,g,b]=jet(q.g); x.fillStyle='rgb('+r+','+g+','+b+')'; x.strokeStyle='rgba(20,40,70,.10)'; x.lineWidth=.5;
+    x.beginPath(); q.pts.forEach((P,k)=>{const X=cx+P.sx*scale, Y=cy-P.sy*scale; k?x.lineTo(X,Y):x.moveTo(X,Y);}); x.closePath(); x.fill(); x.stroke();});
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.textAlign='left';x.fillText('z ↑ '+(LANG==='fr'?'(broadside)':'(broadside)'),12,18);
+}
+
 const I18N={
  'back.hub':{fr:"Antennes",en:"Antennas"},
  'title':{fr:"Réseau planaire 2D",en:"2D planar array"},
@@ -307,12 +344,15 @@ const I18N={
  'th0':{fr:"Dépointage θ₀ (élévation)",en:"Steering θ₀ (elevation)"},
  'ph0':{fr:"Azimut φ₀",en:"Azimuth φ₀"},
  'elem':{fr:"Élément",en:"Element"},'elem.iso':{fr:"Isotrope",en:"Isotropic"},'elem.cos':{fr:"Broadside (cos θ)",en:"Broadside (cos θ)"},
+ 'elem.patch':{fr:"Patch microruban (L∥x, W∥y)",en:"Microstrip patch (L∥x, W∥y)"},
  'results':{fr:"Caractéristiques",en:"Characteristics"},
  'm.dir':{fr:"Directivité max",en:"Max directivity"},
  'm.beam':{fr:"Faisceau (θ₀, φ₀)",en:"Beam (θ₀, φ₀)"},
  'm.beta':{fr:"Déphasages βx, βy",en:"Phase shifts βx, βy"},
  'm.sll':{fr:"Lobe secondaire",en:"Sidelobe level"},
  'viz':{fr:"Diagramme",en:"Pattern"},
+ 'viz3d':{fr:"Diagramme 3D (surface de gain, orientable)",en:"3D pattern (gain surface, rotatable)"},
+ 'p3d.sub':{fr:"Glisser pour faire tourner. La surface r = gain(θ,φ) dans le demi-espace avant ; couleur = niveau en dB.",en:"Drag to rotate. Surface r = gain(θ,φ) in the forward half-space; colour = dB level."},
  'p.uv':{fr:"Carte de gain — plan UV (dB)",en:"Gain map — UV plane (dB)"},
  'p.uv.sub':{fr:"u=sinθcosφ, v=sinθsinφ. Cercle = horizon. ✕ = faisceau visé.",en:"u=sinθcosφ, v=sinθsinφ. Circle = horizon. ✕ = steered beam."},
  'p.cut':{fr:"Coupe dans le plan du faisceau (dB)",en:"Cut in the beam plane (dB)"},
@@ -330,6 +370,12 @@ function applyLang(){document.documentElement.lang=LANG;
   document.querySelectorAll('[data-i18n-html]').forEach(el=>{const e=I18N[el.dataset.i18nHtml];if(e)el.innerHTML=e[LANG]||e.fr;});
   const bt=$('lang-toggle');if(bt)bt.textContent=LANG==='fr'?'EN':'FR';}
 function toggleLang(){LANG=LANG==='fr'?'en':'fr';localStorage.setItem('emtools_lang',LANG);applyLang();recompute();}
+// drag to rotate the 3D surface
+(function(){const cv=$('cv_3d'); if(!cv) return; let drag=false,lx,ly;
+  cv.addEventListener('pointerdown',e=>{drag=true;lx=e.clientX;ly=e.clientY;cv.style.cursor='grabbing';cv.setPointerCapture(e.pointerId);});
+  cv.addEventListener('pointermove',e=>{if(!drag)return;_rotAz+=(e.clientX-lx)*0.01;_rotEl+=(e.clientY-ly)*0.01;_rotEl=Math.max(-0.3,Math.min(1.5,_rotEl));lx=e.clientX;ly=e.clientY;draw3D();});
+  cv.addEventListener('pointerup',()=>{drag=false;cv.style.cursor='grab';});
+})();
 applyLang(); recompute();
 window.addEventListener('resize',recompute);
 </script>
