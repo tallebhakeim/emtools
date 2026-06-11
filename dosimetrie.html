@@ -27,6 +27,8 @@ h1 span{color:var(--teal)}
      color:var(--text2);cursor:pointer;font-weight:500;
      display:flex;align-items:center;gap:7px;transition:all .15s;box-shadow:var(--shadow)}
 .tab .tab-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;opacity:.9}
+.tab-sep{width:1px;background:var(--border);align-self:stretch;margin:3px 4px;flex-shrink:0}
+.tab-grp{font-size:9.5px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;align-self:center;opacity:.6;padding:0 1px}
 .tab.active{background:var(--navy);border-color:var(--navy);color:var(--white);
             font-weight:600;box-shadow:0 4px 14px rgba(26,46,74,.18)}
 .tab:hover:not(.active){background:var(--teal-light);border-color:var(--teal);color:var(--navy)}
@@ -95,12 +97,15 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
 <h1>Dosimétrie EM <span>·</span> TMM + Cole-Cole (IT'IS V5.0)</h1>
 
 <div class="tabs">
+  <span class="tab-grp" data-i18n="grp.work">Étapes</span>
   <button class="tab active" onclick="switchTab('source')"><span class="tab-dot" style="background:#D85A30"></span><span data-i18n="tab.source">Source EM</span></button>
-  <button class="tab" onclick="switchTab('onde')"><span class="tab-dot" style="background:#0ea5e9"></span><span data-i18n="tab.onde">Onde EM</span></button>
-  <button class="tab" onclick="switchTab('stack')"><span class="tab-dot" style="background:#378ADD"></span><span data-i18n="tab.stack">Empilement</span></button>
+  <button class="tab" onclick="switchTab('stack')"><span class="tab-dot" style="background:#378ADD"></span><span data-i18n="tab.stack">Couches</span></button>
   <button class="tab" onclick="switchTab('results')"><span class="tab-dot" style="background:#1D9E75"></span><span data-i18n="tab.results">Résultats</span></button>
-  <button class="tab" onclick="switchTab('diel')"><span class="tab-dot" style="background:#9F3FAE"></span><span data-i18n="tab.diel">Diélectriques</span></button>
   <button class="tab" onclick="switchTab('therm')"><span class="tab-dot" style="background:#E24B4A"></span><span data-i18n="tab.therm">Thermique</span></button>
+  <span class="tab-sep"></span>
+  <span class="tab-grp" data-i18n="grp.ref">Comprendre</span>
+  <button class="tab" onclick="switchTab('onde')"><span class="tab-dot" style="background:#0ea5e9"></span><span data-i18n="tab.onde">L'onde EM</span></button>
+  <button class="tab" onclick="switchTab('diel')"><span class="tab-dot" style="background:#9F3FAE"></span><span data-i18n="tab.diel">Propriétés des tissus</span></button>
   <button class="tab" onclick="switchTab('limits')"><span class="tab-dot" style="background:#d97706"></span><span data-i18n="tab.limits">Limites &amp; normes</span></button>
   <button class="tab" onclick="switchTab('valid')"><span class="tab-dot" style="background:#16a34a"></span><span data-i18n="tab.valid">Validation</span></button>
 </div>
@@ -246,7 +251,8 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
 
 <!-- STACK -->
 <div id="tab-stack" class="panel">
-  <div class="stitle0" data-i18n="stk.presets">Empilements prédéfinis</div>
+  <div class="stitle0" data-i18n="stk.title">Couches de tissus — choisir et empiler</div>
+  <div class="stitle" data-i18n="stk.presets" style="border-top:none;padding-top:0">Empilements prédéfinis</div>
   <div class="presets">
     <button class="btn btn-sm" onclick="loadPreset('head')" data-i18n="ps.head2">Tête frontale</button>
     <button class="btn btn-sm" onclick="loadPreset('trunk')" data-i18n="ps.trunk2">Tronc</button>
@@ -267,6 +273,20 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
   <div id="results-content" style="display:none">
     <div class="metrics" id="metrics-grid"></div>
     <div id="icnirp-warn" class="warn"></div>
+
+    <div class="stitle" data-i18n="lim.t5" style="border-top:none;padding-top:0">Vérification de conformité (mon calcul)</div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(120px,1fr));gap:8px;margin-bottom:.5rem;max-width:660px">
+      <div class="field"><label data-i18n="lim.std">Norme</label><select id="conf-std" onchange="updateConf()"><option value="icnirp">ICNIRP 2020</option><option value="ieee">IEEE C95.1-2019</option><option value="fcc">FCC (États-Unis)</option></select></div>
+      <div class="field"><label data-i18n="lim.pop">Population</label><select id="conf-pop" onchange="updateConf()"><option value="public" data-i18n="lim.public">Public général</option><option value="worker" data-i18n="lim.worker">Travailleurs</option></select></div>
+      <div class="field"><label data-i18n="lim.reg">Région</label><select id="conf-reg" onchange="updateConf()"><option value="head" data-i18n="lim.head">Tête / tronc (local)</option><option value="limb" data-i18n="lim.limb">Membres (local)</option><option value="wb" data-i18n="lim.wbody">Corps entier</option></select></div>
+    </div>
+    <div class="metrics" style="grid-template-columns:repeat(3,1fr)">
+      <div class="metric"><div class="mlbl" data-i18n="lim.applim">Limite applicable</div><div class="mval" id="conf-lim">—</div></div>
+      <div class="metric"><div class="mlbl" data-i18n="lim.computed">DAS local 10 g calculé</div><div class="mval" id="conf-sar">—</div></div>
+      <div class="metric"><div class="mlbl" data-i18n="lim.margin">Marge</div><div class="mval" id="conf-margin" style="font-size:16px">—</div></div>
+    </div>
+    <div id="conf-verdict" style="padding:12px 14px;border-radius:10px;font-weight:700;font-size:15px;margin-top:.3rem"></div>
+    <div class="info" id="conf-cav" style="font-size:11.5px;display:none;background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;margin-top:.4rem"></div>
     <div class="stitle" style="border-top:none;padding-top:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <span data-i18n="map.sar">Cartographie de l'absorption (DAS) — coupe en profondeur</span>
       <select id="sar-map-mode-r" onchange="setSarMapMode(this.value)" style="text-transform:none;font-weight:400;font-size:12px;padding:2px 6px;width:auto">
@@ -295,6 +315,7 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
 </div>
 <!-- DIELECTRIQUES -->
 <div id="tab-diel" class="panel">
+  <div class="stitle0" data-i18n="diel.title">Propriétés diélectriques des tissus</div>
   <div class="row" style="max-width:500px;margin-bottom:.75rem">
     <div class="field"><label>Tissu</label><select id="diel-tissue" onchange="onDielTissue()"></select></div>
   </div>
@@ -472,7 +493,7 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
 
 <!-- ONDE EM (pédagogie) -->
 <div id="tab-onde" class="panel">
-  <div class="stitle0">Comprendre les ondes électromagnétiques</div>
+  <div class="stitle0" data-i18n="onde.title">Qu'est-ce qu'une onde électromagnétique ?</div>
 
   <!-- 1. Définition -->
   <div class="stitle" style="border-top:none;padding-top:0">1 · Qu'est-ce qu'une onde électromagnétique ?</div>
@@ -664,17 +685,7 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
     <div class="metric"><div class="mlbl" data-i18n="lim.mtime">Temps de moyennage</div><div class="mval" id="lim-time" style="font-size:16px">—</div></div>
   </div>
   <div class="info" id="lim-note" style="font-size:12px"></div>
-
-  <div class="stitle0" data-i18n="lim.t5">Vérification de conformité (mon calcul)</div>
-  <div class="info" id="conf-noresult" data-i18n="lim.noresult">Lance d'abord un calcul depuis l'onglet « Source EM », puis reviens ici : le DAS local 10 g calculé sera comparé à la limite choisie ci-dessus.</div>
-  <div id="conf-box" style="display:none">
-    <div class="metrics" style="grid-template-columns:repeat(2,1fr)">
-      <div class="metric"><div class="mlbl" data-i18n="lim.computed">DAS local 10 g calculé</div><div class="mval" id="conf-sar">—</div></div>
-      <div class="metric"><div class="mlbl" data-i18n="lim.margin">Marge vis-à-vis de la limite</div><div class="mval" id="conf-margin" style="font-size:16px">—</div></div>
-    </div>
-    <div id="conf-verdict" style="padding:12px 14px;border-radius:10px;font-weight:700;font-size:15px"></div>
-    <div class="info" id="conf-cav" style="font-size:11.5px;display:none;background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;margin-top:.4rem"></div>
-  </div>
+  <div class="info" data-i18n-html="lim.gores" style="font-size:11.5px;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe">👉 La <b>vérification de conformité</b> de ton calcul (verdict ✅/⛔) est désormais dans l'onglet <b>Résultats</b>.</div>
 
   <div class="stitle0" data-i18n="lim.t4">Dispositif implanté</div>
   <div class="info" style="background:#fff7ed;color:#9a3412;border:1px solid #fed7aa" data-i18n-html="lim.implant"><b>Ce que cet outil peut estimer :</b> le DAS et l'échauffement dans le <b>tissu de fond</b> (sans implant). <b>Ce qu'il ne capte pas :</b> près d'un <b>implant métallique</b>, le champ se concentre et crée un <b>point chaud local</b> (effet de pointe/antenne) que le modèle planaire (TMM) ne modélise pas. Pour une étude santé d'un dispositif implanté, les cadres de référence sont : <b>ISO/TS 10974</b> (sécurité en IRM des implants actifs), <b>ISO 14117</b> (CEM des implants cardiaques) et la <b>directive 2013/35/UE</b> (protection des travailleurs, dont porteurs d'implants).</div>
@@ -744,10 +755,14 @@ let LANG='fr'; try{ LANG=localStorage.getItem('emtools_lang')||'fr'; }catch(e){}
 const I18N={
   'nav.sub':{fr:"Dosimétrie EM · Outil d'expertise",en:"EM dosimetry · expert tool"},
   // Onglets
-  'tab.source':{fr:'Source EM',en:'EM source'},'tab.onde':{fr:'Onde EM',en:'EM wave'},
-  'tab.stack':{fr:'Empilement',en:'Tissue stack'},'tab.results':{fr:'Résultats',en:'Results'},
-  'tab.diel':{fr:'Diélectriques',en:'Dielectrics'},'tab.therm':{fr:'Thermique',en:'Thermal'},
+  'tab.source':{fr:'Source EM',en:'EM source'},'tab.onde':{fr:"L'onde EM",en:'The EM wave'},
+  'tab.stack':{fr:'Couches',en:'Layers'},'tab.results':{fr:'Résultats',en:'Results'},
+  'tab.diel':{fr:'Propriétés des tissus',en:'Tissue properties'},'tab.therm':{fr:'Thermique',en:'Thermal'},
   'tab.valid':{fr:'Validation',en:'Validation'},
+  'grp.work':{fr:'Étapes',en:'Steps'},'grp.ref':{fr:'Comprendre',en:'Learn'},
+  'onde.title':{fr:"Qu'est-ce qu'une onde électromagnétique ?",en:'What is an electromagnetic wave?'},
+  'diel.title':{fr:'Propriétés diélectriques des tissus',en:'Dielectric properties of tissues'},
+  'stk.title':{fr:'Couches de tissus — choisir et empiler',en:'Tissue layers — choose and stack'},
   'tab.limits':{fr:'Limites & normes',en:'Limits & standards'},
   'lim.t1':{fr:'DAS (SAR) — de quoi parle-t-on ?',en:'SAR — what are we talking about?'},
   'lim.t2':{fr:'DAS → température, et pourquoi 6 min / 30 min',en:'SAR → temperature, and why 6 min / 30 min'},
@@ -771,6 +786,9 @@ const I18N={
   'lim.public':{fr:'Public général',en:'General public'},'lim.worker':{fr:'Travailleurs',en:'Workers'},
   'lim.head':{fr:'Tête / tronc (local)',en:'Head / trunk (local)'},'lim.limb':{fr:'Membres (local)',en:'Limbs (local)'},'lim.wbody':{fr:'Corps entier',en:'Whole body'},
   'lim.mlim':{fr:'Limite de DAS',en:'SAR limit'},'lim.mmass':{fr:'Moyennage',en:'Averaging'},'lim.mtime':{fr:'Temps de moyennage',en:'Averaging time'},
+  'lim.applim':{fr:'Limite applicable',en:'Applicable limit'},
+  'lim.noresult2':{fr:'Lance un calcul (onglet « Source EM ») : le verdict s’affichera ici.',en:'Run a calculation (“EM source” tab): the verdict will appear here.'},
+  'lim.gores':{fr:'👉 La <b>vérification de conformité</b> de ton calcul (verdict ✅/⛔) est désormais dans l’onglet <b>Résultats</b>.',en:'👉 The <b>compliance check</b> of your calculation (✅/⛔ verdict) is now in the <b>Results</b> tab.'},
   'lim.wb':{fr:'corps entier',en:'whole body'},
   'lim.note.local':{fr:'DAS <b>local</b> : pic spatial dans le volume de moyennage indiqué. Vise à limiter un <b>point chaud</b> de température.',en:'<b>Local</b> SAR: spatial peak within the stated averaging volume. Limits a temperature <b>hot spot</b>.'},
   'lim.note.wb':{fr:'DAS <b>corps entier</b> : moyenne sur toute la masse corporelle. Vise à limiter l’<b>échauffement global</b> (≈ 1 °C cœur du corps).',en:'<b>Whole-body</b> SAR: average over the entire body mass. Limits <b>global heating</b> (≈ 1 °C body core).'},
@@ -1327,7 +1345,7 @@ function renderResults(f,E0,r){
   const warn=document.getElementById('icnirp-warn');
   if(sar10gPic>2){warn.style.display='block';warn.innerHTML='⚠ '+t('warn.over10g').replace('{v}',sar10gPic.toFixed(3));}
   else warn.style.display='none';
-  try{ updateLimit(); }catch(e){}
+  try{ updateConf(); }catch(e){}
   // Légende couches
   const leg=document.getElementById('layer-legend');
   leg.innerHTML=r.lp.map((l,i)=>'<span><span class="lc" style="background:'+LCOLORS[i%LCOLORS.length]+'"></span>'+l.name+' <b>'+(l.d*1000).toFixed(l.d*1000<2?1:0)+'mm</b></span>').join('');
@@ -1433,7 +1451,7 @@ function exportCSV(){
 
 // ── Diélectriques ─────────────────────────────────────────────────────────────
 function switchTab(name){
-  const names=['source','onde','stack','results','diel','therm','limits','valid'];
+  const names=['source','stack','results','therm','onde','diel','limits','valid'];
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',names[i]===name));
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
@@ -1443,6 +1461,7 @@ function switchTab(name){
   if(name==='valid') runValidation();
   if(name==='onde') ondeLambda();
   if(name==='limits') updateLimit();
+  if(name==='results') updateConf();
 }
 // SAR limits explorer: [value W/kg, averaging-mass code, averaging time]
 const SARLIM={
@@ -1452,6 +1471,7 @@ const SARLIM={
          worker:{wb:[0.4,'wb','30 min'],head:[10,'10g','6 min'],limb:[20,'10g','6 min']}},
  fcc:   {public:{wb:[0.08,'wb','30 min'],head:[1.6,'1g','30 min'],limb:[4,'10g','30 min']},
          worker:{wb:[0.4,'wb','6 min'],head:[8,'1g','6 min'],limb:[20,'10g','6 min']}}};
+// Limits explorer (educational, "Limites & normes" tab)
 function updateLimit(){
   const g=id=>document.getElementById(id); if(!g('lim-std'))return;
   const d=(SARLIM[g('lim-std').value]||{})[g('lim-pop').value]||{}; const r=g('lim-reg').value, v=d[r];
@@ -1460,14 +1480,18 @@ function updateLimit(){
   g('lim-mass').textContent= v[1]==='wb'?t('lim.wb'):(v[1]==='10g'?'10 g':'1 g');
   g('lim-time').textContent=v[2];
   g('lim-note').innerHTML=t(r==='wb'?'lim.note.wb':'lim.note.local');
-  // conformity verdict using the last computed local 10 g SAR
-  const cb=g('conf-box'), nr=g('conf-noresult'), vd=g('conf-verdict'), cav=g('conf-cav');
-  if(!cb)return;
-  if(typeof lastResult==='undefined'||!lastResult){ cb.style.display='none'; nr.style.display=''; return; }
-  nr.style.display='none'; cb.style.display='';
+}
+// Compliance verdict (in "Résultats" tab): computed 10 g SAR vs the selected scenario limit
+function updateConf(){
+  const g=id=>document.getElementById(id); if(!g('conf-std'))return;
+  const v=((SARLIM[g('conf-std').value]||{})[g('conf-pop').value]||{})[g('conf-reg').value]; if(!v)return;
+  const r=g('conf-reg').value, vd=g('conf-verdict'), cav=g('conf-cav');
+  g('conf-lim').innerHTML=v[0]+' <span class="munit">W/kg</span>'; cav.style.display='none';
+  if(typeof lastResult==='undefined'||!lastResult){
+    g('conf-sar').textContent='—'; g('conf-margin').textContent='—';
+    vd.style.background='#f1f5f9'; vd.style.color='#475569'; vd.innerHTML='ℹ '+t('lim.noresult2'); return; }
   const sar10=Math.max.apply(null,lastResult.r.sar10gArr);
   g('conf-sar').innerHTML=sar10.toFixed(3)+' <span class="munit">W/kg</span>';
-  cav.style.display='none';
   if(r==='wb'){ vd.style.background='#f1f5f9';vd.style.color='#475569';vd.innerHTML='ℹ '+t('lim.wbna'); g('conf-margin').textContent='—'; return; }
   const ratio=sar10/v[0];
   if(ratio<=1){ vd.style.background='#dcfce7';vd.style.color='#166534';vd.innerHTML='✅ '+t('lim.ok'); g('conf-margin').textContent='×'+(1/ratio).toFixed(1)+' '+t('lim.under'); }
