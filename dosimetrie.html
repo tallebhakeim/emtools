@@ -665,6 +665,17 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
   </div>
   <div class="info" id="lim-note" style="font-size:12px"></div>
 
+  <div class="stitle0" data-i18n="lim.t5">Vérification de conformité (mon calcul)</div>
+  <div class="info" id="conf-noresult" data-i18n="lim.noresult">Lance d'abord un calcul depuis l'onglet « Source EM », puis reviens ici : le DAS local 10 g calculé sera comparé à la limite choisie ci-dessus.</div>
+  <div id="conf-box" style="display:none">
+    <div class="metrics" style="grid-template-columns:repeat(2,1fr)">
+      <div class="metric"><div class="mlbl" data-i18n="lim.computed">DAS local 10 g calculé</div><div class="mval" id="conf-sar">—</div></div>
+      <div class="metric"><div class="mlbl" data-i18n="lim.margin">Marge vis-à-vis de la limite</div><div class="mval" id="conf-margin" style="font-size:16px">—</div></div>
+    </div>
+    <div id="conf-verdict" style="padding:12px 14px;border-radius:10px;font-weight:700;font-size:15px"></div>
+    <div class="info" id="conf-cav" style="font-size:11.5px;display:none;background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;margin-top:.4rem"></div>
+  </div>
+
   <div class="stitle0" data-i18n="lim.t4">Dispositif implanté</div>
   <div class="info" style="background:#fff7ed;color:#9a3412;border:1px solid #fed7aa" data-i18n-html="lim.implant"><b>Ce que cet outil peut estimer :</b> le DAS et l'échauffement dans le <b>tissu de fond</b> (sans implant). <b>Ce qu'il ne capte pas :</b> près d'un <b>implant métallique</b>, le champ se concentre et crée un <b>point chaud local</b> (effet de pointe/antenne) que le modèle planaire (TMM) ne modélise pas. Pour une étude santé d'un dispositif implanté, les cadres de référence sont : <b>ISO/TS 10974</b> (sécurité en IRM des implants actifs), <b>ISO 14117</b> (CEM des implants cardiaques) et la <b>directive 2013/35/UE</b> (protection des travailleurs, dont porteurs d'implants).</div>
 </div>
@@ -763,6 +774,17 @@ const I18N={
   'lim.wb':{fr:'corps entier',en:'whole body'},
   'lim.note.local':{fr:'DAS <b>local</b> : pic spatial dans le volume de moyennage indiqué. Vise à limiter un <b>point chaud</b> de température.',en:'<b>Local</b> SAR: spatial peak within the stated averaging volume. Limits a temperature <b>hot spot</b>.'},
   'lim.note.wb':{fr:'DAS <b>corps entier</b> : moyenne sur toute la masse corporelle. Vise à limiter l’<b>échauffement global</b> (≈ 1 °C cœur du corps).',en:'<b>Whole-body</b> SAR: average over the entire body mass. Limits <b>global heating</b> (≈ 1 °C body core).'},
+  'lim.t5':{fr:'Vérification de conformité (mon calcul)',en:'Compliance check (my calculation)'},
+  'lim.noresult':{fr:'Lance d’abord un calcul depuis l’onglet « Source EM », puis reviens ici : le DAS local 10 g calculé sera comparé à la limite choisie ci-dessus.',en:'First run a calculation from the “EM source” tab, then come back: the computed local 10 g SAR will be compared to the limit selected above.'},
+  'lim.computed':{fr:'DAS local 10 g calculé',en:'Computed local 10 g SAR'},
+  'lim.margin':{fr:'Marge vis-à-vis de la limite',en:'Margin to the limit'},
+  'lim.ok':{fr:'Conforme — sous la limite',en:'Compliant — below the limit'},
+  'lim.over':{fr:'Dépassement de la limite',en:'Limit exceeded'},
+  'lim.under':{fr:'sous la limite',en:'below the limit'},
+  'lim.aboveword':{fr:'au-dessus',en:'above'},
+  'lim.wbna':{fr:'Le modèle planaire calcule un DAS <b>local</b>, pas le DAS corps entier — choisis « Tête / tronc » ou « Membres » pour une comparaison pertinente.',en:'The planar model computes a <b>local</b> SAR, not whole-body SAR — pick “Head / trunk” or “Limbs” for a meaningful comparison.'},
+  'lim.fcccav':{fr:'⚠ Limite FCC définie sur <b>1 g</b>, mais l’outil calcule le DAS <b>10 g</b> : un vrai DAS 1 g serait plus élevé → comparaison <b>indicative</b> (non conservative). Pour le 10 g, comparer à ICNIRP/IEEE.',en:'⚠ The FCC limit is defined over <b>1 g</b>, but the tool computes the <b>10 g</b> SAR: a true 1 g SAR would be higher → <b>indicative</b> (non-conservative) comparison. For 10 g, compare to ICNIRP/IEEE.'},
+  'warn.over10g':{fr:'DAS 10 g ({v} W/kg) dépasse 2 W/kg (ICNIRP public, tête/tronc) — détail dans l’onglet « Limites & normes ».',en:'10 g SAR ({v} W/kg) exceeds 2 W/kg (ICNIRP public, head/trunk) — details in the “Limits & standards” tab.'},
   // Métriques résultats
   'm.einc':{fr:'E incident',en:'Incident E'},'m.sarpic':{fr:'SAR pic',en:'Peak SAR'},
   'm.sar10g':{fr:'SAR 10g',en:'10g SAR'},'m.refl':{fr:'Réflexion |R|',en:'Reflection |R|'},
@@ -1301,11 +1323,11 @@ function renderResults(f,E0,r){
     '<div class="metric"><div class="mlbl">'+t('m.sarpic')+'</div><div class="mval">'+sarPic.toFixed(4)+'<span class="munit">W/kg</span></div></div>'+
     '<div class="metric"><div class="mlbl">'+t('m.sar10g')+'</div><div class="mval">'+sar10gPic.toFixed(4)+'<span class="munit">W/kg</span></div></div>'+
     '<div class="metric"><div class="mlbl">'+t('m.refl')+'</div><div class="mval">'+Rpct+'<span class="munit">%</span></div></div>';
-  // Alerte ICNIRP
+  // Alerte ICNIRP (DAS 10 g local vs 2 W/kg public tête/tronc — détail dans l'onglet "Limites & normes")
   const warn=document.getElementById('icnirp-warn');
-  const icnirpLim=f>10e6&&f<=400e6?2:(f<=2e9?2:2);
-  if(sarPic>icnirpLim){warn.style.display='block';warn.textContent='⚠ SAR pic ('+sarPic.toFixed(3)+' W/kg) dépasse la limite ICNIRP de '+icnirpLim+' W/kg à '+fmtF(f)+'.';}
+  if(sar10gPic>2){warn.style.display='block';warn.innerHTML='⚠ '+t('warn.over10g').replace('{v}',sar10gPic.toFixed(3));}
   else warn.style.display='none';
+  try{ updateLimit(); }catch(e){}
   // Légende couches
   const leg=document.getElementById('layer-legend');
   leg.innerHTML=r.lp.map((l,i)=>'<span><span class="lc" style="background:'+LCOLORS[i%LCOLORS.length]+'"></span>'+l.name+' <b>'+(l.d*1000).toFixed(l.d*1000<2?1:0)+'mm</b></span>').join('');
@@ -1438,6 +1460,19 @@ function updateLimit(){
   g('lim-mass').textContent= v[1]==='wb'?t('lim.wb'):(v[1]==='10g'?'10 g':'1 g');
   g('lim-time').textContent=v[2];
   g('lim-note').innerHTML=t(r==='wb'?'lim.note.wb':'lim.note.local');
+  // conformity verdict using the last computed local 10 g SAR
+  const cb=g('conf-box'), nr=g('conf-noresult'), vd=g('conf-verdict'), cav=g('conf-cav');
+  if(!cb)return;
+  if(typeof lastResult==='undefined'||!lastResult){ cb.style.display='none'; nr.style.display=''; return; }
+  nr.style.display='none'; cb.style.display='';
+  const sar10=Math.max.apply(null,lastResult.r.sar10gArr);
+  g('conf-sar').innerHTML=sar10.toFixed(3)+' <span class="munit">W/kg</span>';
+  cav.style.display='none';
+  if(r==='wb'){ vd.style.background='#f1f5f9';vd.style.color='#475569';vd.innerHTML='ℹ '+t('lim.wbna'); g('conf-margin').textContent='—'; return; }
+  const ratio=sar10/v[0];
+  if(ratio<=1){ vd.style.background='#dcfce7';vd.style.color='#166534';vd.innerHTML='✅ '+t('lim.ok'); g('conf-margin').textContent='×'+(1/ratio).toFixed(1)+' '+t('lim.under'); }
+  else { vd.style.background='#fee2e2';vd.style.color='#991b1b';vd.innerHTML='⛔ '+t('lim.over'); g('conf-margin').textContent='×'+ratio.toFixed(1)+' '+t('lim.aboveword'); }
+  if(v[1]==='1g'){ cav.style.display='';cav.innerHTML=t('lim.fcccav'); }
 }
 
 // ── Onde EM (pédagogie) : longueur d'onde λ = c/f et frontière champ proche/lointain ──
