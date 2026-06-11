@@ -29,6 +29,13 @@ h1 span{color:var(--teal)}
 .tab .tab-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;opacity:.9}
 .tab-sep{width:1px;background:var(--border);align-self:stretch;margin:3px 4px;flex-shrink:0}
 .tab-grp{font-size:9.5px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;align-self:center;opacity:.6;padding:0 1px}
+.lrow{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+.lrow .lc{width:11px;height:11px;border-radius:2px;flex-shrink:0}
+.lrow select.lsel{flex:1;min-width:0;font-size:12px;padding:3px 4px;border:1px solid var(--border);border-radius:5px;background:#fff}
+.lrow input.lthk{width:52px;font-size:12px;padding:3px 4px;border:1px solid var(--border);border-radius:5px}
+.lrow .um{font-size:10px;color:var(--text2)}
+.lrow .lrm{border:none;background:#fef2f2;color:#dc2626;border-radius:5px;width:22px;height:24px;cursor:pointer;flex-shrink:0;font-size:11px}
+.lrow .lrm:hover{background:#fee2e2}
 .tab.active{background:var(--navy);border-color:var(--navy);color:var(--white);
             font-weight:600;box-shadow:0 4px 14px rgba(26,46,74,.18)}
 .tab:hover:not(.active){background:var(--teal-light);border-color:var(--teal);color:var(--navy)}
@@ -99,7 +106,6 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
 <div class="tabs">
   <span class="tab-grp" data-i18n="grp.work">Étapes</span>
   <button class="tab active" onclick="switchTab('source')"><span class="tab-dot" style="background:#D85A30"></span><span data-i18n="tab.source">Source EM</span></button>
-  <button class="tab" onclick="switchTab('stack')"><span class="tab-dot" style="background:#378ADD"></span><span data-i18n="tab.stack">Couches</span></button>
   <button class="tab" onclick="switchTab('results')"><span class="tab-dot" style="background:#1D9E75"></span><span data-i18n="tab.results">Résultats</span></button>
   <button class="tab" onclick="switchTab('therm')"><span class="tab-dot" style="background:#E24B4A"></span><span data-i18n="tab.therm">Thermique</span></button>
   <span class="tab-sep"></span>
@@ -205,8 +211,8 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
     <button class="btn btn-sm" id="ps-eye"    onclick="loadPreset('eye')"    style="border-color:#9F3FAE;color:#9F3FAE" data-i18n="ps.eye">👁 Œil</button>
     <button class="btn btn-sm" id="ps-breast" onclick="loadPreset('breast')" style="border-color:#BA7517;color:#BA7517" data-i18n="ps.breast">🔵 Sein</button>
   </div>
-  <div style="display:flex;gap:1rem;align-items:flex-start;flex-wrap:wrap">
-    <div style="flex:1;min-width:280px">
+  <div style="display:flex;gap:1.25rem;align-items:flex-start;flex-wrap:wrap;max-width:900px">
+    <div style="flex:1 1 360px;min-width:280px">
       <svg id="head-svg" viewBox="0 0 540 420" xmlns="http://www.w3.org/2000/svg"
            style="width:100%;max-width:540px;height:auto;background:#f8f8f6;border-radius:8px;border:0.5px solid #ddd">
         <defs>
@@ -222,13 +228,16 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
         <g id="svg-labels"></g>
       </svg>
     </div>
-    <div style="flex:0 0 180px;font-size:12px">
-      <div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem" data-i18n="geo.layers">Couches</div>
-      <div id="schema-legend" style="line-height:1.8"></div>
+    <div style="flex:0 0 320px;min-width:260px;font-size:12px">
+      <div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem;display:flex;justify-content:space-between;align-items:center">
+        <span data-i18n="geo.layers">Couches (air → tissu profond)</span>
+        <button class="btn btn-sm" style="padding:3px 8px;font-size:11px" onclick="addLayer()" data-i18n="btn.addlayer2">+ Couche</button>
+      </div>
+      <div id="schema-legend"></div>
     </div>
   </div>
   <div id="schema-hint" class="info" style="font-size:12px;margin-top:.5rem" data-i18n="geo.hint">
-    Configure l'empilement dans "Empilement" puis lance un calcul pour voir les résultats.
+    Choisis un empilement prédéfini ou édite les couches ci-contre, puis clique « Calculer ».
   </div>
 
   <!-- Cartographie de l'absorption (coupe en profondeur) -->
@@ -250,22 +259,7 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
 </div>
 
 <!-- STACK -->
-<div id="tab-stack" class="panel">
-  <div class="stitle0" data-i18n="stk.title">Couches de tissus — choisir et empiler</div>
-  <div class="stitle" data-i18n="stk.presets" style="border-top:none;padding-top:0">Empilements prédéfinis</div>
-  <div class="presets">
-    <button class="btn btn-sm" onclick="loadPreset('head')" data-i18n="ps.head2">Tête frontale</button>
-    <button class="btn btn-sm" onclick="loadPreset('trunk')" data-i18n="ps.trunk2">Tronc</button>
-    <button class="btn btn-sm" onclick="loadPreset('arm')" data-i18n="ps.arm2">Membre</button>
-    <button class="btn btn-sm" onclick="loadPreset('eye')" data-i18n="ps.eye2">Œil</button>
-    <button class="btn btn-sm" onclick="loadPreset('breast')" data-i18n="ps.breast2">Sein</button>
-  </div>
-  <div class="stitle" data-i18n="stk.layers">Couches (air → tissu profond)</div>
-  <table><thead><tr><th>#</th><th data-i18n="th.tissue">Tissu</th><th data-i18n="th.thick">Épaisseur (mm)</th><th></th></tr></thead>
-    <tbody id="stack-body"></tbody>
-  </table>
-  <button class="btn btn-sm" onclick="addLayer()" data-i18n="btn.addlayer">+ Ajouter couche</button>
-</div>
+<!-- (onglet "Couches" fusionné dans la zone Géométrie de "Source EM") -->
 
 <!-- RESULTS -->
 <div id="tab-results" class="panel">
@@ -835,8 +829,9 @@ const I18N={
   'geo.title':{fr:'Géométrie — vue de face',en:'Geometry — front view'},
   'ps.head':{fr:'🧠 Tête',en:'🧠 Head'},'ps.trunk':{fr:'🫁 Tronc',en:'🫁 Trunk'},
   'ps.arm':{fr:'💪 Membre',en:'💪 Limb'},'ps.eye':{fr:'👁 Œil',en:'👁 Eye'},'ps.breast':{fr:'🔵 Sein',en:'🔵 Breast'},
-  'geo.layers':{fr:'Couches',en:'Layers'},
-  'geo.hint':{fr:'Configure l’empilement dans « Empilement » puis lance un calcul pour voir les résultats.',en:'Set up the stack in "Tissue stack" then run a calculation to see the results.'},
+  'geo.layers':{fr:'Couches (air → tissu profond)',en:'Layers (air → deep tissue)'},
+  'geo.hint':{fr:'Choisis un empilement prédéfini ou édite les couches ci-contre, puis clique « Calculer ».',en:'Pick a preset stack or edit the layers on the right, then click “Compute”.'},
+  'btn.addlayer2':{fr:'+ Couche',en:'+ Layer'},
   // Empilement
   'stk.presets':{fr:'Empilements prédéfinis',en:'Preset stacks'},
   'ps.head2':{fr:'Tête frontale',en:'Head (frontal)'},'ps.trunk2':{fr:'Tronc',en:'Trunk'},
@@ -1412,8 +1407,9 @@ function plotE(r){
 }
 
 // ── Empilement ────────────────────────────────────────────────────────────────
-function renderStack(){
+function renderStack(){ renderSchema(); return;   // editor moved into the geometry zone (legend)
   const tb=document.getElementById('stack-body');
+  if(!tb) return;
   tb.innerHTML=layers.map((l,i)=>`<tr>
     <td>${i+1}</td>
     <td><select onchange="layers[${i}].t=this.value;renderStack();">${TNAMES.map(n=>`<option value="${n}"${n===l.t?' selected':''}>${n}${IFAC_DATA[n]?' ★':''}</option>`).join('')}</select></td>
@@ -1451,7 +1447,7 @@ function exportCSV(){
 
 // ── Diélectriques ─────────────────────────────────────────────────────────────
 function switchTab(name){
-  const names=['source','stack','results','therm','onde','diel','limits','valid'];
+  const names=['source','results','therm','onde','diel','limits','valid'];
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',names[i]===name));
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
@@ -1726,7 +1722,8 @@ function renderSchema(){
   const E0=lastResult?lastResult.E0:10;
   const srcCat=document.getElementById('src-cat').value;
   const nearType=document.getElementById('near-type')?.value||'edipole';
-  const stackData=lp?lp:PRESETS[activePreset||'head'].map(l=>({name:l.t,d:l.d/1000,rho:TISSUES[l.t]?TISSUES[l.t].density:1000}));
+  const baseLayers=(layers&&layers.length)?layers:(PRESETS[activePreset||'head']||[]);
+  const stackData=baseLayers.map(l=>({name:l.t,d:l.d/1000,rho:TISSUES[l.t]?TISSUES[l.t].density:1000}));
   const N=stackData.length;
   const totalD=stackData.reduce((s,l)=>s+(l.d||l.d),0);
   const PX=85/totalD;
@@ -1796,11 +1793,13 @@ function renderSchema(){
   // Source
   if(srcCat==='ff') drawFarField(gS,cx,cy,outerRX,outerRY);
   else drawNearField(gS,cx,cy,outerRX,outerRY,nearType);
-  // Légende
-  document.getElementById('schema-legend').innerHTML=stackData.map((l,i)=>{
-    const dv=l.d||l.d; const dMm=(dv*1000).toFixed(dv*1000<2?1:0);
-    return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span style="width:11px;height:11px;border-radius:2px;background:${LCOLORS[i%LCOLORS.length]};display:inline-block;flex-shrink:0"></span><span><b>${l.name||l.t}</b> — ${dMm} mm</span></div>`;
-  }).join('');
+  // Liste éditable des couches (remplace l'ancienne légende lecture seule)
+  document.getElementById('schema-legend').innerHTML=layers.map((l,i)=>`<div class="lrow">`+
+    `<span class="lc" style="background:${LCOLORS[i%LCOLORS.length]}"></span>`+
+    `<select class="lsel" onchange="layers[${i}].t=this.value;renderSchema();">${TNAMES.map(n=>`<option value="${n}"${n===l.t?' selected':''}>${n}${IFAC_DATA[n]?' ★':''}</option>`).join('')}</select>`+
+    `<input class="lthk" type="number" value="${l.d}" min="0.01" step="0.1" onchange="layers[${i}].d=+this.value;renderSchema();"><span class="um">mm</span>`+
+    `<button class="lrm" onclick="layers.splice(${i},1);renderSchema();" title="Retirer">✕</button>`+
+    `</div>`).join('');
   document.getElementById('schema-hint').style.display=lastResult?'none':'';
   // Cartographie de l'absorption
   const mapWrap=document.getElementById('sar-map-wrap');
