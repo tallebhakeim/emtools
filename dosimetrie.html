@@ -36,6 +36,11 @@ h1 span{color:var(--teal)}
 .lrow .um{font-size:10px;color:var(--text2)}
 .lrow .lrm{border:none;background:#fef2f2;color:#dc2626;border-radius:5px;width:22px;height:24px;cursor:pointer;flex-shrink:0;font-size:11px}
 .lrow .lrm:hover{background:#fee2e2}
+.lrow .lmv{display:flex;flex-direction:column;flex-shrink:0}
+.lrow .lmv button{border:none;background:#f1f5f9;color:#475569;cursor:pointer;font-size:9px;line-height:1;width:18px;height:12px;padding:0;border-radius:3px}
+.lrow .lmv button:first-child{margin-bottom:1px}
+.lrow .lmv button:hover:not(:disabled){background:#e2e8f0;color:#1e293b}
+.lrow .lmv button:disabled{opacity:.3;cursor:default}
 .tab.active{background:var(--navy);border-color:var(--navy);color:var(--white);
             font-weight:600;box-shadow:0 4px 14px rgba(26,46,74,.18)}
 .tab:hover:not(.active){background:var(--teal-light);border-color:var(--teal);color:var(--navy)}
@@ -1418,7 +1423,8 @@ function renderStack(){ renderSchema(); return;   // editor moved into the geome
   </tr>`).join('');
 }
 
-function addLayer(){layers.push({t:'Muscle',d:10});renderStack();}
+function addLayer(){layers.push({t:'Muscle',d:10});renderSchema();}
+function moveLayer(i,dir){const j=i+dir; if(j<0||j>=layers.length)return; const tmp=layers[i];layers[i]=layers[j];layers[j]=tmp; renderSchema();}
 
 function loadPreset(n){
   layers=PRESETS[n].map(l=>({...l}));
@@ -1760,7 +1766,7 @@ function renderSchema(){
   if(radii[N]>8) layerPath(radii[N],LCOLORS[(N-1)%LCOLORS.length],'0.75',false);
   const outerRX=radii[0]*BASE_RX,outerRY=radii[0]*BASE_RY;
   const lineH=16,yStart=cy-(N-1)*lineH/2,xLabel=cx+outerRX+18;
-  for(let i=0;i<N;i++){
+  for(let i=0;false&&i<N;i++){   // traits/labels par couche retirés — la légende est la liste éditable
     const yAnno=yStart+i*lineH;
     const rMid=Math.max((radii[i]+radii[i+1])/2,radii[0]*0.55);
     const rxA=rMid*BASE_RX,ryA=rMid*BASE_RY;
@@ -1798,6 +1804,7 @@ function renderSchema(){
     `<span class="lc" style="background:${LCOLORS[i%LCOLORS.length]}"></span>`+
     `<select class="lsel" onchange="layers[${i}].t=this.value;renderSchema();">${TNAMES.map(n=>`<option value="${n}"${n===l.t?' selected':''}>${n}${IFAC_DATA[n]?' ★':''}</option>`).join('')}</select>`+
     `<input class="lthk" type="number" value="${l.d}" min="0.01" step="0.1" onchange="layers[${i}].d=+this.value;renderSchema();"><span class="um">mm</span>`+
+    `<span class="lmv"><button onclick="moveLayer(${i},-1)" title="Monter"${i===0?' disabled':''}>↑</button><button onclick="moveLayer(${i},1)" title="Descendre"${i===layers.length-1?' disabled':''}>↓</button></span>`+
     `<button class="lrm" onclick="layers.splice(${i},1);renderSchema();" title="Retirer">✕</button>`+
     `</div>`).join('');
   document.getElementById('schema-hint').style.display=lastResult?'none':'';
