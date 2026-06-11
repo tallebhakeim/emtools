@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EMtools — Simulateur d'antennes (méthode des moments)</title>
+<meta name="description" content="EMtools — simulateur d'antennes filaires par la méthode des moments (MoM, EFIE thin-wire). Impédance d'entrée, VSWR, diagramme de rayonnement, gain. Par Hakeim Talleb. Accès libre, code ouvert.">
+<style>
+:root{
+  --navy:#1a2e4a; --teal:#0d9488; --teal2:#0f766e; --teal-light:#e6f7f5;
+  --gold:#d97706; --text:#1e293b; --text2:#64748b; --border:#e2e8f0;
+  --bg:#f8fafc; --bg2:#f0fdf9; --white:#fff; --radius:14px;
+  --shadow:0 2px 14px rgba(26,46,74,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--text);background:var(--bg);line-height:1.6}
+a{color:var(--teal2)}
+.wrap{max-width:980px;margin:0 auto;padding:0 1.25rem}
+#lang-toggle{position:fixed;top:14px;right:16px;z-index:50;background:rgba(255,255,255,.14);color:#fff;
+  border:1px solid rgba(255,255,255,.45);border-radius:8px;padding:5px 12px;font-size:13px;font-weight:700;
+  cursor:pointer;backdrop-filter:blur(4px);transition:background .15s}
+#lang-toggle:hover{background:rgba(255,255,255,.28)}
+
+header{background:linear-gradient(135deg,#1a2e4a,#0f3a4d);color:#fff;padding:2.4rem 0 2rem}
+header .wrap{display:flex;flex-direction:column;gap:.4rem}
+header .back{font-size:.82rem;color:#94a3b8;text-decoration:none}
+header .back:hover{color:#cbd5e1}
+header h1{font-size:1.7rem;font-weight:800;letter-spacing:-.02em}
+header h1 span{color:#5eead4}
+header .tag{font-size:1rem;color:#cbd5e1;max-width:680px}
+
+main{padding:2rem 0 3rem}
+.intro{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius);padding:1rem 1.2rem;font-size:.9rem;color:var(--text);margin-bottom:1.6rem}
+.intro b{color:var(--navy)}
+
+.panel{background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.3rem 1.4rem;margin-bottom:1.4rem}
+.ptitle{font-size:.78rem;font-weight:700;color:var(--teal2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:1rem}
+
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:1rem 1.4rem}
+.ctrl{display:flex;flex-direction:column;gap:.3rem}
+.ctrl label{font-size:.82rem;font-weight:600;color:var(--text2)}
+.ctrl input,.ctrl select{font:inherit;font-size:.92rem;padding:.45rem .55rem;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--text)}
+.ctrl input:focus,.ctrl select:focus{outline:none;border-color:var(--teal)}
+.ctrl .val{font-size:.78rem;color:var(--teal2);font-weight:700}
+.ctrl input[type=range]{padding:0}
+
+/* free wire editor */
+#wire-editor{margin-top:1.1rem;border-top:1px dashed var(--border);padding-top:1rem}
+.we-head{font-size:.78rem;font-weight:700;color:var(--teal2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.7rem;display:flex;justify-content:space-between;align-items:center}
+.we-add{font:inherit;font-size:.8rem;font-weight:700;color:var(--teal2);background:var(--teal-light);border:1px solid #99e6dc;border-radius:7px;padding:.3rem .7rem;cursor:pointer}
+.wire-row{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;padding:.4rem 0;border-bottom:1px solid #f1f5f9}
+.wire-row .fed{display:flex;align-items:center;gap:3px;font-size:.78rem;color:var(--text2);font-weight:600}
+.wire-row .f{display:flex;align-items:center;gap:3px;font-size:.78rem;color:var(--text2)}
+.wire-row input[type=number]{width:62px;font:inherit;font-size:.82rem;padding:.25rem .35rem;border:1.5px solid var(--border);border-radius:6px}
+.wire-row select{font:inherit;font-size:.82rem;padding:.25rem .3rem;border:1.5px solid var(--border);border-radius:6px}
+.wire-row .rm{margin-left:auto;background:#fee2e2;color:#991b1b;border:none;border-radius:6px;width:24px;height:24px;cursor:pointer;font-weight:700}
+.wire-row.driven{background:var(--bg2);border-radius:8px;padding:.4rem .5rem}
+
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.9rem}
+.metric{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:.8rem .9rem}
+.metric .k{font-size:.74rem;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.metric .v{font-size:1.25rem;font-weight:800;color:var(--navy);margin-top:.15rem}
+.metric .u{font-size:.78rem;color:var(--text2);font-weight:600}
+.metric.hl{background:var(--teal-light);border-color:#99e6dc}
+.metric.hl .v{color:var(--teal2)}
+.badge-vswr{display:inline-block;font-size:.72rem;font-weight:700;padding:1px 8px;border-radius:12px;margin-top:.2rem}
+
+.plots{display:grid;grid-template-columns:1fr 1fr;gap:1.4rem}
+.plotbox{display:flex;flex-direction:column;gap:.4rem}
+.plotbox h4{font-size:.86rem;font-weight:700;color:var(--navy)}
+.plotbox .sub{font-size:.74rem;color:var(--text2)}
+canvas{width:100%;height:auto;background:#fff;border:1px solid var(--border);border-radius:10px}
+@media(max-width:760px){.plots{grid-template-columns:1fr}}
+
+.note{font-size:.82rem;color:var(--text2);margin-top:.6rem}
+.warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:10px;padding:.7rem .9rem;font-size:.83rem;margin-top:1rem}
+footer{border-top:1px solid var(--border);padding:1.5rem 0;font-size:.8rem;color:var(--text2);margin-top:1rem}
+footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+footer a{color:var(--text2)}
+table.valid{width:100%;border-collapse:collapse;font-size:.84rem;margin-top:.4rem}
+table.valid th,table.valid td{border:1px solid var(--border);padding:.35rem .55rem;text-align:left}
+table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
+</style>
+</head>
+<body>
+
+<button id="lang-toggle" onclick="toggleLang()">EN</button>
+
+<header>
+  <div class="wrap">
+    <a class="back" href="antennes.html">← <span data-i18n="back.hub">Antennes</span></a>
+    <h1><span>📶</span> <span data-i18n="title">Antennes filaires</span></h1>
+    <div class="tag" data-i18n="tag">Antennes filaires par la méthode des moments (MoM) : impédance d'entrée, VSWR, courant, diagramme de rayonnement et gain.</div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <div class="intro" data-i18n-html="intro">
+    <b>Comment ça marche —</b> l'antenne est discrétisée en segments de fil ; on résout l'<b>équation
+    intégrale du champ électrique (EFIE, formulation de Pocklington « fil mince »)</b> par la
+    <b>méthode des moments</b> (base sinusoïdale par morceaux, testage de Galerkin) — le cœur des codes
+    type NEC. On en déduit le courant le long du fil, l'impédance d'entrée et le champ rayonné.
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="panel">
+    <div class="ptitle" data-i18n="cfg">Configuration</div>
+    <div class="controls">
+      <div class="ctrl">
+        <label data-i18n="type">Type d'antenne</label>
+        <select id="type" onchange="onTypeChange()">
+          <option value="dipole" data-i18n="type.dipole">Dipôle (alimenté au centre)</option>
+          <option value="monopole" data-i18n="type.monopole">Monopôle ¼λ sur plan de masse</option>
+          <option value="yagi2" data-i18n="type.yagi2">Yagi 2 él. : réflecteur + dipôle</option>
+          <option value="yagi3" data-i18n="type.yagi3">Yagi 3 él. : + 1 directeur</option>
+          <option value="yagi5" data-i18n="type.yagi5">Yagi 5 él. : + 3 directeurs</option>
+          <option value="cage" data-i18n="type.cage">Dipôle entouré de N fils (environnement)</option>
+          <option value="custom" data-i18n="type.custom">Géométrie libre (éditeur de fils)</option>
+        </select>
+      </div>
+      <div class="ctrl">
+        <label data-i18n="freq">Fréquence f₀</label>
+        <input id="freq" type="number" value="300" min="1" step="1" onchange="recompute()">
+        <span class="val">MHz</span>
+      </div>
+      <div class="ctrl">
+        <label><span data-i18n="len">Longueur</span> · <span id="lenval" class="val">0.50 λ</span></label>
+        <input id="len" type="range" min="0.10" max="1.00" step="0.005" value="0.50" oninput="recompute()">
+        <span class="val" id="lenmm">—</span>
+      </div>
+      <div class="ctrl">
+        <label data-i18n="rad">Rayon du fil</label>
+        <input id="rad" type="number" value="0.5" min="0.001" step="0.1" onchange="recompute()">
+        <span class="val">mm</span>
+      </div>
+      <div class="ctrl">
+        <label data-i18n="z0">Impédance de référence Z₀</label>
+        <select id="z0" onchange="recompute()">
+          <option value="50">50 Ω</option>
+          <option value="75">75 Ω</option>
+          <option value="300">300 Ω</option>
+        </select>
+      </div>
+      <div class="ctrl">
+        <label data-i18n="mat">Matériau du conducteur</label>
+        <select id="mat" onchange="recompute()">
+          <option value="0" data-i18n="mat.pec">Parfait (PEC, sans pertes)</option>
+          <option value="5.8e7" data-i18n="mat.cu">Cuivre (σ=5,8·10⁷)</option>
+          <option value="3.5e7" data-i18n="mat.al">Aluminium (σ=3,5·10⁷)</option>
+          <option value="1.0e6" data-i18n="mat.steel">Acier (σ=1·10⁶)</option>
+        </select>
+      </div>
+      <div class="ctrl">
+        <label><span data-i18n="seg">Segments</span> · <span id="segval" class="val">auto</span></label>
+        <input id="seg" type="range" min="0" max="80" step="2" value="0" oninput="recompute()">
+        <span class="note" data-i18n="seg.note">0 = automatique</span>
+      </div>
+      <div class="ctrl env-ctrl" style="display:none">
+        <label><span data-i18n="env.n">Fils autour</span> · <span id="env_nv" class="val">8</span></label>
+        <input id="env_n" type="range" min="2" max="16" step="1" value="8" oninput="recompute()">
+        <span class="note" data-i18n="env.n.note">conducteurs parasites</span>
+      </div>
+      <div class="ctrl env-ctrl" style="display:none">
+        <label><span data-i18n="env.r">Rayon de la cage</span> · <span id="env_rv" class="val">0.25 λ</span></label>
+        <input id="env_r" type="range" min="0.05" max="1.0" step="0.01" value="0.25" oninput="recompute()">
+        <span class="note" data-i18n="env.r.note">distance dipôle ↔ fils</span>
+      </div>
+      <div class="ctrl env-ctrl" style="display:none">
+        <label data-i18n="env.shape">Forme de la cage</label>
+        <select id="env_shape" onchange="recompute()">
+          <option value="circle" data-i18n="env.circle">Cercle</option>
+          <option value="square" data-i18n="env.square">Carré</option>
+        </select>
+      </div>
+      <div class="ctrl env-ctrl" style="display:none">
+        <label data-i18n="env.axis">Orientation des fils</label>
+        <select id="env_axis" onchange="recompute()">
+          <option value="z" data-i18n="env.vert">Verticaux (∥ dipôle)</option>
+          <option value="x" data-i18n="env.horiz">Horizontaux (⟂)</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="wire-editor" style="display:none">
+      <div class="we-head">
+        <span data-i18n="we.title">Éditeur de fils — positions (λ) et orientation</span>
+        <button class="we-add" onclick="addWire()">+ <span data-i18n="we.add">Ajouter un fil</span></button>
+      </div>
+      <div id="wire-rows"></div>
+      <div class="note" data-i18n="we.note" style="margin-top:.6rem">Un fil « alimenté » porte la source ; les autres sont parasites (couplage). Centre (x,y,z) et longueur L en λ.</div>
+    </div>
+  </div>
+
+  <!-- METRICS -->
+  <div class="panel">
+    <div class="ptitle" data-i18n="results">Résultats au point d'alimentation</div>
+    <div class="metrics">
+      <div class="metric hl"><div class="k" data-i18n="m.zin">Impédance d'entrée</div><div class="v" id="m_zin">—</div><div class="u">Ω</div></div>
+      <div class="metric"><div class="k">VSWR / Z₀</div><div class="v" id="m_vswr">—</div><div id="m_vswr_b"></div></div>
+      <div class="metric"><div class="k" data-i18n="m.rl">Perte de retour</div><div class="v" id="m_rl">—</div><div class="u">dB (|Γ|)</div></div>
+      <div class="metric"><div class="k" id="m_elen_k" data-i18n="m.elen">Longueur électrique</div><div class="v" id="m_elen">—</div><div class="u" id="m_elen_u">λ</div></div>
+      <div class="metric"><div class="k" id="m_dir_k" data-i18n="m.dir">Directivité max</div><div class="v" id="m_dir">—</div><div class="u">dBi</div></div>
+      <div class="metric" id="m_gain_box" style="display:none"><div class="k" data-i18n="m.gainr">Gain réalisé</div><div class="v" id="m_gain">—</div><div class="u">dBi</div></div>
+      <div class="metric" id="m_rendt_box" style="display:none"><div class="k" data-i18n="m.rendt">Efficacité de rayonnement</div><div class="v" id="m_rendt">—</div><div class="u" data-i18n="m.rendt.u">% (R_loss)</div></div>
+      <div class="metric"><div class="k" data-i18n="m.eff">Bilan d'énergie</div><div class="v" id="m_eff">—</div><div class="u" data-i18n="m.eff.u">écart P</div></div>
+    </div>
+    <div class="note" id="resnote"></div>
+  </div>
+
+  <!-- PLOTS -->
+  <div class="panel">
+    <div class="ptitle" data-i18n="viz">Visualisations</div>
+    <div class="plots">
+      <div class="plotbox">
+        <h4 data-i18n="p.curr">Distribution du courant |I(s)|</h4>
+        <div class="sub" data-i18n="p.curr.sub">Le long du fil, normalisée au maximum.</div>
+        <canvas id="cv_curr" width="440" height="240"></canvas>
+      </div>
+      <div class="plotbox">
+        <h4 data-i18n="p.pat">Diagramme de rayonnement (gain, dBi)</h4>
+        <div class="sub" data-i18n="p.pat.sub">Plan E (—, vertical) et plan H (- -, horizontal).</div>
+        <canvas id="cv_pat" width="440" height="300"></canvas>
+      </div>
+      <div class="plotbox" style="grid-column:1/-1">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap">
+          <h4 data-i18n="p.sweep">Adaptation en fonction de la fréquence</h4>
+          <select id="sweepmode" onchange="redrawSweep()" style="font:inherit;font-size:.82rem;padding:.3rem .5rem;border:1.5px solid var(--border);border-radius:7px">
+            <option value="vswr" data-i18n="sw.vswr">VSWR</option>
+            <option value="s11" data-i18n="sw.s11">S₁₁ (dB)</option>
+          </select>
+        </div>
+        <div class="sub" data-i18n="p.sweep.sub">Longueur physique fixe ; bande passante (VSWR ≤ 2 / S₁₁ ≤ −10 dB) surlignée.</div>
+        <canvas id="cv_sweep" width="900" height="240"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- NEAR-FIELD MAP -->
+  <div class="panel">
+    <div class="ptitle" data-i18n="map.title">Cartographie de champ proche</div>
+    <div class="controls" style="margin-bottom:1.1rem">
+      <div class="ctrl">
+        <label data-i18n="map.plane">Plan de coupe</label>
+        <select id="map_plane" onchange="recomputeMap()">
+          <option value="xy" data-i18n="map.xy">Plan XY (vue de dessus, z = 0)</option>
+          <option value="xz" data-i18n="map.xz">Plan XZ (contient les fils, y = 0)</option>
+        </select>
+      </div>
+      <div class="ctrl">
+        <label><span data-i18n="map.ext">Demi-étendue</span> · <span id="map_extv" class="val">1.0 λ</span></label>
+        <input id="map_ext" type="range" min="0.3" max="3" step="0.1" value="1.0" oninput="recomputeMap()">
+      </div>
+      <div class="ctrl">
+        <label data-i18n="map.comp">Composante</label>
+        <select id="map_comp" onchange="recomputeMap()">
+          <option value="tot" data-i18n="map.tot">|E| total</option>
+          <option value="z" data-i18n="map.ez">|Ez| (axe des fils)</option>
+        </select>
+      </div>
+      <div class="ctrl">
+        <label data-i18n="map.res">Résolution</label>
+        <select id="map_res" onchange="recomputeMap()">
+          <option value="61">61 × 61</option>
+          <option value="81">81 × 81</option>
+          <option value="41">41 × 41 (rapide)</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:12px;align-items:flex-start">
+      <canvas id="cv_map" width="460" height="460" style="flex:1;max-width:460px;aspect-ratio:1"></canvas>
+      <canvas id="cv_cbar" width="66" height="460" style="width:66px;height:auto;border:none;background:transparent"></canvas>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-top:.6rem;flex-wrap:wrap">
+      <div class="note" data-i18n="map.note" style="margin:0;flex:1;min-width:240px">Niveau du champ en dB (normalisé au maximum). Les fils conducteurs apparaissent comme des points/lignes intenses ; on visualise le couplage et les ombres.</div>
+      <button id="map_png" onclick="exportMapPNG()" style="font:inherit;font-size:.85rem;font-weight:700;color:#fff;background:var(--teal2);border:none;border-radius:8px;padding:.5rem .9rem;cursor:pointer;white-space:nowrap">⬇ <span data-i18n="map.png">Exporter en PNG</span></button>
+    </div>
+  </div>
+
+  <div class="warn" data-i18n-html="disclaimer">
+    <b>Outil pédagogique —</b> moteur MoM « fil mince » à but didactique. Le diagramme de rayonnement,
+    la directivité, la longueur de résonance et la réactance sont excellents (&lt; 1 % sur la directivité) ;
+    la <b>résistance d'entrée</b> est donnée à <b>~10–15 % près</b> près de la résonance (modèle de source
+    « delta-gap », sans correction d'extrémité). Pour un dimensionnement définitif, utiliser un code de
+    référence (NEC-2, FEKO, HFSS).
+  </div>
+
+  <!-- VALIDATION -->
+  <div class="panel" style="margin-top:1.4rem">
+    <div class="ptitle" data-i18n="valid">Validation — dipôle demi-onde (référence)</div>
+    <table class="valid">
+      <thead><tr><th data-i18n="v.q">Grandeur</th><th data-i18n="v.tool">Ce moteur</th><th data-i18n="v.ref">Théorie</th><th data-i18n="v.err">Écart</th></tr></thead>
+      <tbody>
+        <tr><td data-i18n="v.d">Directivité (0,5 λ)</td><td>2,17 dBi</td><td>2,15 dBi</td><td>&lt; 0,03 dB</td></tr>
+        <tr><td data-i18n="v.res">Longueur de résonance</td><td>≈ 0,475 λ</td><td>0,47–0,48 λ</td><td>✓</td></tr>
+        <tr><td data-i18n="v.rr">R à la résonance</td><td>73,8 Ω</td><td>≈ 73 Ω</td><td>≈ 1 %</td></tr>
+        <tr><td data-i18n="v.x">Réactance (0,5 λ)</td><td>+44 Ω</td><td>+42,5 Ω</td><td>≈ 4 %</td></tr>
+        <tr><td data-i18n="v.e">Conservation d'énergie</td><td>0,00 %</td><td>0</td><td>✓</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <span data-i18n-html="footer.lic">© 2026 Hakeim Talleb · EMtools · Code sous licence <a href="LICENSE">MIT</a></span>
+    <span><a href="index.html" data-i18n="footer.home">← Tous les outils</a></span>
+  </div>
+</footer>
+
+<script>
+/* ===================================================================
+   THIN-WIRE METHOD OF MOMENTS  (EFIE, Pocklington form)
+   Piecewise-sinusoidal basis = test (Galerkin), reduced/exact kernel.
+   Validated against the half-wave dipole. (c) 2026 H. Talleb — MIT.
+   =================================================================== */
+const ETA = 376.730313668, C0 = 299792458;
+const cAdd=(a,b)=>({re:a.re+b.re,im:a.im+b.im});
+const cMul=(a,b)=>({re:a.re*b.re-a.im*b.im,im:a.re*b.im+a.im*b.re});
+const cScale=(a,s)=>({re:a.re*s,im:a.im*s});
+const GL_X=[-0.9739065285171717,-0.8650633666889845,-0.6794095682990244,-0.4333953941292472,-0.1488743389816312,0.1488743389816312,0.4333953941292472,0.6794095682990244,0.8650633666889845,0.9739065285171717];
+const GL_W=[0.0666713443086881,0.1494513491505806,0.2190863625159820,0.2692667193099963,0.2955242247147529,0.2955242247147529,0.2692667193099963,0.2190863625159820,0.1494513491505806,0.0666713443086881];
+const vsub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+const vdot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+const vnorm=(a)=>Math.hypot(a[0],a[1],a[2]);
+const vunit=(a)=>{const n=vnorm(a);return [a[0]/n,a[1]/n,a[2]/n];};
+
+function buildBasis(nodes,k){
+  const M=nodes.length-1, bases=[];
+  for(let n=1;n<=M-1;n++){
+    const Pm=nodes[n-1],Pn=nodes[n],Pp=nodes[n+1];
+    const dM=vnorm(vsub(Pn,Pm)), dP=vnorm(vsub(Pp,Pn));
+    const uM=vunit(vsub(Pn,Pm)), uP=vunit(vsub(Pp,Pn));
+    const skM=Math.sin(k*dM), skP=Math.sin(k*dP);
+    bases.push({node:n,point:Pn,rays:[
+      {A:Pm,u:uM,d:dM,f:xi=>Math.sin(k*xi)/skM,fp:xi=>k*Math.cos(k*xi)/skM},
+      {A:Pn,u:uP,d:dP,f:xi=>Math.sin(k*(dP-xi))/skP,fp:xi=>-k*Math.cos(k*(dP-xi))/skP},
+    ]});
+  }
+  return bases;
+}
+function greenReduced(r,rp,a,k){
+  const dx=r[0]-rp[0],dy=r[1]-rp[1],dz=r[2]-rp[2];
+  const R=Math.sqrt(dx*dx+dy*dy+dz*dz+a*a), kr=k*R;
+  return {re:Math.cos(kr)/R,im:-Math.sin(kr)/R};
+}
+// Allocation-free hot loop: scalar accumulators, inlined reduced kernel R=sqrt(d²+a²).
+function rayRayIntegral(ra,rb,a,k,sub){
+  const uu=vdot(ra.u,rb.u),k2=k*k,a2=a*a;
+  const Aax=ra.A[0],Aay=ra.A[1],Aaz=ra.A[2],uax=ra.u[0],uay=ra.u[1],uaz=ra.u[2];
+  const Abx=rb.A[0],Aby=rb.A[1],Abz=rb.A[2],ubx=rb.u[0],uby=rb.u[1],ubz=rb.u[2];
+  let accRe=0,accIm=0;
+  const dsa=ra.d/sub,dsb=rb.d/sub,ha=dsa/2,hb=dsb/2,NG=GL_X.length;
+  for(let sa=0;sa<sub;sa++){const a0=sa*dsa;
+    for(let i=0;i<NG;i++){
+      const xi=a0+(GL_X[i]+1)*ha,wi=GL_W[i]*ha;
+      const pax=Aax+xi*uax,pay=Aay+xi*uay,paz=Aaz+xi*uaz;
+      const fa=ra.f(xi),fpa=ra.fp(xi);
+      for(let sb=0;sb<sub;sb++){const b0=sb*dsb;
+        for(let j=0;j<NG;j++){
+          const xj=b0+(GL_X[j]+1)*hb,wj=GL_W[j]*hb;
+          const dx=pax-(Abx+xj*ubx),dy=pay-(Aby+xj*uby),dz=paz-(Abz+xj*ubz);
+          const R=Math.sqrt(dx*dx+dy*dy+dz*dz+a2),kr=k*R;
+          const ker=(fpa*rb.fp(xj)-k2*uu*fa*rb.f(xj))*wi*wj/R;
+          accRe+=Math.cos(kr)*ker; accIm+=-Math.sin(kr)*ker;
+        }}
+    }}
+  return {re:accRe,im:accIm};
+}
+function complexSolve(A,b){
+  const n=b.length;
+  const M=A.map(row=>row.map(c=>({re:c.re,im:c.im})));
+  const x=b.map(c=>({re:c.re,im:c.im}));
+  const cabs=c=>Math.hypot(c.re,c.im);
+  const cdiv=(a,d)=>{const den=d.re*d.re+d.im*d.im;return {re:(a.re*d.re+a.im*d.im)/den,im:(a.im*d.re-a.re*d.im)/den};};
+  for(let col=0;col<n;col++){
+    let piv=col,best=cabs(M[col][col]);
+    for(let r=col+1;r<n;r++){const v=cabs(M[r][col]);if(v>best){best=v;piv=r;}}
+    if(piv!==col){[M[col],M[piv]]=[M[piv],M[col]];[x[col],x[piv]]=[x[piv],x[col]];}
+    const diag=M[col][col];
+    for(let r=col+1;r<n;r++){
+      const factor=cdiv(M[r][col],diag);
+      for(let c=col;c<n;c++)M[r][c]={re:M[r][c].re-(factor.re*M[col][c].re-factor.im*M[col][c].im),im:M[r][c].im-(factor.re*M[col][c].im+factor.im*M[col][c].re)};
+      x[r]={re:x[r].re-(factor.re*x[col].re-factor.im*x[col].im),im:x[r].im-(factor.re*x[col].im+factor.im*x[col].re)};
+    }
+  }
+  for(let row=n-1;row>=0;row--){
+    let s={re:x[row].re,im:x[row].im};
+    for(let c=row+1;c<n;c++)s={re:s.re-(M[row][c].re*x[c].re-M[row][c].im*x[c].im),im:s.im-(M[row][c].re*x[c].im+M[row][c].im*x[c].re)};
+    x[row]=cdiv(s,M[row][row]);
+  }
+  return x;
+}
+function solveMoM(nodes,feedBasis,a,freqHz,fast){
+  const k=2*Math.PI*freqHz/C0, bases=buildBasis(nodes,k), N=bases.length;
+  const Cconst={re:0,im:-ETA/(4*Math.PI*k)};
+  const subNear=fast?4:6, subFar=fast?1:2;
+  const Z=[];
+  for(let m=0;m<N;m++){Z.push(new Array(N));
+    for(let nn=0;nn<N;nn++){
+      let sum={re:0,im:0};
+      for(const ra of bases[m].rays)for(const rb of bases[nn].rays){
+        const close=vnorm(vsub(bases[m].point,bases[nn].point))<2.5*ra.d;
+        sum=cAdd(sum,rayRayIntegral(ra,rb,a,k,close?subNear:subFar));
+      }
+      Z[m][nn]=cMul(Cconst,sum);
+    }}
+  const V=[]; for(let m=0;m<N;m++)V.push(m===feedBasis?{re:1,im:0}:{re:0,im:0});
+  const I=complexSolve(Z,V), If=I[feedBasis], den=If.re*If.re+If.im*If.im;
+  return {Zin:{re:If.re/den,im:-If.im/den},I,bases,k,Ifeed:If};
+}
+function radiationVector(bases,I,k,dir){
+  let xr=0,xi_=0,yr=0,yi=0,zr=0,zi=0;
+  const d0=dir[0],d1=dir[1],d2=dir[2];
+  for(let n=0;n<bases.length;n++){const Inr=I[n].re,Ini=I[n].im;
+    for(const ray of bases[n].rays){const h=ray.d/2,u0=ray.u[0],u1=ray.u[1],u2=ray.u[2];
+      for(let i=0;i<GL_X.length;i++){
+        const xi=(GL_X[i]+1)*h,w=GL_W[i]*h;
+        const px=ray.A[0]+xi*u0,py=ray.A[1]+xi*u1,pz=ray.A[2]+xi*u2;
+        const ph=k*(d0*px+d1*py+d2*pz), fw=ray.f(xi)*w;
+        // (Inr+jIni)*(cos+jsin)*fw
+        const er=Math.cos(ph)*fw, ei=Math.sin(ph)*fw;
+        const cr=Inr*er-Ini*ei, ci=Inr*ei+Ini*er;
+        xr+=cr*u0; xi_+=ci*u0; yr+=cr*u1; yi+=ci*u1; zr+=cr*u2; zi+=ci*u2;
+      }}}
+  return [{re:xr,im:xi_},{re:yr,im:yi},{re:zr,im:zi}];
+}
+function farField(bases,I,k,Zin,Ifeed,nTh,nPh){
+  const Pin=0.5*(Ifeed.re*Ifeed.re+Ifeed.im*Ifeed.im)*Zin.re;
+  const Uf=ETA*k*k/(32*Math.PI*Math.PI);
+  let Umax=0,Prad=0;
+  for(let it=0;it<=nTh;it++){const th=Math.PI*it/nTh,st=Math.sin(th),ct=Math.cos(th);
+    for(let ip=0;ip<nPh;ip++){const phi=2*Math.PI*ip/nPh,sp=Math.sin(phi),cp=Math.cos(phi);
+      const dir=[st*cp,st*sp,ct],thh=[ct*cp,ct*sp,-st],phh=[-sp,cp,0];
+      const Nv=radiationVector(bases,I,k,dir);
+      const Nth={re:Nv[0].re*thh[0]+Nv[1].re*thh[1]+Nv[2].re*thh[2],im:Nv[0].im*thh[0]+Nv[1].im*thh[1]+Nv[2].im*thh[2]};
+      const Nph={re:Nv[0].re*phh[0]+Nv[1].re*phh[1]+Nv[2].re*phh[2],im:Nv[0].im*phh[0]+Nv[1].im*phh[1]+Nv[2].im*phh[2]};
+      const u=Uf*(Nth.re*Nth.re+Nth.im*Nth.im+Nph.re*Nph.re+Nph.im*Nph.im);
+      if(u>Umax)Umax=u;
+      Prad+=u*st*(Math.PI/nTh)*(2*Math.PI/nPh);
+    }}
+  const Dmax=4*Math.PI*Umax/Prad;
+  return {Dmax,Prad,Pin,Umax,DmaxdBi:10*Math.log10(Dmax),energyErr:Math.abs(Prad-Pin)/Math.max(Pin,1e-30)};
+}
+// principal-plane gain cut: returns [{ang, gain_dBi}] for theta sweep at phi (E-plane) etc.
+function gainCut(bases,I,k,Prad,plane){
+  const out=[],Uf=ETA*k*k/(32*Math.PI*Math.PI),Np=180;
+  for(let i=0;i<=Np;i++){
+    const a=2*Math.PI*i/Np; let dir,thh,phh;
+    if(plane==='E'){ // vertical plane phi=0: vary theta over full circle (x-z plane)
+      const th=a; dir=[Math.sin(th),0,Math.cos(th)]; thh=[Math.cos(th),0,-Math.sin(th)]; phh=[0,1,0];
+    } else { // H-plane: theta=90, vary phi (x-y plane)
+      const ph=a; dir=[Math.cos(ph),Math.sin(ph),0]; thh=[0,0,-1]; phh=[-Math.sin(ph),Math.cos(ph),0];
+    }
+    const Nv=radiationVector(bases,I,k,dir);
+    const Nth={re:vdot([Nv[0].re,Nv[1].re,Nv[2].re],thh),im:vdot([Nv[0].im,Nv[1].im,Nv[2].im],thh)};
+    const Nph={re:vdot([Nv[0].re,Nv[1].re,Nv[2].re],phh),im:vdot([Nv[0].im,Nv[1].im,Nv[2].im],phh)};
+    const u=Uf*(Nth.re*Nth.re+Nth.im*Nth.im+Nph.re*Nph.re+Nph.im*Nph.im);
+    const g=4*Math.PI*u/Prad;
+    out.push({ang:a,gain:g});
+  }
+  return out;
+}
+
+// ----- Multi-element coupled wires (Yagi-Uda): one driven element, the rest parasitic -----
+function buildElements(wires,k){
+  let bases=[];
+  wires.forEach((nodes,wi)=>{const b=buildBasis(nodes,k);b.forEach(x=>{x.wire=wi;});bases=bases.concat(b);});
+  return bases;
+}
+function solveMoMElements(wires,feedGlobal,a,freqHz,fast){
+  const k=2*Math.PI*freqHz/C0, bases=buildElements(wires,k), N=bases.length;
+  const Cconst={re:0,im:-ETA/(4*Math.PI*k)}, subNear=fast?4:6, subFar=fast?1:2;
+  const Z=[];
+  for(let m=0;m<N;m++){Z.push(new Array(N));
+    for(let nn=0;nn<N;nn++){
+      let sum={re:0,im:0};
+      for(const ra of bases[m].rays)for(const rb of bases[nn].rays){
+        const close=vnorm(vsub(bases[m].point,bases[nn].point))<2.5*ra.d;
+        sum=cAdd(sum,rayRayIntegral(ra,rb,a,k,close?subNear:subFar));
+      }
+      Z[m][nn]=cMul(Cconst,sum);
+    }}
+  const V=[]; for(let m=0;m<N;m++)V.push(m===feedGlobal?{re:1,im:0}:{re:0,im:0});
+  const I=complexSolve(Z,V), If=I[feedGlobal], den=If.re*If.re+If.im*If.im;
+  return {Zin:{re:If.re/den,im:-If.im/den},I,bases,k,Ifeed:If,wires};
+}
+// gain (linear) in a direction unit-vector
+function gainAt(bases,I,k,Prad,dir){
+  const Uf=ETA*k*k/(32*Math.PI*Math.PI);
+  const th=Math.acos(Math.max(-1,Math.min(1,dir[2]))), ph=Math.atan2(dir[1],dir[0]);
+  const thh=[Math.cos(th)*Math.cos(ph),Math.cos(th)*Math.sin(ph),-Math.sin(th)];
+  const phh=[-Math.sin(ph),Math.cos(ph),0];
+  const Nv=radiationVector(bases,I,k,dir);
+  const Nth={re:vdot([Nv[0].re,Nv[1].re,Nv[2].re],thh),im:vdot([Nv[0].im,Nv[1].im,Nv[2].im],thh)};
+  const Nph={re:vdot([Nv[0].re,Nv[1].re,Nv[2].re],phh),im:vdot([Nv[0].im,Nv[1].im,Nv[2].im],phh)};
+  const u=Uf*(Nth.re*Nth.re+Nth.im*Nth.im+Nph.re*Nph.re+Nph.im*Nph.im);
+  return 4*Math.PI*u/Prad;
+}
+
+// Total near-field E(r) (complex 3-vector) from the solved currents:
+//   E = -j(η/4πk)[ k² Σ I_n ∫ f_n û' G ds' + Σ I_n ∫ f_n' ∇_r G ds' ],  R=√(|r-r'|²+a²)
+function nearFieldE(bases,I,k,r,a){
+  const a2=a*a;
+  let Axr=0,Axi=0,Ayr=0,Ayi=0,Azr=0,Azi=0, Bxr=0,Bxi=0,Byr=0,Byi=0,Bzr=0,Bzi=0;
+  const r0=r[0],r1=r[1],r2=r[2];
+  for(let n=0;n<bases.length;n++){const Inr=I[n].re,Ini=I[n].im;
+    for(const ray of bases[n].rays){const h=ray.d/2,u0=ray.u[0],u1=ray.u[1],u2=ray.u[2];
+      for(let i=0;i<GL_X.length;i++){
+        const xi=(GL_X[i]+1)*h,w=GL_W[i]*h;
+        const dx=r0-(ray.A[0]+xi*u0), dy=r1-(ray.A[1]+xi*u1), dz=r2-(ray.A[2]+xi*u2);
+        const R=Math.sqrt(dx*dx+dy*dy+dz*dz+a2),kr=k*R,c=Math.cos(kr),s=Math.sin(kr);
+        const Gr=c/R,Gi=-s/R, R3=R*R*R, mr=-(c+kr*s)/R3, mi=-(-s+kr*c)/R3;
+        const fw=ray.f(xi)*w, IfGr=(Inr*Gr-Ini*Gi)*fw, IfGi=(Inr*Gi+Ini*Gr)*fw;
+        Axr+=IfGr*u0;Axi+=IfGi*u0;Ayr+=IfGr*u1;Ayi+=IfGi*u1;Azr+=IfGr*u2;Azi+=IfGi*u2;
+        const fpw=ray.fp(xi)*w, Imr=(Inr*mr-Ini*mi)*fpw, Imi=(Inr*mi+Ini*mr)*fpw;
+        Bxr+=Imr*dx;Bxi+=Imi*dx;Byr+=Imr*dy;Byi+=Imi*dy;Bzr+=Imr*dz;Bzi+=Imi*dz;
+      }}}
+  const k2=k*k,C=ETA/(4*Math.PI*k);
+  const Exr=k2*Axr+Bxr,Exi=k2*Axi+Bxi,Eyr=k2*Ayr+Byr,Eyi=k2*Ayi+Byi,Ezr=k2*Azr+Bzr,Ezi=k2*Azi+Bzi;
+  return [{re:C*Exi,im:-C*Exr},{re:C*Eyi,im:-C*Eyr},{re:C*Ezi,im:-C*Ezr}]; // ×(-jC)
+}
+
+/* ===== geometry builders ===== */
+function straightNodes(L,M,axis){ // along z by default
+  const nodes=[];
+  for(let i=0;i<=M;i++){const t=-L/2+L*i/M; nodes.push([0,0,t]);}
+  return nodes;
+}
+// generic straight wire of length L through centre c=[x,y,z], oriented along 'x'|'y'|'z'
+function wireAlong(c,L,axis,M){
+  const d = axis==='x'?[1,0,0] : axis==='y'?[0,1,0] : [0,0,1];
+  const nd=[]; for(let j=0;j<=M;j++){const t=-L/2+L*j/M; nd.push([c[0]+t*d[0],c[1]+t*d[1],c[2]+t*d[2]]);}
+  return nd;
+}
+// point on a square perimeter of half-side R, fractional position f∈[0,1)
+function squarePos(f,R){ const s=((f%1)+1)%1*4;
+  if(s<1) return [R,-R+2*R*s]; if(s<2) return [R-2*R*(s-1),R];
+  if(s<3) return [-R,R-2*R*(s-2)]; return [-R+2*R*(s-3),-R]; }
+// z-dipoles spaced along x (boom). elements: [{len,x}] in metres. returns wire node-arrays.
+function elemWires(elements,M){
+  return elements.map(e=>{const nodes=[];for(let i=0;i<=M;i++)nodes.push([e.x,0,-e.len/2+e.len*i/M]);return nodes;});
+}
+// Unified geometry: returns {wires, feed, isMono, forward, nEl, M, physElem, lambda}.
+// Mforce overrides the segment count (used for a coarser/faster frequency sweep).
+function makeGeometry(type,Lfrac,f,Mforce){
+  const lambda=C0/f, M0=Mforce||parseInt($('seg').value)||0;
+  if(type==='dipole'||type==='monopole'){
+    const isMono=(type==='monopole'), physElem=Lfrac*lambda, Lmodel=(isMono?2:1)*physElem;
+    let M=M0||autoSegments(Lmodel/lambda); if(M%2)M++;
+    return {wires:[straightNodes(Lmodel,M)], feed:M/2-1, isMono, forward:null, nEl:1, M, physElem, lambda};
+  }
+  if(type==='cage'){
+    // central driven dipole (along z) + N parasitic wires (the "environment").
+    // shape: circle | square ; cage wires oriented along z (vertical) or x (horizontal).
+    const N=parseInt($('env_n').value), Rc=parseFloat($('env_r').value)*lambda, Lw=Lfrac*lambda;
+    const shape=$('env_shape')?$('env_shape').value:'circle';
+    const wax=$('env_axis')?$('env_axis').value:'z';
+    let M=M0||Math.min(autoSegments(Lfrac),10); if(M%2)M++;
+    const wires=[wireAlong([0,0,0],Lw,'z',M)], els=[{x:0,y:0,len:Lw,driven:true,axis:'z'}];
+    for(let i=0;i<N;i++){
+      let wx,wy;
+      if(shape==='square'){ const p=squarePos(i/N,Rc); wx=p[0]; wy=p[1]; }
+      else { const ang=2*Math.PI*i/N; wx=Rc*Math.cos(ang); wy=Rc*Math.sin(ang); }
+      wires.push(wireAlong([wx,wy,0],Lw,wax,M)); els.push({x:wx,y:wy,len:Lw,axis:wax});
+    }
+    return {wires, feed:M/2-1, isMono:false, forward:null, nEl:N+1, M, physElem:Lw, lambda, els, layout:'ring'};
+  }
+  if(type==='custom'){
+    const wq=customWires.length?customWires:[{x:0,y:0,z:0,L:0.47,axis:'z',fed:true}];
+    const Lmax=Math.max(...wq.map(q=>q.L),0.1);
+    let M=M0||Math.min(autoSegments(Lmax),12); if(M%2)M++;
+    const wires=[], els=[]; let feed=(M/2-1), fed=false;
+    wq.forEach((q,i)=>{
+      wires.push(wireAlong([q.x*lambda,q.y*lambda,q.z*lambda], q.L*lambda, q.axis, M));
+      els.push({x:q.x*lambda,y:q.y*lambda,len:q.L*lambda,axis:q.axis,driven:!!q.fed});
+      if(q.fed && !fed){ feed=i*(M-1)+(M/2-1); fed=true; }
+    });
+    return {wires, feed, isMono:false, forward:null, nEl:wires.length, M, physElem:Lmax*lambda, lambda, els, layout:'free'};
+  }
+  // Yagi: driven length = Lfrac; reflector longer, directors shorter; boom along +x (forward)
+  const nDir = type==='yagi3'?1 : type==='yagi5'?3 : 0;   // yagi2 -> 0 directors
+  const Ld=Lfrac;
+  const els=[{len:(Ld+0.03)*lambda, x:-0.25*lambda}, {len:Ld*lambda, x:0}];
+  const dirX=[0.15,0.30,0.45];
+  for(let i=0;i<nDir;i++) els.push({len:(Ld-0.02)*lambda, x:dirX[i]*lambda});
+  let M=M0||Math.min(autoSegments(Ld),14); if(M%2)M++;   // cap mesh for interactive multi-element
+  const wires=elemWires(els,M);
+  return {wires, feed:(M-1)+(M/2-1), isMono:false, forward:[1,0,0], nEl:els.length, M, physElem:Ld*lambda, lambda, els};
+}
+
+/* ===================================================================
+   UI
+   =================================================================== */
+function $(id){return document.getElementById(id);}
+function autoSegments(elen){ // electrical length in lambda -> even segment count
+  let m=Math.round(elen*40); m=Math.max(8,Math.min(120,m)); if(m%2)m++; return m;
+}
+let last=null, _tMain=null, _tSweep=null;
+
+/* ----- free wire editor ----- */
+let customWires=[
+  {x:0,y:0,z:0,L:0.47,axis:'z',fed:true},
+  {x:0.15,y:0,z:0,L:0.47,axis:'x',fed:false},
+];
+function _nf(label,i,key,val){
+  return '<span class="f">'+label+':<input type="number" step="0.05" value="'+val+'" onchange="updateWire('+i+",'"+key+"',this.value)\"></span>";
+}
+function renderWireEditor(){
+  const box=$('wire-rows'); if(!box) return; box.innerHTML='';
+  customWires.forEach((q,i)=>{
+    const row=document.createElement('div'); row.className='wire-row'+(q.fed?' driven':'');
+    row.innerHTML=
+      '<label class="fed"><input type="radio" name="fedwire" '+(q.fed?'checked':'')+' onchange="setFed('+i+')"> '+t('we.fed')+'</label>'+
+      _nf('x',i,'x',q.x)+_nf('y',i,'y',q.y)+_nf('z',i,'z',q.z)+_nf('L',i,'L',q.L)+
+      '<span class="f">'+t('we.axis')+':<select onchange="updateWire('+i+",'axis',this.value)\">"+
+        ['x','y','z'].map(a=>'<option value="'+a+'" '+(q.axis===a?'selected':'')+'>'+a.toUpperCase()+'</option>').join('')+'</select></span>'+
+      '<button class="rm" onclick="removeWire('+i+')" title="'+t('we.remove')+'">×</button>';
+    box.appendChild(row);
+  });
+}
+function updateWire(i,key,val){ customWires[i][key]= key==='axis'?val:parseFloat(val); recompute(); }
+function setFed(i){ customWires.forEach((q,j)=>q.fed=(j===i)); renderWireEditor(); recompute(); }
+function addWire(){ customWires.push({x:0.2,y:0.1,z:0,L:0.47,axis:'z',fed:false}); renderWireEditor(); recompute(); }
+function removeWire(i){ if(customWires.length<=1) return; const wasFed=customWires[i].fed; customWires.splice(i,1); if(wasFed)customWires[0].fed=true; renderWireEditor(); recompute(); }
+
+// set a sensible default element length when switching antenna type, then recompute
+function onTypeChange(){
+  const ty=$('type').value;
+  $('len').value = ty==='monopole'?'0.25' : ty.startsWith('yagi')?'0.47' : '0.50';
+  document.querySelectorAll('.env-ctrl').forEach(e=>{e.style.display = ty==='cage'?'':'none';});
+  $('wire-editor').style.display = ty==='custom'?'':'none';
+  if(ty==='custom') renderWireEditor();
+  recompute();
+}
+// debounced dispatcher (HTML controls call recompute()): light update fast, heavy sweep delayed
+function recompute(){
+  // immediate label feedback while the heavy compute is debounced
+  const Lf=parseFloat($('len').value); $('lenval').textContent=Lf.toFixed(3)+' λ';
+  if($('env_n')) $('env_nv').textContent=$('env_n').value;
+  if($('env_r')) $('env_rv').textContent=parseFloat($('env_r').value).toFixed(2)+' λ';
+  clearTimeout(_tMain);  _tMain =setTimeout(computeMain, 70);
+  clearTimeout(_tSweep); _tSweep=setTimeout(computeSweep, 320);
+  recomputeMap();
+}
+let _sweepGen=0;
+function computeSweep(){
+  const type=$('type').value, f0=parseFloat($('freq').value)*1e6;
+  const Lfrac=parseFloat($('len').value), a=parseFloat($('rad').value)/1000, Z0=parseFloat($('z0').value);
+  drawSweep(type,Lfrac,a,f0,Z0);
+}
+
+// ohmic-loss perturbation: P_loss = ½ r' ∫|I(s)|² ds, r'=Rs/(2πa), Rs=√(πfμ0/σ).
+// Reconstructs I(s) per wire from nodal currents (sinusoidal interpolation, tips=0).
+const _GL5x=[-0.906179845938664,-0.538469310105683,0,0.538469310105683,0.906179845938664];
+const _GL5w=[0.236926885056189,0.478628670499366,0.568888888888889,0.478628670499366,0.236926885056189];
+function ohmicLoss(sol,wires,a,f,sigma){
+  const k=sol.k, mu0=4e-7*Math.PI, Rs=Math.sqrt(Math.PI*f*mu0/sigma), rprime=Rs/(2*Math.PI*a);
+  const perWire={}; sol.bases.forEach((b,idx)=>{(perWire[b.wire]=perWire[b.wire]||{})[b.node]=sol.I[idx];});
+  let intI2=0;
+  wires.forEach((nodes,wi)=>{const M=nodes.length-1, nd=perWire[wi]||{};
+    for(let seg=0;seg<M;seg++){const A=nodes[seg],B=nodes[seg+1];
+      const D=Math.hypot(B[0]-A[0],B[1]-A[1],B[2]-A[2]), skd=Math.sin(k*D)||1;
+      const Ia=nd[seg]||{re:0,im:0}, Ib=nd[seg+1]||{re:0,im:0};
+      for(let g=0;g<5;g++){const xi=(_GL5x[g]+1)*D/2, wgt=_GL5w[g]*D/2;
+        const wa=Math.sin(k*(D-xi))/skd, wb=Math.sin(k*xi)/skd;
+        const re=Ia.re*wa+Ib.re*wb, im=Ia.im*wa+Ib.im*wb; intI2+=(re*re+im*im)*wgt;}}});
+  const Ploss=0.5*rprime*intI2, If=sol.Ifeed, Im2=Math.max(If.re*If.re+If.im*If.im,1e-30);
+  const Rloss=2*Ploss/Im2, eta=sol.Zin.re/(sol.Zin.re+Rloss);
+  return {Rloss,eta,Rs};
+}
+
+function computeMain(){
+  const type=$('type').value;
+  const f0=parseFloat($('freq').value)*1e6;
+  const Lfrac=parseFloat($('len').value);
+  const a=parseFloat($('rad').value)/1000; // mm->m
+  const Z0=parseFloat($('z0').value);
+  const lambda0=C0/f0;
+  const isYagi=type.startsWith('yagi');
+
+  const G=makeGeometry(type,Lfrac,f0);
+  $('lenval').textContent=Lfrac.toFixed(3)+' λ';
+  $('lenmm').textContent=(G.physElem*1000).toFixed(1)+' mm'+(G.isMono?' '+t('permono'):isYagi?' '+t('perdriven'):'');
+  $('segval').textContent = (parseInt($('seg').value)?String(G.M):'auto ('+G.M+')');
+
+  const sol=solveMoMElements(G.wires,G.feed,a,f0,G.nEl>1);   // fast mode for multi-element
+  let Zin={re:sol.Zin.re,im:sol.Zin.im};
+  if(G.isMono){Zin.re/=2;Zin.im/=2;}          // image theory: half the dipole impedance
+  // conductor (ohmic) loss → radiation efficiency, loss resistance added to Zin
+  let eta=1, Rloss=0; const sigma=parseFloat($('mat').value);
+  if(sigma>0){ const L=ohmicLoss(sol,G.wires,a,f0,sigma); eta=L.eta; Rloss=L.Rloss; Zin.re += G.isMono?Rloss/2:Rloss; }
+
+  // far field (full sphere for directivity / radiated power)
+  const ff=farField(sol.bases,sol.I,sol.k,sol.Zin,sol.Ifeed,60,24);
+  let Dmax=ff.Dmax; if(G.isMono)Dmax*=2;       // upper hemisphere only -> +3 dB
+  // headline gain: forward gain for Yagi, else max directivity
+  let gFwd=null, fb=null, headGain=Dmax;
+  if(isYagi){
+    gFwd=gainAt(sol.bases,sol.I,sol.k,ff.Prad,[1,0,0]);
+    const gBack=gainAt(sol.bases,sol.I,sol.k,ff.Prad,[-1,0,0]);
+    fb=10*Math.log10(gFwd/Math.max(gBack,1e-9));
+    headGain=gFwd;
+  }
+  const DdBi=10*Math.log10(headGain);
+
+  // VSWR / return loss vs Z0
+  const g=reflection(Zin,Z0), vswr=(1+g)/(1-g), rl=g>0?-20*Math.log10(g):99;
+
+  // metrics
+  $('m_zin').textContent=fmtZ(Zin);
+  $('m_vswr').textContent=vswr>30?'∞':vswr.toFixed(2);
+  const vb=$('m_vswr_b'); vb.innerHTML='';
+  const badge=document.createElement('span'); badge.className='badge-vswr';
+  if(vswr<=1.5){badge.style.background='#dcfce7';badge.style.color='#166534';badge.textContent=t('match.good');}
+  else if(vswr<=2){badge.style.background='#fef9c3';badge.style.color='#854d0e';badge.textContent=t('match.ok');}
+  else{badge.style.background='#fee2e2';badge.style.color='#991b1b';badge.textContent=t('match.bad');}
+  vb.appendChild(badge);
+  $('m_rl').textContent=(rl>=99?'>99':rl.toFixed(1));
+  // 4th metric: electrical length, OR front/back ratio for Yagi
+  $('m_elen_k').textContent = isYagi ? t('m.fb') : t('m.elen');
+  $('m_elen_u').textContent = isYagi ? 'dB' : 'λ';
+  $('m_elen').textContent = isYagi ? fb.toFixed(1) : (G.physElem/lambda0).toFixed(3);
+  $('m_dir_k').textContent = isYagi ? t('m.gain') : t('m.dir');
+  $('m_dir').textContent=DdBi.toFixed(2);
+  // loss-related metrics (shown only when a real conductor is selected)
+  const lossy = sigma>0;
+  $('m_gain_box').style.display = lossy?'':'none';
+  $('m_rendt_box').style.display = lossy?'':'none';
+  if(lossy){ $('m_gain').textContent=(DdBi+10*Math.log10(eta)).toFixed(2);
+    $('m_rendt').textContent=(eta*100).toFixed(1);
+    $('m_rendt').nextElementSibling.textContent='% · R_loss '+Rloss.toFixed(2)+' Ω'; }
+  $('m_eff').textContent=(ff.energyErr*100).toFixed(2)+' %';
+  $('resnote').textContent = G.isMono ? t('note.mono')
+    : isYagi ? t('note.yagi').replace('{n}',G.nEl).replace('{g}',DdBi.toFixed(1)).replace('{fb}',fb.toFixed(1))
+    : type==='cage' ? t('note.cage').replace('{n}',G.nEl-1)
+    : type==='custom' ? t('note.custom').replace('{n}',G.nEl)
+    : t('note.dip');
+
+  // current visualisation
+  drawCurrent(sol,G);
+  // radiation pattern: E-plane (x-z) + H-plane (x-y). Forward (+x) drawn to the right.
+  const ceE=gainCut(sol.bases,sol.I,sol.k,ff.Prad,'E');
+  const ceH=gainCut(sol.bases,sol.I,sol.k,ff.Prad,'H');
+  drawPattern(ceE,ceH,ff.Prad,G.isMono,Dmax,isYagi);
+
+  last={Zin,vswr,DdBi};
+}
+
+function reflection(Z,Z0){
+  const dr=Z.re-Z0, di=Z.im, sr=Z.re+Z0, si=Z.im;
+  return Math.sqrt((dr*dr+di*di)/(sr*sr+si*si));
+}
+function fmtZ(Z){return Z.re.toFixed(1)+(Z.im>=0?' + j':' − j')+Math.abs(Z.im).toFixed(1);}
+
+/* ----- plotting ----- */
+// Size the backing store to CSS box × devicePixelRatio. Reads the *CSS* width/height
+// (clientWidth / style.height), NOT the canvas .width/.height attributes — reading the
+// attributes and re-multiplying by r would compound the size on every redraw.
+function dpr(cv){
+  const r=window.devicePixelRatio||1;
+  const w=cv.clientWidth||parseFloat(cv.style.width)||cv.width;
+  const h=parseFloat(cv.style.height)||cv.clientHeight||cv.height;
+  cv.width=Math.round(w*r); cv.height=Math.round(h*r);
+  const x=cv.getContext('2d'); x.setTransform(r,0,0,r,0,0);
+  return {x,w,h};
+}
+
+function drawCurrent(sol,G){
+  const cv=$('cv_curr'); cv.style.height='240px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  if(G && G.nEl>1){ drawElements(sol,G,x,w,h); return; }
+  const pts=sol.bases.map((b,n)=>({z:b.point[2],mag:Math.hypot(sol.I[n].re,sol.I[n].im)}));
+  const zmin=Math.min(...pts.map(p=>p.z)),zmax=Math.max(...pts.map(p=>p.z));
+  const imax=Math.max(...pts.map(p=>p.mag))||1;
+  const pad=34, x0=pad, x1=w-12, y0=h-26, y1=14;
+  // axes
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.textAlign='center';
+  x.fillText('s (m)',(x0+x1)/2,h-6);
+  x.save();x.translate(11,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText('|I| / |I|max',0,0);x.restore();
+  const sx=z=>x0+(z-zmin)/(zmax-zmin)*(x1-x0);
+  const sy=v=>y0-(v/1)*(y0-y1);
+  // fill curve
+  x.strokeStyle='#0d9488';x.lineWidth=2.2;x.beginPath();
+  // start at the wire tip where the current is zero
+  x.moveTo(sx(zmin),sy(0));
+  pts.forEach((p,i)=>{x.lineTo(sx(p.z),sy(p.mag/imax));});
+  x.lineTo(sx(zmax),sy(0));
+  x.stroke();
+  // dots
+  x.fillStyle='#0f766e';pts.forEach(p=>{x.beginPath();x.arc(sx(p.z),sy(p.mag/imax),2.4,0,7);x.fill();});
+  // y ticks
+  x.fillStyle='#94a3b8';x.textAlign='right';x.font='10px sans-serif';
+  [0,0.5,1].forEach(v=>{x.fillText(v.toFixed(1),x0-4,sy(v)+3);});
+}
+
+// Multi-element schematic (top view): boom horizontal (+x = forward), each element vertical,
+// thickness/colour ∝ its peak induced current. Driven element in teal.
+function drawElements(sol,G,x,w,h){
+  const els=G.els;
+  const peak=new Array(els.length).fill(0);
+  sol.bases.forEach((b,n)=>{const m=Math.hypot(sol.I[n].re,sol.I[n].im); if(m>peak[b.wire])peak[b.wire]=m;});
+  const pmax=Math.max(...peak)||1;
+  if(G.layout==='ring'||G.layout==='free'){   // top-view (x-y), each wire by its axis
+    const ext=(Math.max(...els.map(e=>Math.hypot(e.x,e.y)+e.len/2))||1)*1.15;
+    const cx=w/2, cy=h/2, R=Math.min(w,h)/2-22;
+    const SX=v=>cx+v/ext*R, SY=v=>cy-v/ext*R;
+    if(G.layout==='ring'){x.strokeStyle='#eef2f6';x.lineWidth=1;x.beginPath();x.arc(cx,cy,R,0,7);x.stroke();}
+    els.forEach((e,i)=>{
+      const rel=peak[i]/pmax, driven=!!e.driven, ax=e.axis||'z';
+      const col = driven? '#0d9488' : 'rgba(217,119,6,'+(0.4+0.55*rel)+')';
+      if(ax==='z'){ // perpendicular to view -> dot
+        x.beginPath();x.arc(SX(e.x),SY(e.y),3.5+6*rel,0,7);x.fillStyle=col;x.fill();
+        if(driven){x.strokeStyle='#0f766e';x.lineWidth=2;x.stroke();}
+      } else { // x or y -> segment in the plane
+        const dx=ax==='x'?e.len/2:0, dy=ax==='y'?e.len/2:0;
+        x.strokeStyle=col;x.lineWidth=driven?3.5:2+4*rel;
+        x.beginPath();x.moveTo(SX(e.x-dx),SY(e.y-dy));x.lineTo(SX(e.x+dx),SY(e.y+dy));x.stroke();
+        if(driven){x.fillStyle='#0d9488';x.beginPath();x.arc(SX(e.x),SY(e.y),3,0,7);x.fill();}
+      }
+    });
+    x.fillStyle='#94a3b8';x.font='9px sans-serif';x.textAlign='left';x.fillText(t('curpeak'),10,15);
+    x.textAlign='right';x.fillText('x-y',w-8,h-8);
+    return;
+  }
+  const xs=els.map(e=>e.x), xmin=Math.min(...xs), xmax=Math.max(...xs), lmax=Math.max(...els.map(e=>e.len));
+  const x0=46,x1=w-18,y0=h-26,y1=24, cy=(y0+y1)/2, halfH=(y0-y1)/2*0.9;
+  const SX=v=> (xmax>xmin)? x0+(v-xmin)/(xmax-xmin)*(x1-x0) : (x0+x1)/2;
+  x.strokeStyle='#cbd5e1';x.lineWidth=1.5;x.beginPath();x.moveTo(SX(xmin),cy);x.lineTo(SX(xmax),cy);x.stroke(); // boom
+  els.forEach((e,i)=>{
+    const sx=SX(e.x), hh=halfH*(e.len/lmax), rel=peak[i]/pmax;
+    const driven=(i===1), gg=Math.round(150*(1-rel));
+    x.strokeStyle = driven? '#0d9488' : 'rgb('+(120+gg)+','+(120+gg)+','+(130+gg)+')';
+    x.lineWidth = 2.5+6*rel;
+    x.beginPath();x.moveTo(sx,cy-hh);x.lineTo(sx,cy+hh);x.stroke();
+    if(driven){x.fillStyle='#0d9488';x.beginPath();x.arc(sx,cy,3.5,0,7);x.fill();} // feed point
+    x.fillStyle='#64748b';x.font='10px sans-serif';x.textAlign='center';
+    const lab = i===0?t('lab.refl'):(driven?t('lab.driv'):'D'+(i-1));
+    x.fillText(lab,sx,cy+hh+14);
+    x.fillStyle='#0f766e';x.font='9px sans-serif';x.fillText(Math.round(rel*100)+'%',sx,cy-hh-5);
+  });
+  x.fillStyle='#1a2e4a';x.font='11px sans-serif';x.textAlign='right';x.fillText(t('fwd')+' →',x1,y1-6);
+  x.fillStyle='#94a3b8';x.font='9px sans-serif';x.textAlign='left';x.fillText(t('curpeak'),x0-8,y1-6);
+}
+
+function drawPattern(cE,cH,Prad,isMono,Dmax,isYagi){
+  const cv=$('cv_pat'); cv.style.height='300px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const cx=w/2, cy=h/2+6, R=Math.min(w,h)/2-30;
+  const floor=-10, top=Math.max(10*Math.log10(Dmax),0)+2;     // outer ring = peak gain +2 dB; -10 dBi floor
+  const toR=g=>{const d=10*Math.log10(Math.max(g,1e-6));return Math.max(0,(d-floor)/(top-floor))*R;};
+  // rings + cross
+  x.strokeStyle='#e2e8f0';x.lineWidth=1;
+  for(let i=1;i<=4;i++){x.beginPath();x.arc(cx,cy,R*i/4,0,7);x.stroke();}
+  x.beginPath();x.moveTo(cx-R,cy);x.lineTo(cx+R,cy);x.moveTo(cx,cy-R);x.lineTo(cx,cy+R);x.stroke();
+  if(isMono){ // ground plane line
+    x.strokeStyle='#94a3b8';x.setLineDash([2,3]);x.beginPath();x.moveTo(cx-R,cy);x.lineTo(cx+R,cy);x.stroke();x.setLineDash([]);
+  }
+  // plane='E' (x-z): ang=theta from +z → +z up, +x right.  'H' (x-y): ang=phi from +x → +x right, +y up.
+  function plot(cut,plane,color,dash){
+    x.strokeStyle=color;x.lineWidth=2.2;x.setLineDash(dash||[]);x.beginPath();
+    let started=false;
+    cut.forEach(p=>{
+      if(isMono && plane==='E' && Math.cos(p.ang)<-1e-6){ started=false; return; } // clip below ground
+      const r=toR(p.gain);
+      const px = plane==='E' ? cx+r*Math.sin(p.ang) : cx+r*Math.cos(p.ang);
+      const py = plane==='E' ? cy-r*Math.cos(p.ang) : cy-r*Math.sin(p.ang);
+      if(!started){x.moveTo(px,py);started=true;}else x.lineTo(px,py);
+    });
+    x.stroke();x.setLineDash([]);
+  }
+  plot(cE,'E','#0d9488',[]);    // E-plane (x-z) solid
+  plot(cH,'H','#d97706',[5,4]); // H-plane (x-y) dashed
+  // axis / direction labels
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.textAlign='center';
+  x.fillText('z',cx,cy-R-9);
+  if(isYagi){
+    x.textAlign='left'; x.fillStyle='#0f766e'; x.fillText('→ '+t('fwd'),cx+R*0.30,cy-7);
+    x.textAlign='right';x.fillStyle='#94a3b8'; x.fillText(t('back')+' ←',cx-R*0.30,cy-7);
+  } else {
+    x.textAlign='left';x.fillStyle='#94a3b8';x.fillText('x',cx+R-8,cy-7);
+  }
+  // gain scale
+  x.fillStyle='#94a3b8';x.font='9px sans-serif';x.textAlign='center';
+  x.fillText(top.toFixed(0)+' dBi',cx,cy-R+9);
+  x.fillText(floor+' dBi',cx,cy-8);
+  // legend
+  x.textAlign='right';
+  x.fillStyle='#0d9488';x.fillText('— '+t('plane.e'),cx+R,cy+R+18);
+  x.fillStyle='#d97706';x.fillText('-- '+t('plane.h'),cx+R,cy+R+30);
+}
+
+let _lastSweep=null;
+function redrawSweep(){ if(_lastSweep) renderSweep(_lastSweep.data,_lastSweep.f0,_lastSweep.fmin,_lastSweep.fmax,true); }
+function renderSweep(data,f0,fmin,fmax,done){
+  _lastSweep={data,f0,fmin,fmax};
+  const s11mode = $('sweepmode') && $('sweepmode').value==='s11';
+  const cv=$('cv_sweep'); cv.style.height='240px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const pad=44,x0=pad,x1=w-14,y0=h-30,y1=14;
+  const sx=f=>x0+(f-fmin)/(fmax-fmin)*(x1-x0);
+  // y-mapping per mode
+  const vmin=1,vmax=10, dbMin=-35;
+  const sy = s11mode ? (db=>y0-(db-dbMin)/(0-dbMin)*(y0-y1)) : (v=>y0-(v-vmin)/(vmax-vmin)*(y0-y1));
+  const thr = s11mode ? -10 : 2;                     // matched threshold
+  // matched band shading (where below/under threshold)
+  x.fillStyle='#ecfdf5';
+  if(s11mode){ data.forEach((p,i)=>{ if(i&&p.s11<=thr&&data[i-1].s11<=thr) x.fillRect(sx(data[i-1].f),y1,sx(p.f)-sx(data[i-1].f),y0-y1); }); }
+  else x.fillRect(x0,sy(2),x1-x0,y0-sy(2));
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  x.strokeStyle='#86efac';x.setLineDash([4,4]);x.beginPath();x.moveTo(x0,sy(thr));x.lineTo(x1,sy(thr));x.stroke();x.setLineDash([]);
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.textAlign='center';x.fillText('f (MHz)',(x0+x1)/2,h-8);
+  x.save();x.translate(12,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText(s11mode?'|S₁₁| (dB)':'VSWR',0,0);x.restore();
+  x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='right';
+  const ticks = s11mode?[0,-10,-20,-30]:[1,2,4,6,8,10];
+  ticks.forEach(v=>{x.fillText(v,x0-4,sy(v)+3);x.strokeStyle='#f1f5f9';x.beginPath();x.moveTo(x0,sy(v));x.lineTo(x1,sy(v));x.stroke();});
+  x.textAlign='center';[fmin,f0,fmax].forEach(f=>x.fillText((f/1e6).toFixed(0),sx(f),y0+14));
+  x.strokeStyle='#0d9488';x.lineWidth=2.2;x.beginPath();
+  data.forEach((p,i)=>{const X=sx(p.f),Y=sy(s11mode?Math.max(p.s11,dbMin):p.v);i?x.lineTo(X,Y):x.moveTo(X,Y);});x.stroke();
+  x.strokeStyle='#1a2e4a';x.setLineDash([3,3]);x.beginPath();x.moveTo(sx(f0),y1);x.lineTo(sx(f0),y0);x.stroke();x.setLineDash([]);
+  x.fillStyle='#1a2e4a';x.font='10px sans-serif';x.textAlign='center';x.fillText('f₀',sx(f0),y1-2);
+  if(!done){x.fillStyle='#94a3b8';x.textAlign='right';x.fillText(t('computing'),x1,y1+2);}
+}
+// async, chunked, cancellable sweep over a FIXED physical geometry (built once at f0)
+async function drawSweep(type,Lfrac,a,f0,Z0){
+  const gen=++_sweepGen, isMulti=!(type==='dipole'||type==='monopole');
+  const Msweep = isMulti?10:0;                       // coarser mesh for multi-element to stay responsive
+  const G=makeGeometry(type,Lfrac,f0,Msweep);
+  const fmin=f0*0.6, fmax=f0*1.4, Npt=isMulti?21:41;
+  const data=[];
+  for(let i=0;i<Npt;i++){
+    if(gen!==_sweepGen) return;                      // a newer sweep superseded this one
+    const f=fmin+(fmax-fmin)*i/(Npt-1);
+    const sol=solveMoMElements(G.wires,G.feed,a,f,true);
+    let Z={re:sol.Zin.re,im:sol.Zin.im}; if(G.isMono){Z.re/=2;Z.im/=2;}
+    const g=reflection(Z,Z0);
+    data.push({f, v:Math.min((1+g)/(1-g),10), s11:20*Math.log10(Math.max(g,1e-4))});
+    if(i%4===3){ renderSweep(data,f0,fmin,fmax,false); await new Promise(r=>setTimeout(r,0)); }
+  }
+  if(gen===_sweepGen) renderSweep(data,f0,fmin,fmax,true);
+}
+
+/* ----- near-field map ----- */
+function jet(t){ t=Math.max(0,Math.min(1,t)); const v=t*4;
+  const cl=z=>Math.max(0,Math.min(1,z))*255|0;
+  return [cl(Math.min(v-1.5,-v+4.5)), cl(Math.min(v-0.5,-v+3.5)), cl(Math.min(v+0.5,-v+2.5))]; }
+let _mapGen=0, _tMap=null;
+const MAP_FLOOR=-40;
+function recomputeMap(){
+  const ext=parseFloat($('map_ext').value); $('map_extv').textContent=ext.toFixed(1)+' λ';
+  clearTimeout(_tMap); _tMap=setTimeout(drawMap, 220);
+}
+async function drawMap(){
+  const gen=++_mapGen;
+  const type=$('type').value, f0=parseFloat($('freq').value)*1e6;
+  const Lfrac=parseFloat($('len').value), a=parseFloat($('rad').value)/1000;
+  const G=makeGeometry(type,Lfrac,f0);
+  const sol=solveMoMElements(G.wires,G.feed,a,f0,type.startsWith('yagi'));
+  const lambda=C0/f0, ext=parseFloat($('map_ext').value)*lambda;
+  const Nres=parseInt($('map_res').value), plane=$('map_plane').value, comp=$('map_comp').value;
+  const vals=new Float64Array(Nres*Nres); let vmax=1e-30;
+  const off=document.createElement('canvas'); off.width=Nres; off.height=Nres;
+  const octx=off.getContext('2d'), img=octx.createImageData(Nres,Nres);
+  for(let iy=0;iy<Nres;iy++){
+    if(gen!==_mapGen) return;
+    const v=ext-2*ext*iy/(Nres-1);                       // top row = +ext
+    for(let ix=0;ix<Nres;ix++){
+      const u=-ext+2*ext*ix/(Nres-1);
+      const r = plane==='xy' ? [u,v,0] : [u,0,v];
+      const E=nearFieldE(sol.bases,sol.I,sol.k,r,a);
+      const mag = comp==='z' ? Math.hypot(E[2].re,E[2].im)
+                             : Math.hypot(E[0].re,E[0].im,E[1].re,E[1].im,E[2].re,E[2].im);
+      vals[iy*Nres+ix]=mag; if(mag>vmax)vmax=mag;
+    }
+    if(iy%8===7){ paintMap(img,vals,Nres,vmax,iy+1); octx.putImageData(img,0,0); blitMap(off,false); renderColorbar(vmax); await new Promise(rs=>setTimeout(rs,0)); }
+  }
+  if(gen!==_mapGen) return;
+  // normalise to a high percentile, not the absolute max: the field diverges as 1/R³ right at
+  // the conductors, so a few near-wire cells would otherwise crush the whole dynamic range.
+  const vref=percentile(vals,0.96);
+  paintMap(img,vals,Nres,vref,Nres); octx.putImageData(img,0,0); blitMap(off,true,G,lambda,ext,plane); renderColorbar(vref);
+}
+function percentile(arr,p){
+  const s=Float64Array.from(arr).sort(); return s[Math.min(s.length-1, Math.floor(p*s.length))]||1e-30;
+}
+// export the map + colorbar as a single PNG (white background, with a caption)
+function exportMapPNG(){
+  const map=$('cv_map'), cb=$('cv_cbar'), pad=14, capH=26;
+  const out=document.createElement('canvas');
+  out.width=map.width+cb.width+pad*3; out.height=Math.max(map.height,cb.height)+pad*2+capH;
+  const x=out.getContext('2d');
+  x.fillStyle='#fff'; x.fillRect(0,0,out.width,out.height);
+  x.drawImage(map,pad,pad); x.drawImage(cb,map.width+pad*2,pad);
+  const r=window.devicePixelRatio||1;
+  x.fillStyle='#1a2e4a'; x.font='bold '+(13*r)+'px sans-serif'; x.textAlign='left';
+  const ty=$('type').value, f0=$('freq').value;
+  x.fillText('EMtools — '+t('map.title')+' · '+(I18N['type.'+ty]?t('type.'+ty):ty)+' · '+f0+' MHz', pad, out.height-pad);
+  out.toBlob(b=>{const a=document.createElement('a'); a.href=URL.createObjectURL(b);
+    a.download='champ_proche_'+ty+'_'+f0+'MHz.png'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);});
+}
+function paintMap(img,vals,Nres,vmax,rowsDone){
+  const d=img.data, inv=1/(0-MAP_FLOOR);
+  for(let iy=0;iy<rowsDone;iy++)for(let ix=0;ix<Nres;ix++){
+    const mag=vals[iy*Nres+ix];
+    const dB=20*Math.log10(Math.max(mag,1e-30)/vmax);
+    const [r,g,b]=jet((dB-MAP_FLOOR)*inv);
+    const o=(iy*Nres+ix)*4; d[o]=r;d[o+1]=g;d[o+2]=b;d[o+3]=255;
+  }
+}
+function blitMap(off,final,G,lambda,ext,plane){
+  const cv=$('cv_map'), r=window.devicePixelRatio||1, wcss=cv.clientWidth||460;
+  cv.width=Math.round(wcss*r); cv.height=Math.round(wcss*r);
+  const x=cv.getContext('2d'); x.setTransform(r,0,0,r,0,0);
+  x.imageSmoothingEnabled=true; x.drawImage(off,0,0,wcss,wcss);
+  if(final){
+    // overlay conductor positions + axes
+    const mapU=u=>(u/lambda+ext/lambda)/(2*ext/lambda)*wcss, mapV=v=>(ext/lambda-v/lambda)/(2*ext/lambda)*wcss;
+    x.strokeStyle='rgba(255,255,255,.85)'; x.fillStyle='rgba(255,255,255,.9)'; x.lineWidth=1.6;
+    G.wires.forEach((nodes)=>{
+      const A=nodes[0], B=nodes[nodes.length-1];
+      // project both endpoints onto the cut plane
+      const ax=mapU(plane==='xy'?A[0]:A[0]), ay=mapV(plane==='xy'?A[1]:A[2]);
+      const bx=mapU(plane==='xy'?B[0]:B[0]), by=mapV(plane==='xy'?B[1]:B[2]);
+      if(Math.hypot(bx-ax,by-ay)<2){ x.beginPath();x.arc(ax,ay,3,0,7);x.fill(); }   // ⟂ to plane → dot
+      else { x.beginPath();x.moveTo(ax,ay);x.lineTo(bx,by);x.stroke(); }              // in plane → segment
+    });
+    // axis labels
+    x.fillStyle='rgba(255,255,255,.75)'; x.font='11px sans-serif';
+    x.textAlign='right'; x.fillText(plane==='xy'?'x':'x', wcss-4, wcss-5);
+    x.textAlign='left';  x.fillText(plane==='xy'?'y':'z', 5, 13);
+    x.fillText('±'+(ext/lambda).toFixed(1)+'λ', 5, wcss-5);
+  }
+}
+function renderColorbar(vmax){
+  const cv=$('cv_cbar'); cv.style.height=($('cv_map').clientWidth||460)+'px';
+  const r=window.devicePixelRatio||1, w=66, h=cv.clientHeight||460;
+  cv.width=w*r; cv.height=h*r; const x=cv.getContext('2d'); x.setTransform(r,0,0,r,0,0);
+  x.clearRect(0,0,w,h);
+  const bw=16, bx=4, by=14, bh=h-34;
+  for(let i=0;i<bh;i++){const t=1-i/bh; const [r2,g2,b2]=jet(t); x.fillStyle='rgb('+r2+','+g2+','+b2+')'; x.fillRect(bx,by+i,bw,1);}
+  x.strokeStyle='#cbd5e1';x.strokeRect(bx,by,bw,bh);
+  x.fillStyle='#64748b';x.font='10px sans-serif';x.textAlign='left';
+  for(let dB=0;dB>=MAP_FLOOR;dB-=10){const yy=by+(-dB/-MAP_FLOOR)*bh; x.fillText(dB+'',bx+bw+3,yy+3);
+    x.strokeStyle='#e2e8f0';x.beginPath();x.moveTo(bx,yy);x.lineTo(bx+bw,yy);x.stroke();}
+  x.fillStyle='#1a2e4a';x.font='10px sans-serif';x.fillText('dB',bx,by-3);
+}
+
+/* ===================================================================
+   i18n
+   =================================================================== */
+const I18N={
+ 'title':{fr:"Antennes filaires",en:"Wire antennas"},
+ 'back.hub':{fr:"Antennes",en:"Antennas"},
+ 'tag':{fr:"Antennes filaires par la méthode des moments (MoM) : impédance d'entrée, VSWR, courant, diagramme de rayonnement et gain.",en:"Wire antennas via the Method of Moments (MoM): input impedance, VSWR, current, radiation pattern and gain."},
+ 'intro':{fr:"<b>Comment ça marche —</b> l'antenne est discrétisée en segments de fil ; on résout l'<b>équation intégrale du champ électrique (EFIE, formulation de Pocklington « fil mince »)</b> par la <b>méthode des moments</b> (base sinusoïdale par morceaux, testage de Galerkin) — le cœur des codes type NEC. On en déduit le courant, l'impédance d'entrée et le champ rayonné.",
+          en:"<b>How it works —</b> the antenna is discretised into wire segments; we solve the <b>electric-field integral equation (EFIE, thin-wire Pocklington form)</b> by the <b>Method of Moments</b> (piecewise-sinusoidal basis, Galerkin testing) — the core of NEC-type codes. From the current we get the input impedance and the radiated field."},
+ 'cfg':{fr:"Configuration",en:"Configuration"},
+ 'type':{fr:"Type d'antenne",en:"Antenna type"},
+ 'type.dipole':{fr:"Dipôle (alimenté au centre)",en:"Dipole (center-fed)"},
+ 'type.monopole':{fr:"Monopôle ¼λ sur plan de masse",en:"¼λ monopole over ground plane"},
+ 'type.yagi2':{fr:"Yagi 2 él. : réflecteur + dipôle",en:"Yagi 2 el.: reflector + dipole"},
+ 'type.yagi3':{fr:"Yagi 3 él. : + 1 directeur",en:"Yagi 3 el.: + 1 director"},
+ 'type.yagi5':{fr:"Yagi 5 él. : + 3 directeurs",en:"Yagi 5 el.: + 3 directors"},
+ 'type.cage':{fr:"Dipôle entouré de N fils (environnement)",en:"Dipole surrounded by N wires (environment)"},
+ 'env.n':{fr:"Fils autour",en:"Surrounding wires"},
+ 'env.n.note':{fr:"conducteurs parasites",en:"parasitic conductors"},
+ 'env.r':{fr:"Rayon de la cage",en:"Cage radius"},
+ 'env.r.note':{fr:"distance dipôle ↔ fils",en:"dipole ↔ wires distance"},
+ 'env.shape':{fr:"Forme de la cage",en:"Cage shape"},
+ 'env.circle':{fr:"Cercle",en:"Circle"},
+ 'env.square':{fr:"Carré",en:"Square"},
+ 'env.axis':{fr:"Orientation des fils",en:"Wire orientation"},
+ 'env.vert':{fr:"Verticaux (∥ dipôle)",en:"Vertical (∥ dipole)"},
+ 'env.horiz':{fr:"Horizontaux (⟂)",en:"Horizontal (⟂)"},
+ 'map.png':{fr:"Exporter en PNG",en:"Export as PNG"},
+ 'type.custom':{fr:"Géométrie libre (éditeur de fils)",en:"Free geometry (wire editor)"},
+ 'we.title':{fr:"Éditeur de fils — positions (λ) et orientation",en:"Wire editor — positions (λ) and orientation"},
+ 'we.add':{fr:"Ajouter un fil",en:"Add a wire"},
+ 'we.fed':{fr:"alimenté",en:"driven"},
+ 'we.axis':{fr:"axe",en:"axis"},
+ 'we.remove':{fr:"Supprimer",en:"Remove"},
+ 'we.note':{fr:"Un fil « alimenté » porte la source ; les autres sont parasites (couplage). Centre (x,y,z) et longueur L en λ.",
+            en:"The “driven” wire carries the source; the others are parasitic (coupling). Centre (x,y,z) and length L in λ."},
+ 'note.custom':{fr:"Géométrie libre : {n} fils. Le fil alimenté est la source ; les autres sont couplés par induction mutuelle.",
+                en:"Free geometry: {n} wires. The driven wire is the source; the others couple by mutual induction."},
+ 'freq':{fr:"Fréquence f₀",en:"Frequency f₀"},
+ 'len':{fr:"Longueur",en:"Length"},
+ 'rad':{fr:"Rayon du fil",en:"Wire radius"},
+ 'z0':{fr:"Impédance de référence Z₀",en:"Reference impedance Z₀"},
+ 'seg':{fr:"Segments",en:"Segments"},
+ 'seg.note':{fr:"0 = automatique",en:"0 = automatic"},
+ 'results':{fr:"Résultats au point d'alimentation",en:"Results at the feed point"},
+ 'm.zin':{fr:"Impédance d'entrée",en:"Input impedance"},
+ 'm.rl':{fr:"Perte de retour",en:"Return loss"},
+ 'm.elen':{fr:"Longueur électrique",en:"Electrical length"},
+ 'm.dir':{fr:"Directivité max",en:"Max directivity"},
+ 'mat':{fr:"Matériau du conducteur",en:"Conductor material"},
+ 'mat.pec':{fr:"Parfait (PEC, sans pertes)",en:"Perfect (PEC, lossless)"},
+ 'mat.cu':{fr:"Cuivre (σ=5,8·10⁷)",en:"Copper (σ=5.8·10⁷)"},
+ 'mat.al':{fr:"Aluminium (σ=3,5·10⁷)",en:"Aluminium (σ=3.5·10⁷)"},
+ 'mat.steel':{fr:"Acier (σ=1·10⁶)",en:"Steel (σ=1·10⁶)"},
+ 'm.gainr':{fr:"Gain réalisé",en:"Realised gain"},
+ 'm.rendt':{fr:"Efficacité de rayonnement",en:"Radiation efficiency"},
+ 'm.rendt.u':{fr:"% (R_loss)",en:"% (R_loss)"},
+ 'm.eff':{fr:"Bilan d'énergie",en:"Energy balance"},
+ 'm.eff.u':{fr:"écart P",en:"P mismatch"},
+ 'viz':{fr:"Visualisations",en:"Visualisations"},
+ 'p.curr':{fr:"Distribution du courant |I(s)|",en:"Current distribution |I(s)|"},
+ 'p.curr.sub':{fr:"Le long du fil, normalisée au maximum.",en:"Along the wire, normalised to the maximum."},
+ 'p.pat':{fr:"Diagramme de rayonnement (gain, dBi)",en:"Radiation pattern (gain, dBi)"},
+ 'p.pat.sub':{fr:"Plan E (—, vertical) et plan H (- -, horizontal).",en:"E-plane (—, vertical) and H-plane (- -, horizontal)."},
+ 'p.sweep':{fr:"Adaptation en fonction de la fréquence",en:"Matching versus frequency"},
+ 'p.sweep.sub':{fr:"Longueur physique fixe ; bande passante (VSWR ≤ 2 / S₁₁ ≤ −10 dB) surlignée.",en:"Fixed physical length; bandwidth (VSWR ≤ 2 / S₁₁ ≤ −10 dB) highlighted."},
+ 'sw.vswr':{fr:"VSWR",en:"VSWR"},'sw.s11':{fr:"S₁₁ (dB)",en:"S₁₁ (dB)"},
+ 'disclaimer':{fr:"<b>Outil pédagogique —</b> moteur MoM « fil mince » à but didactique. Le diagramme de rayonnement, la directivité, la longueur de résonance et la réactance sont excellents (&lt; 1 % sur la directivité) ; la <b>résistance d'entrée</b> est donnée à <b>~10–15 % près</b> près de la résonance (source « delta-gap », sans correction d'extrémité). Pour un dimensionnement définitif, utiliser un code de référence (NEC-2, FEKO, HFSS).",
+              en:"<b>Educational tool —</b> didactic thin-wire MoM engine. The radiation pattern, directivity, resonant length and reactance are excellent (&lt; 1 % on directivity); the <b>input resistance</b> is given to <b>~10–15 %</b> near resonance (delta-gap source, no end correction). For final design use a reference code (NEC-2, FEKO, HFSS)."},
+ 'valid':{fr:"Validation — dipôle demi-onde (référence)",en:"Validation — half-wave dipole (reference)"},
+ 'v.q':{fr:"Grandeur",en:"Quantity"},'v.tool':{fr:"Ce moteur",en:"This engine"},'v.ref':{fr:"Théorie",en:"Theory"},'v.err':{fr:"Écart",en:"Error"},
+ 'v.d':{fr:"Directivité (0,5 λ)",en:"Directivity (0.5 λ)"},
+ 'v.res':{fr:"Longueur de résonance",en:"Resonant length"},
+ 'v.rr':{fr:"R à la résonance",en:"R at resonance"},
+ 'v.x':{fr:"Réactance (0,5 λ)",en:"Reactance (0.5 λ)"},
+ 'v.e':{fr:"Conservation d'énergie",en:"Energy conservation"},
+ 'footer.lic':{fr:'© 2026 Hakeim Talleb · EMtools · Code sous licence <a href="LICENSE">MIT</a>',en:'© 2026 Hakeim Talleb · EMtools · Code under the <a href="LICENSE">MIT</a> license'},
+ 'footer.home':{fr:"← Tous les outils",en:"← All tools"},
+ // runtime strings
+ 'permono':{fr:"(brin)",en:"(arm)"},
+ 'match.good':{fr:"adapté",en:"matched"},'match.ok':{fr:"correct",en:"ok"},'match.bad':{fr:"désadapté",en:"mismatch"},
+ 'note.dip':{fr:"Dipôle dans le vide, fil rectiligne selon z.",en:"Dipole in free space, straight wire along z."},
+ 'note.mono':{fr:"Monopôle sur plan de masse PEC infini (théorie des images) : Z = Z_dipôle/2, +3 dB.",en:"Monopole over an infinite PEC ground (image theory): Z = Z_dipole/2, +3 dB."},
+ 'note.cage':{fr:"Dipôle alimenté entouré de {n} fils parasites (fils selon z, en cercle). L'impédance et le diagramme sont modifiés par le couplage mutuel avec l'environnement.",
+              en:"Driven dipole surrounded by {n} parasitic wires (along z, on a circle). Impedance and pattern are modified by mutual coupling with the environment."},
+ 'note.yagi':{fr:"Yagi-Uda {n} éléments · gain avant {g} dBi · rapport avant/arrière {fb} dB · faisceau vers +x (directeurs). Éléments parasites excités par couplage mutuel.",
+              en:"Yagi-Uda, {n} elements · forward gain {g} dBi · front-to-back {fb} dB · beam toward +x (directors). Parasitic elements excited by mutual coupling."},
+ 'perdriven':{fr:"(brin alimenté)",en:"(driven element)"},
+ 'm.fb':{fr:"Avant / arrière",en:"Front / back"},
+ 'm.gain':{fr:"Gain avant",en:"Forward gain"},
+ 'fwd':{fr:"avant",en:"forward"},
+ 'back':{fr:"arrière",en:"back"},
+ 'curpeak':{fr:"courant crête par élément",en:"peak current per element"},
+ 'computing':{fr:"calcul…",en:"computing…"},
+ 'lab.refl':{fr:"Réf",en:"Refl"},
+ 'lab.driv':{fr:"Dip",en:"Driv"},
+ 'plane.e':{fr:"plan E (x-z)",en:"E-plane (x-z)"},
+ 'plane.h':{fr:"plan H (x-y)",en:"H-plane (x-y)"},
+ 'map.title':{fr:"Cartographie de champ proche",en:"Near-field map"},
+ 'map.plane':{fr:"Plan de coupe",en:"Cut plane"},
+ 'map.xy':{fr:"Plan XY (vue de dessus, z = 0)",en:"XY plane (top view, z = 0)"},
+ 'map.xz':{fr:"Plan XZ (contient les fils, y = 0)",en:"XZ plane (contains the wires, y = 0)"},
+ 'map.ext':{fr:"Demi-étendue",en:"Half-extent"},
+ 'map.comp':{fr:"Composante",en:"Component"},
+ 'map.tot':{fr:"|E| total",en:"|E| total"},
+ 'map.ez':{fr:"|Ez| (axe des fils)",en:"|Ez| (wire axis)"},
+ 'map.res':{fr:"Résolution",en:"Resolution"},
+ 'map.note':{fr:"Niveau du champ en dB (normalisé au maximum). Les fils conducteurs apparaissent comme des points/lignes intenses ; on visualise le couplage et les ombres.",
+             en:"Field level in dB (normalised to the maximum). Conductors show up as bright points/lines; coupling and shadows are visible."},
+};
+let LANG=localStorage.getItem('emtools_lang')||'fr';
+function t(key){const e=I18N[key];return e?(e[LANG]||e.fr):key;}
+function applyLang(){
+  document.documentElement.lang=LANG;
+  document.querySelectorAll('[data-i18n]').forEach(el=>{const e=I18N[el.dataset.i18n];if(e)el.textContent=e[LANG]||e.fr;});
+  document.querySelectorAll('[data-i18n-html]').forEach(el=>{const e=I18N[el.dataset.i18nHtml];if(e)el.innerHTML=e[LANG]||e.fr;});
+  const b=document.getElementById('lang-toggle');if(b)b.textContent=LANG==='fr'?'EN':'FR';
+}
+function toggleLang(){LANG=LANG==='fr'?'en':'fr';localStorage.setItem('emtools_lang',LANG);applyLang();recompute();}
+
+applyLang();
+recompute();
+window.addEventListener('resize',()=>recompute());
+</script>
+
+</body>
+</html>

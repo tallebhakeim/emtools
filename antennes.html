@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EMtools — Antennes</title>
+<meta name="description" content="EMtools — outils interactifs sur les antennes : antennes filaires (méthode des moments), réseaux d'antennes, cornet, patch. Par Hakeim Talleb. Accès libre, code ouvert.">
+<style>
+:root{
+  --navy:#1a2e4a; --teal:#0d9488; --teal2:#0f766e; --teal-light:#e6f7f5;
+  --gold:#d97706; --text:#1e293b; --text2:#64748b; --border:#e2e8f0;
+  --bg:#f8fafc; --bg2:#f0fdf9; --white:#fff; --radius:14px;
+  --shadow:0 2px 14px rgba(26,46,74,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--text);background:var(--bg);line-height:1.6}
+a{color:var(--teal2)}
+.wrap{max-width:980px;margin:0 auto;padding:0 1.25rem}
+#lang-toggle{position:fixed;top:14px;right:16px;z-index:50;background:rgba(255,255,255,.14);color:#fff;
+  border:1px solid rgba(255,255,255,.45);border-radius:8px;padding:5px 12px;font-size:13px;font-weight:700;
+  cursor:pointer;backdrop-filter:blur(4px);transition:background .15s}
+#lang-toggle:hover{background:rgba(255,255,255,.28)}
+
+header{background:linear-gradient(135deg,#1a2e4a,#0f3a4d);color:#fff;padding:3rem 0 2.6rem}
+header .wrap{display:flex;flex-direction:column;gap:.5rem}
+header .back{font-size:.82rem;color:#94a3b8;text-decoration:none}
+header .back:hover{color:#cbd5e1}
+header h1{font-size:1.9rem;font-weight:800;letter-spacing:-.02em;margin-top:.3rem}
+header h1 span{color:#5eead4}
+header .tag{font-size:1.02rem;color:#cbd5e1;max-width:680px}
+
+main{padding:2.4rem 0 3rem}
+.stitle{font-size:.8rem;font-weight:700;color:var(--teal2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:1rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1.1rem}
+.card{background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius);
+  padding:1.25rem 1.3rem;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:.5rem;
+  text-decoration:none;color:inherit;transition:all .15s}
+.card.live:hover{border-color:var(--teal);transform:translateY(-2px);box-shadow:0 8px 24px rgba(13,148,136,.14)}
+.card .ico{font-size:1.6rem}
+.card h3{font-size:1.05rem;font-weight:700;color:var(--navy)}
+.card p{font-size:.9rem;color:var(--text2)}
+.card .tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:.35rem}
+.badge{font-size:.7rem;font-weight:700;padding:2px 9px;border-radius:20px;letter-spacing:.02em}
+.badge.ok{background:var(--teal-light);color:var(--teal2)}
+.badge.free{background:#fff7ed;color:var(--gold)}
+.card.soon{opacity:.72;border-style:dashed;cursor:default}
+.card.soon .ico{opacity:.5}
+.card.soon .badge.wip{background:#f1f5f9;color:var(--text2)}
+
+.about{margin-top:2.5rem;background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius);padding:1.4rem 1.5rem;font-size:.92rem;color:var(--text)}
+.about b{color:var(--navy)}
+footer{border-top:1px solid var(--border);padding:1.5rem 0;font-size:.82rem;color:var(--text2)}
+footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+footer a{color:var(--text2)}
+</style>
+</head>
+<body>
+
+<button id="lang-toggle" onclick="toggleLang()">EN</button>
+
+<header>
+  <div class="wrap">
+    <a class="back" href="index.html">← EMtools</a>
+    <h1>📡 <span data-i18n="title">Antennes</span></h1>
+    <div class="tag" data-i18n="tag">Outils interactifs sur les antennes : du fil mince au réseau dépointé. Modèles validés, exécutables en navigateur.</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="stitle" data-i18n="available">Familles d'antennes</div>
+  <div class="grid">
+
+    <a class="card live" href="antennes-filaires.html">
+      <div class="ico">📶</div>
+      <h3 data-i18n="fil.title">Antennes filaires</h3>
+      <p data-i18n="fil.desc">Dipôle, monopôle, Yagi-Uda et environnements de fils par la méthode des moments (MoM, EFIE « fil mince ») : impédance, VSWR, diagramme, gain, cartographie de champ proche.</p>
+      <div class="tags">
+        <span class="badge ok" data-i18n="badge.mom">cœur type NEC</span>
+        <span class="badge free" data-i18n="badge.free">accès libre</span>
+      </div>
+    </a>
+
+    <a class="card live" href="antennes-reseaux.html">
+      <div class="ico">📡</div>
+      <h3 data-i18n="res.title">Réseaux d'antennes</h3>
+      <p data-i18n="res.desc">Réseau linéaire de dipôles : facteur de réseau, dépointage électronique du faisceau par le déphasage, lobes de réseau, directivité. Modèle analytique.</p>
+      <div class="tags">
+        <span class="badge ok" data-i18n="badge.array">facteur de réseau</span>
+        <span class="badge free" data-i18n="badge.free">accès libre</span>
+      </div>
+    </a>
+
+    <a class="card live" href="antennes-reseau2d.html">
+      <div class="ico">🛰</div>
+      <h3 data-i18n="res2.title">Réseau planaire 2D</h3>
+      <p data-i18n="res2.desc">Réseau M×N : dépointage du faisceau en azimut + élévation, carte de gain (plan UV), lobes de réseau, directivité ≈ M·N.</p>
+      <div class="tags"><span class="badge ok" data-i18n="badge.steer">dépointage 2D</span><span class="badge free" data-i18n="badge.free">accès libre</span></div>
+    </a>
+
+    <a class="card live" href="antennes-cornet.html">
+      <div class="ico">📯</div>
+      <h3 data-i18n="horn.title">Antennes cornet</h3>
+      <p data-i18n="horn.desc">Cornet pyramidal (ouverture rayonnante) : gain, efficacité d'ouverture, erreur de phase du flare, diagrammes plan E / plan H.</p>
+      <div class="tags"><span class="badge ok" data-i18n="badge.ap">ouverture</span><span class="badge free" data-i18n="badge.free">accès libre</span></div>
+    </a>
+
+    <a class="card live" href="antennes-patch.html">
+      <div class="ico">▭</div>
+      <h3 data-i18n="patch.title">Antennes patch</h3>
+      <p data-i18n="patch.desc">Patch microruban : synthèse W/L, résonance, ε effective, directivité, bande passante et diagrammes.</p>
+      <div class="tags"><span class="badge ok" data-i18n="badge.cav">microruban</span><span class="badge free" data-i18n="badge.free">accès libre</span></div>
+    </a>
+
+  </div>
+
+  <div class="about" data-i18n-html="about">
+    <b>À propos —</b> Ces outils sur les antennes sont développés par Hakeim Talleb. Ils sont
+    <b>indicatifs et pédagogiques</b> : ils donnent des ordres de grandeur et la compréhension physique,
+    sans remplacer un code numérique de référence (NEC, FEKO, HFSS). Code ouvert, méthodes documentées et validées.
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span data-i18n-html="footer.lic">© 2026 Hakeim Talleb · EMtools · Code sous licence <a href="LICENSE">MIT</a></span>
+    <span><a href="index.html" data-i18n="footer.home">← Tous les outils EMtools</a></span>
+  </div>
+</footer>
+
+<script>
+const I18N={
+ 'title':{fr:"Antennes",en:"Antennas"},
+ 'tag':{fr:"Outils interactifs sur les antennes : du fil mince au réseau dépointé. Modèles validés, exécutables en navigateur.",
+        en:"Interactive antenna tools: from thin wires to a steered array. Validated, browser-based models."},
+ 'available':{fr:"Familles d'antennes",en:"Antenna families"},
+ 'fil.title':{fr:"Antennes filaires",en:"Wire antennas"},
+ 'fil.desc':{fr:"Dipôle, monopôle, Yagi-Uda et environnements de fils par la méthode des moments (MoM, EFIE « fil mince ») : impédance, VSWR, diagramme, gain, cartographie de champ proche.",
+             en:"Dipole, monopole, Yagi-Uda and wire environments via the Method of Moments (MoM, thin-wire EFIE): impedance, VSWR, pattern, gain, near-field map."},
+ 'res.title':{fr:"Réseaux d'antennes",en:"Antenna arrays"},
+ 'res.desc':{fr:"Réseau linéaire de dipôles : facteur de réseau, dépointage électronique du faisceau par le déphasage, lobes de réseau, directivité. Modèle analytique.",
+             en:"Linear dipole array: array factor, electronic beam steering via phase shift, grating lobes, directivity. Analytical model."},
+ 'horn.title':{fr:"Antennes cornet",en:"Horn antennas"},
+ 'horn.desc':{fr:"Cornet pyramidal (ouverture rayonnante) : gain, efficacité d'ouverture, erreur de phase du flare, diagrammes plan E / plan H.",
+              en:"Pyramidal horn (radiating aperture): gain, aperture efficiency, flare phase error, E/H-plane patterns."},
+ 'patch.title':{fr:"Antennes patch",en:"Patch antennas"},
+ 'patch.desc':{fr:"Patch microruban : synthèse W/L, résonance, ε effective, directivité, bande passante et diagrammes.",
+               en:"Microstrip patch: W/L synthesis, resonance, effective ε, directivity, bandwidth and patterns."},
+ 'badge.mom':{fr:"cœur type NEC",en:"NEC-type core"},
+ 'badge.array':{fr:"facteur de réseau",en:"array factor"},
+ 'badge.steer':{fr:"dépointage 2D",en:"2D steering"},
+ 'res2.title':{fr:"Réseau planaire 2D",en:"2D planar array"},
+ 'res2.desc':{fr:"Réseau M×N : dépointage du faisceau en azimut + élévation, carte de gain (plan UV), lobes de réseau, directivité ≈ M·N.",
+              en:"M×N array: azimuth + elevation beam steering, gain map (UV plane), grating lobes, directivity ≈ M·N."},
+ 'badge.ap':{fr:"ouverture",en:"aperture"},
+ 'badge.cav':{fr:"microruban",en:"microstrip"},
+ 'badge.free':{fr:"accès libre",en:"open access"},
+ 'badge.soon':{fr:"à venir",en:"coming soon"},
+ 'about':{fr:"<b>À propos —</b> Ces outils sur les antennes sont développés par Hakeim Talleb. Ils sont <b>indicatifs et pédagogiques</b> : ils donnent des ordres de grandeur et la compréhension physique, sans remplacer un code numérique de référence (NEC, FEKO, HFSS). Code ouvert, méthodes documentées et validées.",
+          en:"<b>About —</b> These antenna tools are developed by Hakeim Talleb. They are <b>indicative and educational</b>: they give orders of magnitude and physical understanding, without replacing a reference numerical code (NEC, FEKO, HFSS). Open source, documented and validated methods."},
+ 'footer.lic':{fr:'© 2026 Hakeim Talleb · EMtools · Code sous licence <a href="LICENSE">MIT</a>',en:'© 2026 Hakeim Talleb · EMtools · Code under the <a href="LICENSE">MIT</a> license'},
+ 'footer.home':{fr:"← Tous les outils EMtools",en:"← All EMtools tools"},
+};
+let LANG=localStorage.getItem('emtools_lang')||'fr';
+function applyLang(){
+  document.documentElement.lang=LANG;
+  document.querySelectorAll('[data-i18n]').forEach(el=>{const e=I18N[el.dataset.i18n];if(e)el.textContent=e[LANG]||e.fr;});
+  document.querySelectorAll('[data-i18n-html]').forEach(el=>{const e=I18N[el.dataset.i18nHtml];if(e)el.innerHTML=e[LANG]||e.fr;});
+  const b=document.getElementById('lang-toggle');if(b)b.textContent=LANG==='fr'?'EN':'FR';
+}
+function toggleLang(){LANG=LANG==='fr'?'en':'fr';localStorage.setItem('emtools_lang',LANG);applyLang();}
+applyLang();
+</script>
+
+</body>
+</html>

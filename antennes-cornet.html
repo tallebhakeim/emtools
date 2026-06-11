@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EMtools — Antennes cornet</title>
+<meta name="description" content="EMtools — antenne cornet pyramidale : gain, efficacité d'ouverture, diagrammes plan E / plan H avec erreur de phase du flare. Par Hakeim Talleb.">
+<style>
+:root{--navy:#1a2e4a;--teal:#0d9488;--teal2:#0f766e;--teal-light:#e6f7f5;--gold:#d97706;--text:#1e293b;--text2:#64748b;--border:#e2e8f0;--bg:#f8fafc;--bg2:#f0fdf9;--white:#fff;--radius:14px;--shadow:0 2px 14px rgba(26,46,74,.08);}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--text);background:var(--bg);line-height:1.6}
+a{color:var(--teal2)}
+.wrap{max-width:980px;margin:0 auto;padding:0 1.25rem}
+#lang-toggle{position:fixed;top:14px;right:16px;z-index:50;background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.45);border-radius:8px;padding:5px 12px;font-size:13px;font-weight:700;cursor:pointer;backdrop-filter:blur(4px)}
+header{background:linear-gradient(135deg,#1a2e4a,#0f3a4d);color:#fff;padding:2.4rem 0 2rem}
+header .wrap{display:flex;flex-direction:column;gap:.4rem}
+header .back{font-size:.82rem;color:#94a3b8;text-decoration:none}
+header .back:hover{color:#cbd5e1}
+header h1{font-size:1.7rem;font-weight:800;letter-spacing:-.02em}
+header .tag{font-size:1rem;color:#cbd5e1;max-width:700px}
+main{padding:2rem 0 3rem}
+.intro{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius);padding:1rem 1.2rem;font-size:.9rem;margin-bottom:1.6rem}
+.intro b{color:var(--navy)}
+.panel{background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.3rem 1.4rem;margin-bottom:1.4rem}
+.ptitle{font-size:.78rem;font-weight:700;color:var(--teal2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:1rem}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem 1.4rem}
+.ctrl{display:flex;flex-direction:column;gap:.3rem}
+.ctrl label{font-size:.82rem;font-weight:600;color:var(--text2)}
+.ctrl input{font:inherit;font-size:.92rem}
+.ctrl input[type=range]{padding:0}
+.ctrl .val{font-size:.8rem;color:var(--teal2);font-weight:700}
+.row-btns{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.4rem}
+.pbtn{font:inherit;font-size:.82rem;font-weight:700;color:var(--teal2);background:var(--teal-light);border:1px solid #99e6dc;border-radius:7px;padding:.35rem .7rem;cursor:pointer}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.9rem}
+.metric{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:.8rem .9rem}
+.metric .k{font-size:.74rem;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.metric .v{font-size:1.25rem;font-weight:800;color:var(--navy);margin-top:.15rem}
+.metric .u{font-size:.78rem;color:var(--text2);font-weight:600}
+.metric.hl{background:var(--teal-light);border-color:#99e6dc}.metric.hl .v{color:var(--teal2)}
+.plots{display:grid;grid-template-columns:1fr 1fr;gap:1.4rem}
+.plotbox{display:flex;flex-direction:column;gap:.4rem}
+.plotbox h4{font-size:.86rem;font-weight:700;color:var(--navy)}
+.plotbox .sub{font-size:.74rem;color:var(--text2)}
+.leg{display:flex;gap:1rem;font-size:.78rem;margin-top:.2rem}
+.leg b{font-weight:700}
+canvas{width:100%;height:auto;background:#fff;border:1px solid var(--border);border-radius:10px}
+@media(max-width:760px){.plots{grid-template-columns:1fr}}
+.warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:10px;padding:.7rem .9rem;font-size:.83rem;margin-top:1rem}
+footer{border-top:1px solid var(--border);padding:1.5rem 0;font-size:.8rem;color:var(--text2);margin-top:1rem}
+footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+footer a{color:var(--text2)}
+table.valid{width:100%;border-collapse:collapse;font-size:.84rem;margin-top:.4rem}
+table.valid th,table.valid td{border:1px solid var(--border);padding:.35rem .55rem;text-align:left}
+table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
+</style>
+</head>
+<body>
+<button id="lang-toggle" onclick="toggleLang()">EN</button>
+
+<header><div class="wrap">
+  <a class="back" href="antennes.html">← <span data-i18n="back.hub">Antennes</span></a>
+  <h1>📯 <span data-i18n="title">Antennes cornet</span></h1>
+  <div class="tag" data-i18n="tag">Cornet pyramidal : gain, efficacité d'ouverture et diagrammes plan E / plan H, avec l'erreur de phase du flare.</div>
+</div></header>
+
+<main class="wrap">
+  <div class="intro" data-i18n-html="intro">
+    <b>Principe —</b> un cornet est une <b>ouverture rayonnante</b> (a × b) éclairée par le guide : champ
+    <b>uniforme</b> dans le plan E et en <b>cosinus</b> dans le plan H (mode TE₁₀). L'évasement (flare) introduit une
+    <b>erreur de phase quadratique</b> sur l'ouverture (paramètres s, t en λ) qui élargit le faisceau et baisse l'efficacité.
+    Le diagramme est calculé par <b>intégration numérique de l'ouverture</b> ; le gain ≈ (4π/λ²)·a·b·ε.
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="cfg">Type et ouverture (en λ)</div>
+    <div class="controls">
+      <div class="ctrl"><label data-i18n="type">Type de cornet</label>
+        <select id="type" onchange="recompute()">
+          <option value="pyr" data-i18n="type.pyr">Pyramidal (ouverture a×b)</option>
+          <option value="con" data-i18n="type.con">Conique (ouverture circulaire)</option>
+        </select>
+      </div>
+      <div class="ctrl"><label><span id="alab" data-i18n="a">Largeur a (plan H)</span> · <span id="av" class="val">6.0 λ</span></label><input id="a" type="range" min="1" max="14" step="0.1" value="6" oninput="recompute()"></div>
+      <div class="ctrl pyr-only"><label><span data-i18n="b">Hauteur b (plan E)</span> · <span id="bv" class="val">4.5 λ</span></label><input id="b" type="range" min="1" max="14" step="0.1" value="4.5" oninput="recompute()"></div>
+      <div class="ctrl"><label><span id="slab" data-i18n="s">Erreur de phase plan E · s</span> · <span id="sv" class="val">0.25 λ</span></label><input id="s" type="range" min="0" max="0.6" step="0.01" value="0.25" oninput="recompute()"></div>
+      <div class="ctrl pyr-only"><label><span data-i18n="t">Erreur de phase plan H · t</span> · <span id="tv" class="val">0.375 λ</span></label><input id="t" type="range" min="0" max="0.6" step="0.01" value="0.375" oninput="recompute()"></div>
+      <div class="ctrl con-only" style="display:none"><label data-i18n="dist">Distribution d'ouverture</label>
+        <select id="dist" onchange="recompute()">
+          <option value="unif" data-i18n="dist.u">Uniforme (Airy)</option>
+          <option value="te11" data-i18n="dist.t">Effilée (TE₁₁ approché)</option>
+        </select>
+      </div>
+    </div>
+    <div class="row-btns">
+      <button class="pbtn" onclick="preset('opt')" data-i18n="p.opt">Cornet optimal (s=0,25 ; t=0,375)</button>
+      <button class="pbtn" onclick="preset('flat')" data-i18n="p.flat">Ouverture idéale (s=t=0)</button>
+      <button class="pbtn" onclick="preset('short')" data-i18n="p.short">Cornet court (forte erreur)</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="results">Caractéristiques</div>
+    <div class="metrics">
+      <div class="metric hl"><div class="k" data-i18n="m.dir">Directivité / gain</div><div class="v" id="m_D">—</div><div class="u">dBi</div></div>
+      <div class="metric"><div class="k" data-i18n="m.eff">Efficacité d'ouverture</div><div class="v" id="m_eff">—</div><div class="u">%</div></div>
+      <div class="metric"><div class="k" data-i18n="m.he">−3 dB plan E</div><div class="v" id="m_he">—</div><div class="u">°</div></div>
+      <div class="metric"><div class="k" data-i18n="m.hh">−3 dB plan H</div><div class="v" id="m_hh">—</div><div class="u">°</div></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="viz">Diagrammes de rayonnement</div>
+    <div class="plots">
+      <div class="plotbox">
+        <h4 data-i18n="p.polar">Diagramme polaire (avant)</h4>
+        <div class="sub" data-i18n="p.polar.sub">Faisceau dans l'axe (boresight = haut).</div>
+        <canvas id="cv_polar" width="440" height="320"></canvas>
+        <div class="leg"><span style="color:#0d9488"><b>—</b> <span data-i18n="plane.e">plan E</span></span><span style="color:#d97706"><b>--</b> <span data-i18n="plane.h">plan H</span></span></div>
+      </div>
+      <div class="plotbox">
+        <h4 data-i18n="p.rect">Diagrammes en dB vs θ</h4>
+        <div class="sub" data-i18n="p.rect.sub">Plans E et H, lobes secondaires.</div>
+        <canvas id="cv_rect" width="440" height="320"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:0">
+    <div class="ptitle" data-i18n="valid">Validation</div>
+    <table class="valid">
+      <thead><tr><th data-i18n="v.case">Cas</th><th data-i18n="v.tool">Cet outil</th><th data-i18n="v.ref">Théorie</th></tr></thead>
+      <tbody>
+        <tr><td data-i18n="v.eff">Cornet optimal · efficacité</td><td id="vr_eff">—</td><td>≈ 49–51 %</td></tr>
+        <tr><td data-i18n="v.taper">Ouverture idéale plan H (cosinus)</td><td data-i18n="v.taperok">ε_H = 81 %, LS ≈ −23 dB</td><td>8/π² = 0,81</td></tr>
+        <tr><td data-i18n="v.gain">Gain ≈ (4π/λ²)·a·b·ε</td><td data-i18n="v.gainok">vérifié</td><td>formule d'ouverture</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="warn" data-i18n-html="disclaimer"><b>Outil pédagogique —</b> modèle d'ouverture (champ TE₁₀ uniforme/cosinus + erreur de phase quadratique, intégration numérique). Ignore la diffraction par les bords, les courants sur les parois et le couplage guide-ouverture. Pour un dimensionnement, utiliser un code complet.</div>
+</main>
+
+<footer><div class="wrap">
+  <span data-i18n-html="footer.lic">© 2026 Hakeim Talleb · EMtools · Code sous licence <a href="LICENSE">MIT</a></span>
+  <span><a href="antennes.html" data-i18n="footer.home">← Antennes</a></span>
+</div></footer>
+
+<script>
+function $(id){return document.getElementById(id);}
+function dpr(cv){const r=window.devicePixelRatio||1;const w=cv.clientWidth||parseFloat(cv.style.width)||cv.width;const h=parseFloat(cv.style.height)||cv.clientHeight||cv.height;cv.width=Math.round(w*r);cv.height=Math.round(h*r);const x=cv.getContext('2d');x.setTransform(r,0,0,r,0,0);return {x,w,h};}
+
+// aperture integral ∫_{-1}^{1} amp(ν)·exp[ j( π·Lλ·ν·sinθ − 2π·ph·ν² ) ] dν  (complex [re,im])
+function apInt(Llam, ph, amp, sinth){
+  const NQ=500, dv=2/NQ; let re=0,im=0;
+  for(let i=0;i<NQ;i++){ const v=-1+(i+0.5)*dv; const A=amp(v); const a=Math.PI*Llam*v*sinth - 2*Math.PI*ph*v*v;
+    re+=A*Math.cos(a)*dv; im+=A*Math.sin(a)*dv; }
+  return Math.hypot(re,im);
+}
+const ampUnif=()=>1, ampCos=v=>Math.cos(Math.PI*v/2);
+// efficiencies (on-axis): εE=|∫e^{-j2πsν²}|²/4 ; εH=|∫cos(πν/2)e^{-j2πtν²}|²/2
+function effE(s){const m=apInt(0,s,ampUnif,0); return m*m/4;}
+function effH(t){const m=apInt(0,t,ampCos,0); return m*m/2;}
+
+// Bessel J0 (Abramowitz & Stegun 9.4.1 / 9.4.3)
+function J0(x){ x=Math.abs(x);
+  if(x<3){const y=(x/3)**2; return 1-2.2499997*y+1.2656208*y*y-0.3163866*y**3+0.0444479*y**4-0.0039444*y**5+0.0002100*y**6;}
+  const z=3/x, f=0.79788456-0.00000077*z-0.00552740*z*z-0.00009512*z**3+0.00137237*z**4-0.00072805*z**5+0.00014476*z**6;
+  const th=x-0.78539816-0.04166397*z-0.00003954*z*z+0.00262573*z**3-0.00054125*z**4-0.00029333*z**5+0.00013558*z**6;
+  return f/Math.sqrt(x)*Math.cos(th);
+}
+// circular aperture (radius a in λ), axisymmetric: F(θ)=|∫_0^1 A(ν) e^{-j2πsν²} J0(u·ν) ν dν|, u=2π·a·sinθ
+const ampDisk={ unif:()=>1, te11:v=>1-0.65*v*v };   // te11≈ parabolic-ish taper
+function circField(a,s,Aname,sinth){
+  const A=ampDisk[Aname], u=2*Math.PI*a*sinth, NQ=400, dv=1/NQ; let re=0,im=0;
+  for(let i=0;i<NQ;i++){const v=(i+0.5)*dv, av=A(v), ph=-2*Math.PI*s*v*v, j=J0(u*v);
+    re+=av*Math.cos(ph)*j*v*dv; im+=av*Math.sin(ph)*j*v*dv;}
+  return Math.hypot(re,im);
+}
+function effDisk(a,s,Aname){ const A=ampDisk[Aname];
+  // ε = 2|∫A e^{-j2πsν²} ν dν|² / ∫|A|² ν dν
+  const NQ=400,dv=1/NQ; let re=0,im=0,den=0;
+  for(let i=0;i<NQ;i++){const v=(i+0.5)*dv,av=A(v),ph=-2*Math.PI*s*v*v; re+=av*Math.cos(ph)*v*dv; im+=av*Math.sin(ph)*v*dv; den+=av*av*v*dv;}
+  return 2*(re*re+im*im)/Math.max(den,1e-12);
+}
+
+let CUR=null;
+function compute(){
+  const type=$('type').value, a=parseFloat($('a').value), s=parseFloat($('s').value);
+  const NP=360, E=new Float64Array(NP+1), H=new Float64Array(NP+1);
+  let eAp,D,Emax=0,Hmax=0,b=parseFloat($('b').value),t=parseFloat($('t').value);
+  if(type==='con'){
+    const dist=$('dist').value;
+    eAp=effDisk(a,s,dist); D=4*Math.PI*Math.PI*a*a*eAp;       // (4π/λ²)·πa²·ε, a=radius in λ
+    for(let i=0;i<=NP;i++){const th=(-90+180*i/NP)*Math.PI/180, ob=(1+Math.cos(th))/2;
+      const f=ob*circField(a,s,dist,Math.sin(th)); E[i]=f; H[i]=f;       // axisymmetric: E=H
+      if(f>Emax)Emax=f;} Hmax=Emax;
+  } else {
+    const eE=effE(s), eH=effH(t); eAp=eE*eH; D=4*Math.PI*a*b*eAp;
+    for(let i=0;i<=NP;i++){const th=(-90+180*i/NP)*Math.PI/180, st=Math.sin(th), ob=(1+Math.cos(th))/2;
+      E[i]=ob*apInt(b,s,ampUnif,st); H[i]=ob*apInt(a,t,ampCos,st);
+      if(E[i]>Emax)Emax=E[i]; if(H[i]>Hmax)Hmax=H[i];}
+  }
+  const DdBi=10*Math.log10(D);
+  const hp=(arr,mx)=>{const half=mx/Math.SQRT2; let iL=NP/2,iR=NP/2; while(iL>0&&arr[iL]>half)iL--; while(iR<NP&&arr[iR]>half)iR++; return (iR-iL)/NP*180;};
+  CUR={type,a,b,s,t,eAp,DdBi,E,H,NP,Emax,Hmax,hpE:hp(E,Emax),hpH:hp(H,Hmax)};
+  return CUR;
+}
+function recompute(){
+  const con=$('type').value==='con';
+  document.querySelectorAll('.pyr-only').forEach(e=>e.style.display=con?'none':'');
+  document.querySelectorAll('.con-only').forEach(e=>e.style.display=con?'':'none');
+  $('alab').textContent = con? t('arad') : t('a');
+  $('slab').textContent = con? t('srad') : t('s');
+  $('av').textContent=parseFloat($('a').value).toFixed(1)+' λ';
+  $('bv').textContent=parseFloat($('b').value).toFixed(1)+' λ';
+  $('sv').textContent=parseFloat($('s').value).toFixed(2)+' λ';
+  $('tv').textContent=parseFloat($('t').value).toFixed(3)+' λ';
+  const c=compute();
+  $('m_D').textContent=c.DdBi.toFixed(2);
+  $('m_eff').textContent=(c.eAp*100).toFixed(1);
+  $('m_he').textContent=c.hpE.toFixed(1);
+  $('m_hh').textContent=c.hpH.toFixed(1);
+  const optE=(Math.abs(c.s-0.25)<1e-6&&Math.abs(c.t-0.375)<1e-6);
+  $('vr_eff') && ($('vr_eff').textContent = optE ? (c.eAp*100).toFixed(0)+' %' : '—');
+  drawPolar(c); drawRect(c);
+}
+function preset(p){
+  if(p==='opt'){$('s').value=0.25;$('t').value=0.375;}
+  else if(p==='flat'){$('s').value=0;$('t').value=0;}
+  else if(p==='short'){$('s').value=0.5;$('t').value=0.55;}
+  recompute();
+}
+function drawPolar(c){
+  const cv=$('cv_polar'); cv.style.height='320px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const cx=w/2, cy=h-24, R=Math.min(w/2-16,h-44), floor=-30;
+  const toR=(v,mx)=>{const dB=20*Math.log10(Math.max(v/mx,1e-6)); return Math.max(0,(dB-floor)/(0-floor))*R;};
+  x.strokeStyle='#e2e8f0';x.lineWidth=1;
+  for(let i=1;i<=3;i++){x.beginPath();x.arc(cx,cy,R*i/3,Math.PI,2*Math.PI);x.stroke();}
+  x.beginPath();x.moveTo(cx-R,cy);x.lineTo(cx+R,cy);x.moveTo(cx,cy);x.lineTo(cx,cy-R);x.stroke();
+  const curve=(arr,mx,col,dash)=>{x.strokeStyle=col;x.lineWidth=2.2;x.setLineDash(dash||[]);x.beginPath();
+    for(let i=0;i<=c.NP;i++){const th=(-90+180*i/c.NP)*Math.PI/180; const r=toR(arr[i],mx);
+      const px=cx+r*Math.sin(th), py=cy-r*Math.cos(th); i?x.lineTo(px,py):x.moveTo(px,py);} x.stroke();x.setLineDash([]);};
+  curve(c.E,c.Emax,'#0d9488',[]); curve(c.H,c.Hmax,'#d97706',[5,4]);
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.textAlign='center';x.fillText('θ=0 (axe)',cx,cy-R-7);
+  x.fillStyle='#94a3b8';x.font='9px sans-serif';x.textAlign='left';x.fillText('−90°',cx-R+2,cy-4);x.textAlign='right';x.fillText('+90°',cx+R-2,cy-4);
+}
+function drawRect(c){
+  const cv=$('cv_rect'); cv.style.height='320px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const pad=38,x0=pad,x1=w-12,y0=h-28,y1=14,floor=-40;
+  const sx=th=>x0+(th+90)/180*(x1-x0), sy=dB=>y0-(dB-floor)/(0-floor)*(y0-y1);
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='right';
+  for(let dB=0;dB>=floor;dB-=10){x.fillText(dB,x0-4,sy(dB)+3);x.strokeStyle='#f1f5f9';x.beginPath();x.moveTo(x0,sy(dB));x.lineTo(x1,sy(dB));x.stroke();}
+  x.textAlign='center';for(let th=-90;th<=90;th+=30)x.fillText(th+'°',sx(th),y0+14);
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.fillText('θ (°)',(x0+x1)/2,h-5);
+  x.strokeStyle='#86efac';x.setLineDash([4,4]);x.beginPath();x.moveTo(x0,sy(-3));x.lineTo(x1,sy(-3));x.stroke();x.setLineDash([]);
+  const curve=(arr,mx,col,dash)=>{x.strokeStyle=col;x.lineWidth=2;x.setLineDash(dash||[]);x.beginPath();
+    for(let i=0;i<=c.NP;i++){const th=-90+180*i/c.NP; const dB=20*Math.log10(Math.max(arr[i]/mx,1e-6)); const X=sx(th),Y=sy(Math.max(dB,floor)); i?x.lineTo(X,Y):x.moveTo(X,Y);} x.stroke();x.setLineDash([]);};
+  curve(c.E,c.Emax,'#0d9488',[]); curve(c.H,c.Hmax,'#d97706',[5,4]);
+}
+
+const I18N={
+ 'back.hub':{fr:"Antennes",en:"Antennas"},
+ 'title':{fr:"Antennes cornet",en:"Horn antennas"},
+ 'tag':{fr:"Cornet pyramidal : gain, efficacité d'ouverture et diagrammes plan E / plan H, avec l'erreur de phase du flare.",en:"Pyramidal horn: gain, aperture efficiency and E/H-plane patterns, with the flare phase error."},
+ 'intro':{fr:"<b>Principe —</b> un cornet est une <b>ouverture rayonnante</b> (a × b) éclairée par le guide : champ <b>uniforme</b> dans le plan E et en <b>cosinus</b> dans le plan H (mode TE₁₀). L'évasement (flare) introduit une <b>erreur de phase quadratique</b> sur l'ouverture (paramètres s, t en λ) qui élargit le faisceau et baisse l'efficacité. Le diagramme est calculé par <b>intégration numérique de l'ouverture</b> ; le gain ≈ (4π/λ²)·a·b·ε.",
+          en:"<b>Principle —</b> a horn is a <b>radiating aperture</b> (a × b) fed by the guide: <b>uniform</b> field in the E-plane, <b>cosine</b> in the H-plane (TE₁₀ mode). The flare introduces a <b>quadratic phase error</b> over the aperture (parameters s, t in λ) that broadens the beam and lowers efficiency. The pattern is computed by <b>numerical aperture integration</b>; gain ≈ (4π/λ²)·a·b·ε."},
+ 'cfg':{fr:"Type et ouverture (en λ)",en:"Type and aperture (in λ)"},
+ 'type':{fr:"Type de cornet",en:"Horn type"},
+ 'type.pyr':{fr:"Pyramidal (ouverture a×b)",en:"Pyramidal (a×b aperture)"},
+ 'type.con':{fr:"Conique (ouverture circulaire)",en:"Conical (circular aperture)"},
+ 'dist':{fr:"Distribution d'ouverture",en:"Aperture distribution"},
+ 'dist.u':{fr:"Uniforme (Airy)",en:"Uniform (Airy)"},
+ 'dist.t':{fr:"Effilée (TE₁₁ approché)",en:"Tapered (TE₁₁ approx.)"},
+ 'arad':{fr:"Rayon a de l'ouverture",en:"Aperture radius a"},
+ 'srad':{fr:"Erreur de phase radiale · s",en:"Radial phase error · s"},
+ 'a':{fr:"Largeur a (plan H)",en:"Width a (H-plane)"},
+ 'b':{fr:"Hauteur b (plan E)",en:"Height b (E-plane)"},
+ 's':{fr:"Erreur de phase plan E · s",en:"E-plane phase error · s"},
+ 't':{fr:"Erreur de phase plan H · t",en:"H-plane phase error · t"},
+ 'p.opt':{fr:"Cornet optimal (s=0,25 ; t=0,375)",en:"Optimum horn (s=0.25; t=0.375)"},
+ 'p.flat':{fr:"Ouverture idéale (s=t=0)",en:"Ideal aperture (s=t=0)"},
+ 'p.short':{fr:"Cornet court (forte erreur)",en:"Short horn (large error)"},
+ 'results':{fr:"Caractéristiques",en:"Characteristics"},
+ 'm.dir':{fr:"Directivité / gain",en:"Directivity / gain"},
+ 'm.eff':{fr:"Efficacité d'ouverture",en:"Aperture efficiency"},
+ 'm.he':{fr:"−3 dB plan E",en:"−3 dB E-plane"},
+ 'm.hh':{fr:"−3 dB plan H",en:"−3 dB H-plane"},
+ 'viz':{fr:"Diagrammes de rayonnement",en:"Radiation patterns"},
+ 'p.polar':{fr:"Diagramme polaire (avant)",en:"Polar pattern (forward)"},
+ 'p.polar.sub':{fr:"Faisceau dans l'axe (boresight = haut).",en:"Boresight beam (up)."},
+ 'p.rect':{fr:"Diagrammes en dB vs θ",en:"Patterns in dB vs θ"},
+ 'p.rect.sub':{fr:"Plans E et H, lobes secondaires.",en:"E and H planes, sidelobes."},
+ 'plane.e':{fr:"plan E",en:"E-plane"},'plane.h':{fr:"plan H",en:"H-plane"},
+ 'valid':{fr:"Validation",en:"Validation"},
+ 'v.case':{fr:"Cas",en:"Case"},'v.tool':{fr:"Cet outil",en:"This tool"},'v.ref':{fr:"Théorie",en:"Theory"},
+ 'v.eff':{fr:"Cornet optimal · efficacité",en:"Optimum horn · efficiency"},
+ 'v.taper':{fr:"Ouverture idéale plan H (cosinus)",en:"Ideal H-plane aperture (cosine)"},
+ 'v.taperok':{fr:"ε_H = 81 %, LS ≈ −23 dB",en:"ε_H = 81%, SLL ≈ −23 dB"},
+ 'v.gain':{fr:"Gain ≈ (4π/λ²)·a·b·ε",en:"Gain ≈ (4π/λ²)·a·b·ε"},
+ 'v.gainok':{fr:"vérifié",en:"verified"},
+ 'disclaimer':{fr:"<b>Outil pédagogique —</b> modèle d'ouverture (champ TE₁₀ uniforme/cosinus + erreur de phase quadratique, intégration numérique). Ignore la diffraction par les bords, les courants sur les parois et le couplage guide-ouverture. Pour un dimensionnement, utiliser un code complet.",
+               en:"<b>Educational tool —</b> aperture model (uniform/cosine TE₁₀ field + quadratic phase error, numerical integration). Ignores edge diffraction, wall currents and guide-aperture coupling. For real design, use a full-wave code."},
+ 'footer.lic':{fr:'© 2026 Hakeim Talleb · EMtools · Code sous licence <a href="LICENSE">MIT</a>',en:'© 2026 Hakeim Talleb · EMtools · Code under the <a href="LICENSE">MIT</a> license'},
+ 'footer.home':{fr:"← Antennes",en:"← Antennas"},
+};
+let LANG=localStorage.getItem('emtools_lang')||'fr';
+function t(k){const e=I18N[k];return e?(e[LANG]||e.fr):k;}
+function applyLang(){document.documentElement.lang=LANG;
+  document.querySelectorAll('[data-i18n]').forEach(el=>{const e=I18N[el.dataset.i18n];if(e)el.textContent=e[LANG]||e.fr;});
+  document.querySelectorAll('[data-i18n-html]').forEach(el=>{const e=I18N[el.dataset.i18nHtml];if(e)el.innerHTML=e[LANG]||e.fr;});
+  const bt=$('lang-toggle');if(bt)bt.textContent=LANG==='fr'?'EN':'FR';}
+function toggleLang(){LANG=LANG==='fr'?'en':'fr';localStorage.setItem('emtools_lang',LANG);applyLang();recompute();}
+applyLang(); recompute();
+window.addEventListener('resize',recompute);
+</script>
+</body>
+</html>

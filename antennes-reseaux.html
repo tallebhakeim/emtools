@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EMtools — Réseaux d'antennes</title>
+<meta name="description" content="EMtools — réseaux d'antennes : facteur de réseau, dépointage électronique du faisceau par le déphasage, lobes de réseau, directivité. Par Hakeim Talleb.">
+<style>
+:root{--navy:#1a2e4a;--teal:#0d9488;--teal2:#0f766e;--teal-light:#e6f7f5;--gold:#d97706;
+  --text:#1e293b;--text2:#64748b;--border:#e2e8f0;--bg:#f8fafc;--bg2:#f0fdf9;--white:#fff;--radius:14px;--shadow:0 2px 14px rgba(26,46,74,.08);}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--text);background:var(--bg);line-height:1.6}
+a{color:var(--teal2)}
+.wrap{max-width:980px;margin:0 auto;padding:0 1.25rem}
+#lang-toggle{position:fixed;top:14px;right:16px;z-index:50;background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.45);border-radius:8px;padding:5px 12px;font-size:13px;font-weight:700;cursor:pointer;backdrop-filter:blur(4px)}
+header{background:linear-gradient(135deg,#1a2e4a,#0f3a4d);color:#fff;padding:2.4rem 0 2rem}
+header .wrap{display:flex;flex-direction:column;gap:.4rem}
+header .back{font-size:.82rem;color:#94a3b8;text-decoration:none}
+header .back:hover{color:#cbd5e1}
+header h1{font-size:1.7rem;font-weight:800;letter-spacing:-.02em}
+header .tag{font-size:1rem;color:#cbd5e1;max-width:700px}
+main{padding:2rem 0 3rem}
+.intro{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius);padding:1rem 1.2rem;font-size:.9rem;margin-bottom:1.6rem}
+.intro b{color:var(--navy)}
+.panel{background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.3rem 1.4rem;margin-bottom:1.4rem}
+.ptitle{font-size:.78rem;font-weight:700;color:var(--teal2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:1rem}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem 1.4rem}
+.ctrl{display:flex;flex-direction:column;gap:.3rem}
+.ctrl label{font-size:.82rem;font-weight:600;color:var(--text2)}
+.ctrl input,.ctrl select{font:inherit;font-size:.92rem;padding:.45rem .55rem;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--text)}
+.ctrl input[type=range]{padding:0}
+.ctrl .val{font-size:.8rem;color:var(--teal2);font-weight:700}
+.row-btns{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.4rem}
+.pbtn{font:inherit;font-size:.82rem;font-weight:700;color:var(--teal2);background:var(--teal-light);border:1px solid #99e6dc;border-radius:7px;padding:.35rem .7rem;cursor:pointer}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.9rem}
+.metric{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:.8rem .9rem}
+.metric .k{font-size:.74rem;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.metric .v{font-size:1.25rem;font-weight:800;color:var(--navy);margin-top:.15rem}
+.metric .u{font-size:.78rem;color:var(--text2);font-weight:600}
+.metric.hl{background:var(--teal-light);border-color:#99e6dc}.metric.hl .v{color:var(--teal2)}
+.plots{display:grid;grid-template-columns:1fr 1fr;gap:1.4rem}
+.plotbox{display:flex;flex-direction:column;gap:.4rem}
+.plotbox h4{font-size:.86rem;font-weight:700;color:var(--navy)}
+.plotbox .sub{font-size:.74rem;color:var(--text2)}
+canvas{width:100%;height:auto;background:#fff;border:1px solid var(--border);border-radius:10px}
+@media(max-width:760px){.plots{grid-template-columns:1fr}}
+.warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:10px;padding:.7rem .9rem;font-size:.83rem;margin-top:1rem}
+.warn.hide{display:none}
+footer{border-top:1px solid var(--border);padding:1.5rem 0;font-size:.8rem;color:var(--text2);margin-top:1rem}
+footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+footer a{color:var(--text2)}
+table.valid{width:100%;border-collapse:collapse;font-size:.84rem;margin-top:.4rem}
+table.valid th,table.valid td{border:1px solid var(--border);padding:.35rem .55rem;text-align:left}
+table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
+</style>
+</head>
+<body>
+<button id="lang-toggle" onclick="toggleLang()">EN</button>
+
+<header><div class="wrap">
+  <a class="back" href="antennes.html">← <span data-i18n="back.hub">Antennes</span></a>
+  <h1>📡 <span data-i18n="title">Réseaux d'antennes</span></h1>
+  <div class="tag" data-i18n="tag">Réseau linéaire de dipôles : dépointage électronique du faisceau par le déphasage, lobes de réseau, directivité.</div>
+</div></header>
+
+<main class="wrap">
+  <div class="intro" data-i18n-html="intro">
+    <b>Principe —</b> un réseau de N éléments espacés de <i>d</i> le long de l'axe z, alimentés avec un
+    <b>déphasage progressif β</b>, produit un <b>facteur de réseau</b>
+    AF(θ) = sin(Nψ/2)/sin(ψ/2), avec ψ = kd·cos θ + β. Le diagramme total = facteur d'élément × |AF|.
+    Le faisceau pointe là où ψ = 0, soit <b>cos θ₀ = −β/kd</b> : en jouant sur β, on <b>dépointe</b> le faisceau électroniquement.
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="cfg">Configuration du réseau</div>
+    <div class="controls">
+      <div class="ctrl">
+        <label><span data-i18n="n">Nombre d'éléments N</span> · <span id="nv" class="val">8</span></label>
+        <input id="n" type="range" min="2" max="24" step="1" value="8" oninput="recompute()">
+      </div>
+      <div class="ctrl">
+        <label><span data-i18n="d">Espacement d</span> · <span id="dv" class="val">0.50 λ</span></label>
+        <input id="d" type="range" min="0.1" max="2.0" step="0.01" value="0.5" oninput="recompute()">
+      </div>
+      <div class="ctrl">
+        <label><span data-i18n="beta">Déphasage β / élément</span> · <span id="bv" class="val">0°</span></label>
+        <input id="beta" type="range" min="-180" max="180" step="1" value="0" oninput="recompute()">
+      </div>
+      <div class="ctrl">
+        <label data-i18n="elem">Élément rayonnant</label>
+        <select id="elem" onchange="recompute()">
+          <option value="iso" data-i18n="elem.iso">Isotrope (facteur de réseau pur)</option>
+          <option value="dipole" data-i18n="elem.dip">Dipôle λ/2 (selon z)</option>
+        </select>
+      </div>
+      <div class="ctrl">
+        <label data-i18n="taper">Pondération d'amplitude</label>
+        <select id="taper" onchange="recompute()">
+          <option value="uniform" data-i18n="tap.uni">Uniforme</option>
+          <option value="binomial" data-i18n="tap.bin">Binomiale (sans lobes secondaires)</option>
+          <option value="cheby" data-i18n="tap.cheb">Dolph-Chebyshev</option>
+        </select>
+      </div>
+      <div class="ctrl" id="sll-ctrl" style="display:none">
+        <label><span data-i18n="sllc">Lobes secondaires visés</span> · <span id="sllv" class="val">−30 dB</span></label>
+        <input id="sllt" type="range" min="13" max="50" step="1" value="30" oninput="recompute()">
+      </div>
+    </div>
+    <div class="row-btns">
+      <button class="pbtn" onclick="preset('broadside')" data-i18n="p.broad">Transversal (β=0)</button>
+      <button class="pbtn" onclick="preset('endfire')" data-i18n="p.end">Longitudinal (endfire)</button>
+      <button class="pbtn" onclick="preset('scan45')" data-i18n="p.scan">Dépointer à 60°</button>
+      <button class="pbtn" onclick="preset('grating')" data-i18n="p.grat">Lobes de réseau (d=λ)</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="results">Caractéristiques du diagramme</div>
+    <div class="metrics">
+      <div class="metric hl"><div class="k" data-i18n="m.dir">Direction du faisceau θ₀</div><div class="v" id="m_th0">—</div><div class="u">° <span data-i18n="m.fromz">(depuis z)</span></div></div>
+      <div class="metric"><div class="k" data-i18n="m.D">Directivité</div><div class="v" id="m_D">—</div><div class="u">dBi</div></div>
+      <div class="metric"><div class="k" data-i18n="m.hpbw">Largeur à −3 dB</div><div class="v" id="m_hpbw">—</div><div class="u">°</div></div>
+      <div class="metric"><div class="k" data-i18n="m.sll">Premier lobe secondaire</div><div class="v" id="m_sll">—</div><div class="u">dB</div></div>
+      <div class="metric"><div class="k" data-i18n="m.lobes">Lobes principaux</div><div class="v" id="m_lobes">—</div><div class="u" data-i18n="m.visible">visibles</div></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="viz">Diagramme de rayonnement</div>
+    <div class="plots">
+      <div class="plotbox">
+        <h4 data-i18n="p.polar">Diagramme polaire (plan vertical, dB)</h4>
+        <div class="sub" data-i18n="p.polar.sub">Axe du réseau = z (haut). Le faisceau dépointe avec β.</div>
+        <canvas id="cv_polar" width="440" height="380"></canvas>
+      </div>
+      <div class="plotbox">
+        <h4 data-i18n="p.rect">|Diagramme| en dB vs θ</h4>
+        <div class="sub" data-i18n="p.rect.sub">Lobe principal, lobes secondaires et de réseau.</div>
+        <canvas id="cv_rect" width="440" height="380"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="warn hide" id="grating-warn" data-i18n="grat.warn">⚠ Espacement d ≥ λ : des lobes de réseau apparaissent (faisceaux parasites à pleine amplitude) — en pratique on garde d ≤ λ/2 pour dépointer sans lobes de réseau.</div>
+
+  <div class="panel" style="margin-top:1.4rem">
+    <div class="ptitle" data-i18n="valid">Validation (réseau uniforme)</div>
+    <table class="valid">
+      <thead><tr><th data-i18n="v.case">Cas</th><th data-i18n="v.tool">Cet outil</th><th data-i18n="v.ref">Théorie</th></tr></thead>
+      <tbody>
+        <tr><td>N=8, d=λ/2, β=0 (transversal)</td><td id="vr1">—</td><td>D ≈ 8 (9,0 dBi), LS ≈ −13,2 dB</td></tr>
+        <tr><td data-i18n="v.steer">Faisceau θ₀ = arccos(−β/kd)</td><td data-i18n="v.steerok">vérifié</td><td>cos θ₀ = −β/kd</td></tr>
+        <tr><td data-i18n="v.grat">Lobe de réseau</td><td data-i18n="v.gratok">à d = λ</td><td>d ≥ λ</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="warn" data-i18n-html="disclaimer"><b>Outil pédagogique —</b> modèle analytique de facteur de réseau (éléments identiques, amplitudes uniformes, sans couplage mutuel ni effets de bord). Pour un réseau réel (couplage, pondération d'amplitude, pertes), utiliser un code complet.</div>
+</main>
+
+<footer><div class="wrap">
+  <span data-i18n-html="footer.lic">© 2026 Hakeim Talleb · EMtools · Code sous licence <a href="LICENSE">MIT</a></span>
+  <span><a href="antennes.html" data-i18n="footer.home">← Antennes</a></span>
+</div></footer>
+
+<script>
+function $(id){return document.getElementById(id);}
+function dpr(cv){const r=window.devicePixelRatio||1;const w=cv.clientWidth||parseFloat(cv.style.width)||cv.width;const h=parseFloat(cv.style.height)||cv.clientHeight||cv.height;cv.width=Math.round(w*r);cv.height=Math.round(h*r);const x=cv.getContext('2d');x.setTransform(r,0,0,r,0,0);return {x,w,h};}
+
+/* ---- amplitude weights ---- */
+function uniformW(N){ return new Array(N).fill(1); }
+function binomialW(N){ const a=new Array(N); a[0]=1; for(let k=1;k<N;k++) a[k]=a[k-1]*(N-k)/k; return a; } // C(N-1,k)
+function chebPoly(order,x){
+  if(x>1) return Math.cosh(order*Math.acosh(x));
+  if(x<-1) return (order%2?-1:1)*Math.cosh(order*Math.acosh(-x));
+  return Math.cos(order*Math.acos(x));
+}
+// Dolph-Chebyshev weights (scipy chebwin algorithm) for sidelobe attenuation `atten` dB
+function chebyW(N,atten){
+  if(N<3) return new Array(N).fill(1);
+  const order=N-1, beta=Math.cosh(Math.acosh(Math.pow(10,atten/20))/order);
+  const p=new Array(N);
+  for(let k=0;k<N;k++) p[k]=chebPoly(order, beta*Math.cos(Math.PI*k/N));
+  let w;
+  if(N%2){
+    const full=new Array(N);
+    for(let m=0;m<N;m++){let s=0;for(let k=0;k<N;k++)s+=p[k]*Math.cos(2*Math.PI*k*m/N);full[m]=s;}
+    const n=(N+1)/2; w=[];
+    for(let i=n-1;i>=1;i--) w.push(full[i]); for(let i=0;i<n;i++) w.push(full[i]);
+  } else {
+    const full=new Array(N);
+    for(let m=0;m<N;m++){let s=0;for(let k=0;k<N;k++) s+=p[k]*Math.cos(Math.PI*k/N - 2*Math.PI*k*m/N); full[m]=s;}
+    const n=N/2+1; w=[];
+    for(let i=n-1;i>=1;i--) w.push(full[i]); for(let i=1;i<n;i++) w.push(full[i]);
+  }
+  const mx=Math.max(...w.map(Math.abs))||1; return w.map(v=>v/mx);
+}
+let W=[1];   // current amplitude weights (length = N)
+// pattern P(θ): element factor × |AF|, with weights W. θ from array axis z. d in λ, beta in rad.
+function pat(theta,d,beta,elem){
+  const kd=2*Math.PI*d, psi=kd*Math.cos(theta)+beta;
+  let re=0,im=0;
+  for(let n=0;n<W.length;n++){ re+=W[n]*Math.cos(n*psi); im+=W[n]*Math.sin(n*psi); }
+  let ef=1;
+  if(elem==='dipole'){const st=Math.sin(theta); ef = st<1e-6?0:Math.abs(Math.cos(Math.PI/2*Math.cos(theta))/st);}
+  return ef*Math.hypot(re,im);
+}
+
+let CUR=null;
+function compute(){
+  const N=parseInt($('n').value), d=parseFloat($('d').value), betaDeg=parseFloat($('beta').value), elem=$('elem').value;
+  const taper=$('taper').value, atten=parseFloat($('sllt').value);
+  const beta=betaDeg*Math.PI/180, kd=2*Math.PI*d;
+  // build amplitude weights
+  W = taper==='binomial'?binomialW(N) : taper==='cheby'?chebyW(N,atten) : uniformW(N);
+  // sample θ∈[0,π]
+  const NP=3000, P=new Float64Array(NP+1); let Pmax=0, thMax=0;
+  for(let i=0;i<=NP;i++){const th=Math.PI*i/NP; const p=pat(th,d,beta,elem); P[i]=p; if(p>Pmax){Pmax=p;thMax=th;}}
+  // directivity D = 2 Pmax² / ∫P² sinθ dθ
+  let integ=0; const dth=Math.PI/NP;
+  for(let i=0;i<=NP;i++){const th=Math.PI*i/NP; const wgt=(i===0||i===NP)?0.5:1; integ+=wgt*P[i]*P[i]*Math.sin(th)*dth;}
+  const D=2*Pmax*Pmax/Math.max(integ,1e-12), DdBi=10*Math.log10(D);
+  // HPBW around thMax
+  const half=Pmax/Math.SQRT2, iM=Math.round(thMax/Math.PI*NP);
+  let iL=iM, iR=iM;
+  while(iL>0 && P[iL]>half) iL--;
+  while(iR<NP && P[iR]>half) iR++;
+  const hpbw=(iR-iL)/NP*180;
+  // sidelobe level: local maxima excluding main lobe region [iL,iR]
+  let sll=0;
+  for(let i=1;i<NP;i++){ if(i>=iL&&i<=iR) continue; if(P[i]>=P[i-1]&&P[i]>=P[i+1]&&P[i]>sll) sll=P[i]; }
+  const sllDB = sll>0 ? 20*Math.log10(sll/Pmax) : -99;
+  // number of visible main beams (grating): integer m with (β-kd)≤2πm≤(β+kd)
+  const mMin=Math.ceil((beta-kd)/(2*Math.PI)-1e-9), mMax=Math.floor((beta+kd)/(2*Math.PI)+1e-9);
+  const lobes=Math.max(1,mMax-mMin+1);
+  CUR={N,d,betaDeg,elem,taper,P,NP,Pmax,thMax,DdBi,hpbw,sllDB,lobes,kd,beta};
+  return CUR;
+}
+
+function recompute(){
+  $('nv').textContent=$('n').value;
+  $('dv').textContent=parseFloat($('d').value).toFixed(2)+' λ';
+  $('bv').textContent=$('beta').value+'°';
+  $('sll-ctrl').style.display = $('taper').value==='cheby'?'':'none';
+  $('sllv').textContent='−'+$('sllt').value+' dB';
+  const c=compute();
+  // beam direction θ0 (numerical max), and analytic check
+  $('m_th0').textContent=(c.thMax*180/Math.PI).toFixed(1);
+  $('m_D').textContent=c.DdBi.toFixed(2);
+  $('m_hpbw').textContent=isFinite(c.hpbw)?c.hpbw.toFixed(1):'—';
+  $('m_sll').textContent=c.sllDB<=-99?'—':c.sllDB.toFixed(1);
+  $('m_lobes').textContent=c.lobes;
+  $('grating-warn').classList.toggle('hide', c.lobes<=1);
+  // validation cell
+  $('vr1') && ($('vr1').textContent = (c.N===8&&Math.abs(c.d-0.5)<1e-6&&c.betaDeg===0&&c.elem==='iso'&&c.taper==='uniform') ? (c.DdBi.toFixed(1)+' dBi, '+c.sllDB.toFixed(1)+' dB') : '—');
+  drawPolar(c); drawRect(c);
+}
+function preset(p){
+  if(p==='broadside'){$('beta').value=0;$('d').value=0.5;}
+  else if(p==='endfire'){const kd=2*Math.PI*parseFloat($('d').value); $('beta').value=Math.round(-kd*180/Math.PI);}
+  else if(p==='scan45'){const kd=2*Math.PI*parseFloat($('d').value); $('beta').value=Math.round(-kd*Math.cos(Math.PI/3)*180/Math.PI);} // θ0=60°
+  else if(p==='grating'){$('d').value=1.0;$('beta').value=0;}
+  recompute();
+}
+
+function drawPolar(c){
+  const cv=$('cv_polar'); cv.style.height='380px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const cx=w/2, cy=h/2, R=Math.min(w,h)/2-26, floor=-30;
+  const toR=v=>{const dB=20*Math.log10(Math.max(v/c.Pmax,1e-6)); return Math.max(0,(dB-floor)/(0-floor))*R;};
+  x.strokeStyle='#e2e8f0';x.lineWidth=1;
+  for(let i=1;i<=3;i++){x.beginPath();x.arc(cx,cy,R*i/3,0,7);x.stroke();}
+  x.beginPath();x.moveTo(cx-R,cy);x.lineTo(cx+R,cy);x.moveTo(cx,cy-R);x.lineTo(cx,cy+R);x.stroke();
+  // pattern (φ-symmetric about z): screen angle a from top = θ on right, mirror on left
+  x.strokeStyle='#0d9488';x.lineWidth=2.2;x.beginPath();
+  const NA=720;
+  for(let i=0;i<=NA;i++){
+    const a=2*Math.PI*i/NA;                  // screen angle from +z (top), clockwise
+    const th = a<=Math.PI ? a : 2*Math.PI-a; // physical θ (mirror left half)
+    const p=pat(th,c.d,c.beta,c.elem), r=toR(p);
+    const px=cx+r*Math.sin(a), py=cy-r*Math.cos(a);
+    i?x.lineTo(px,py):x.moveTo(px,py);
+  }
+  x.closePath();x.stroke();
+  // beam direction marker
+  const r0=R, a0=c.thMax;
+  x.strokeStyle='#d97706';x.setLineDash([4,3]);x.lineWidth=1.5;x.beginPath();x.moveTo(cx,cy);x.lineTo(cx+r0*Math.sin(a0),cy-r0*Math.cos(a0));x.stroke();x.setLineDash([]);
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.textAlign='center';
+  x.fillText('z',cx,cy-R-9); x.fillText('θ='+(c.thMax*180/Math.PI).toFixed(0)+'°',cx+r0*0.6*Math.sin(a0)+10,cy-r0*0.6*Math.cos(a0));
+  x.fillStyle='#94a3b8';x.font='9px sans-serif';x.fillText('0 dB',cx,cy-R+9);x.fillText(floor+' dB',cx,cy-8);
+}
+function drawRect(c){
+  const cv=$('cv_rect'); cv.style.height='380px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const pad=40,x0=pad,x1=w-12,y0=h-30,y1=16, floor=-40;
+  const sx=th=>x0+th/180*(x1-x0), sy=dB=>y0-(dB-floor)/(0-floor)*(y0-y1);
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='right';
+  for(let dB=0;dB>=floor;dB-=10){x.fillText(dB,x0-4,sy(dB)+3);x.strokeStyle='#f1f5f9';x.beginPath();x.moveTo(x0,sy(dB));x.lineTo(x1,sy(dB));x.stroke();}
+  x.textAlign='center';for(let th=0;th<=180;th+=30){x.fillText(th+'°',sx(th),y0+14);}
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.fillText('θ (°)',(x0+x1)/2,h-6);
+  x.save();x.translate(12,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText('dB',0,0);x.restore();
+  // -3dB line
+  x.strokeStyle='#86efac';x.setLineDash([4,4]);x.beginPath();x.moveTo(x0,sy(-3));x.lineTo(x1,sy(-3));x.stroke();x.setLineDash([]);
+  // curve
+  x.strokeStyle='#0d9488';x.lineWidth=2;x.beginPath();
+  for(let i=0;i<=c.NP;i++){const th=180*i/c.NP; const dB=20*Math.log10(Math.max(c.P[i]/c.Pmax,1e-6)); const X=sx(th),Y=sy(Math.max(dB,floor)); i?x.lineTo(X,Y):x.moveTo(X,Y);}
+  x.stroke();
+  // beam marker
+  x.strokeStyle='#d97706';x.setLineDash([3,3]);x.beginPath();x.moveTo(sx(c.thMax*180/Math.PI),y1);x.lineTo(sx(c.thMax*180/Math.PI),y0);x.stroke();x.setLineDash([]);
+}
+
+/* i18n */
+const I18N={
+ 'back.hub':{fr:"Antennes",en:"Antennas"},
+ 'title':{fr:"Réseaux d'antennes",en:"Antenna arrays"},
+ 'tag':{fr:"Réseau linéaire de dipôles : dépointage électronique du faisceau par le déphasage, lobes de réseau, directivité.",en:"Linear dipole array: electronic beam steering via phase shift, grating lobes, directivity."},
+ 'intro':{fr:"<b>Principe —</b> un réseau de N éléments espacés de <i>d</i> le long de l'axe z, alimentés avec un <b>déphasage progressif β</b>, produit un <b>facteur de réseau</b> AF(θ) = sin(Nψ/2)/sin(ψ/2), avec ψ = kd·cos θ + β. Le diagramme total = facteur d'élément × |AF|. Le faisceau pointe là où ψ = 0, soit <b>cos θ₀ = −β/kd</b> : en jouant sur β, on <b>dépointe</b> le faisceau électroniquement.",
+          en:"<b>Principle —</b> an array of N elements spaced by <i>d</i> along z, fed with a <b>progressive phase β</b>, produces an <b>array factor</b> AF(θ) = sin(Nψ/2)/sin(ψ/2), with ψ = kd·cos θ + β. Total pattern = element factor × |AF|. The beam points where ψ = 0, i.e. <b>cos θ₀ = −β/kd</b>: varying β <b>steers</b> the beam electronically."},
+ 'cfg':{fr:"Configuration du réseau",en:"Array configuration"},
+ 'n':{fr:"Nombre d'éléments N",en:"Number of elements N"},
+ 'd':{fr:"Espacement d",en:"Spacing d"},
+ 'beta':{fr:"Déphasage β / élément",en:"Phase shift β / element"},
+ 'elem':{fr:"Élément rayonnant",en:"Radiating element"},
+ 'elem.iso':{fr:"Isotrope (facteur de réseau pur)",en:"Isotropic (pure array factor)"},
+ 'elem.dip':{fr:"Dipôle λ/2 (selon z)",en:"λ/2 dipole (along z)"},
+ 'taper':{fr:"Pondération d'amplitude",en:"Amplitude taper"},
+ 'tap.uni':{fr:"Uniforme",en:"Uniform"},
+ 'tap.bin':{fr:"Binomiale (sans lobes secondaires)",en:"Binomial (no sidelobes)"},
+ 'tap.cheb':{fr:"Dolph-Chebyshev",en:"Dolph-Chebyshev"},
+ 'sllc':{fr:"Lobes secondaires visés",en:"Target sidelobe level"},
+ 'p.broad':{fr:"Transversal (β=0)",en:"Broadside (β=0)"},
+ 'p.end':{fr:"Longitudinal (endfire)",en:"Endfire"},
+ 'p.scan':{fr:"Dépointer à 60°",en:"Steer to 60°"},
+ 'p.grat':{fr:"Lobes de réseau (d=λ)",en:"Grating lobes (d=λ)"},
+ 'results':{fr:"Caractéristiques du diagramme",en:"Pattern characteristics"},
+ 'm.dir':{fr:"Direction du faisceau θ₀",en:"Beam direction θ₀"},
+ 'm.fromz':{fr:"(depuis z)",en:"(from z)"},
+ 'm.D':{fr:"Directivité",en:"Directivity"},
+ 'm.hpbw':{fr:"Largeur à −3 dB",en:"−3 dB beamwidth"},
+ 'm.sll':{fr:"Premier lobe secondaire",en:"First sidelobe"},
+ 'm.lobes':{fr:"Lobes principaux",en:"Main lobes"},
+ 'm.visible':{fr:"visibles",en:"visible"},
+ 'viz':{fr:"Diagramme de rayonnement",en:"Radiation pattern"},
+ 'p.polar':{fr:"Diagramme polaire (plan vertical, dB)",en:"Polar pattern (vertical plane, dB)"},
+ 'p.polar.sub':{fr:"Axe du réseau = z (haut). Le faisceau dépointe avec β.",en:"Array axis = z (up). The beam steers with β."},
+ 'p.rect':{fr:"|Diagramme| en dB vs θ",en:"|Pattern| in dB vs θ"},
+ 'p.rect.sub':{fr:"Lobe principal, lobes secondaires et de réseau.",en:"Main lobe, sidelobes and grating lobes."},
+ 'grat.warn':{fr:"⚠ Espacement d ≥ λ : des lobes de réseau apparaissent (faisceaux parasites à pleine amplitude) — en pratique on garde d ≤ λ/2 pour dépointer sans lobes de réseau.",
+              en:"⚠ Spacing d ≥ λ: grating lobes appear (full-amplitude parasitic beams) — in practice keep d ≤ λ/2 to steer without grating lobes."},
+ 'valid':{fr:"Validation (réseau uniforme)",en:"Validation (uniform array)"},
+ 'v.case':{fr:"Cas",en:"Case"},'v.tool':{fr:"Cet outil",en:"This tool"},'v.ref':{fr:"Théorie",en:"Theory"},
+ 'v.steer':{fr:"Faisceau θ₀ = arccos(−β/kd)",en:"Beam θ₀ = arccos(−β/kd)"},
+ 'v.steerok':{fr:"vérifié",en:"verified"},
+ 'v.grat':{fr:"Lobe de réseau",en:"Grating lobe"},'v.gratok':{fr:"à d = λ",en:"at d = λ"},
+ 'disclaimer':{fr:"<b>Outil pédagogique —</b> modèle analytique de facteur de réseau (éléments identiques, amplitudes uniformes, sans couplage mutuel ni effets de bord). Pour un réseau réel (couplage, pondération d'amplitude, pertes), utiliser un code complet.",
+               en:"<b>Educational tool —</b> analytical array-factor model (identical elements, uniform amplitudes, no mutual coupling or edge effects). For a real array (coupling, amplitude tapering, losses), use a full-wave code."},
+ 'footer.lic':{fr:'© 2026 Hakeim Talleb · EMtools · Code sous licence <a href="LICENSE">MIT</a>',en:'© 2026 Hakeim Talleb · EMtools · Code under the <a href="LICENSE">MIT</a> license'},
+ 'footer.home':{fr:"← Antennes",en:"← Antennas"},
+};
+let LANG=localStorage.getItem('emtools_lang')||'fr';
+function t(k){const e=I18N[k];return e?(e[LANG]||e.fr):k;}
+function applyLang(){
+  document.documentElement.lang=LANG;
+  document.querySelectorAll('[data-i18n]').forEach(el=>{const e=I18N[el.dataset.i18n];if(e)el.textContent=e[LANG]||e.fr;});
+  document.querySelectorAll('[data-i18n-html]').forEach(el=>{const e=I18N[el.dataset.i18nHtml];if(e)el.innerHTML=e[LANG]||e.fr;});
+  const b=$('lang-toggle');if(b)b.textContent=LANG==='fr'?'EN':'FR';
+}
+function toggleLang(){LANG=LANG==='fr'?'en':'fr';localStorage.setItem('emtools_lang',LANG);applyLang();recompute();}
+applyLang(); recompute();
+window.addEventListener('resize',recompute);
+</script>
+</body>
+</html>

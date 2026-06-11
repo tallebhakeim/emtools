@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EMtools — Antennes patch</title>
+<meta name="description" content="EMtools — antenne patch microruban rectangulaire : conception (W, L), fréquence de résonance, directivité, bande passante, diagrammes plan E / plan H. Par Hakeim Talleb.">
+<style>
+:root{--navy:#1a2e4a;--teal:#0d9488;--teal2:#0f766e;--teal-light:#e6f7f5;--gold:#d97706;--text:#1e293b;--text2:#64748b;--border:#e2e8f0;--bg:#f8fafc;--bg2:#f0fdf9;--white:#fff;--radius:14px;--shadow:0 2px 14px rgba(26,46,74,.08);}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--text);background:var(--bg);line-height:1.6}
+a{color:var(--teal2)}
+.wrap{max-width:980px;margin:0 auto;padding:0 1.25rem}
+#lang-toggle{position:fixed;top:14px;right:16px;z-index:50;background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.45);border-radius:8px;padding:5px 12px;font-size:13px;font-weight:700;cursor:pointer;backdrop-filter:blur(4px)}
+header{background:linear-gradient(135deg,#1a2e4a,#0f3a4d);color:#fff;padding:2.4rem 0 2rem}
+header .wrap{display:flex;flex-direction:column;gap:.4rem}
+header .back{font-size:.82rem;color:#94a3b8;text-decoration:none}
+header .back:hover{color:#cbd5e1}
+header h1{font-size:1.7rem;font-weight:800;letter-spacing:-.02em}
+header .tag{font-size:1rem;color:#cbd5e1;max-width:700px}
+main{padding:2rem 0 3rem}
+.intro{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius);padding:1rem 1.2rem;font-size:.9rem;margin-bottom:1.6rem}
+.intro b{color:var(--navy)}
+.panel{background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.3rem 1.4rem;margin-bottom:1.4rem}
+.ptitle{font-size:.78rem;font-weight:700;color:var(--teal2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:1rem}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem 1.4rem}
+.ctrl{display:flex;flex-direction:column;gap:.3rem}
+.ctrl label{font-size:.82rem;font-weight:600;color:var(--text2)}
+.ctrl input,.ctrl select{font:inherit;font-size:.92rem;padding:.45rem .55rem;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--text)}
+.ctrl input[type=range]{padding:0}
+.ctrl .val{font-size:.8rem;color:var(--teal2);font-weight:700}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.9rem}
+.metric{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:.8rem .9rem}
+.metric .k{font-size:.74rem;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.metric .v{font-size:1.2rem;font-weight:800;color:var(--navy);margin-top:.15rem}
+.metric .u{font-size:.76rem;color:var(--text2);font-weight:600}
+.metric.hl{background:var(--teal-light);border-color:#99e6dc}.metric.hl .v{color:var(--teal2)}
+.geo{display:flex;gap:1.2rem;align-items:center;flex-wrap:wrap;margin-top:.4rem}
+.plots{display:grid;grid-template-columns:1fr 1fr;gap:1.4rem}
+.plotbox{display:flex;flex-direction:column;gap:.4rem}
+.plotbox h4{font-size:.86rem;font-weight:700;color:var(--navy)}
+.plotbox .sub{font-size:.74rem;color:var(--text2)}
+.leg{display:flex;gap:1rem;font-size:.78rem;margin-top:.2rem}
+canvas{width:100%;height:auto;background:#fff;border:1px solid var(--border);border-radius:10px}
+@media(max-width:760px){.plots{grid-template-columns:1fr}}
+.warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:10px;padding:.7rem .9rem;font-size:.83rem;margin-top:1rem}
+footer{border-top:1px solid var(--border);padding:1.5rem 0;font-size:.8rem;color:var(--text2);margin-top:1rem}
+footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+footer a{color:var(--text2)}
+table.valid{width:100%;border-collapse:collapse;font-size:.84rem;margin-top:.4rem}
+table.valid th,table.valid td{border:1px solid var(--border);padding:.35rem .55rem;text-align:left}
+table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
+</style>
+</head>
+<body>
+<button id="lang-toggle" onclick="toggleLang()">EN</button>
+
+<header><div class="wrap">
+  <a class="back" href="antennes.html">← <span data-i18n="back.hub">Antennes</span></a>
+  <h1>▭ <span data-i18n="title">Antennes patch</span></h1>
+  <div class="tag" data-i18n="tag">Patch microruban rectangulaire : conception (W, L), résonance, directivité, bande passante et diagrammes.</div>
+</div></header>
+
+<main class="wrap">
+  <div class="intro" data-i18n-html="intro">
+    <b>Principe —</b> un patch est une plaque métallique sur substrat (εr, hauteur h) au-dessus d'un plan de masse,
+    résonnant en <b>mode TM₁₀</b>. Il rayonne par ses <b>deux fentes</b> aux bords (séparées de L). On synthétise W et L
+    pour la fréquence visée via le modèle de <b>ligne de transmission</b> (permittivité effective ε_eff + allongement de
+    frange ΔL), puis on calcule le diagramme (réseau de 2 fentes), la directivité et la bande passante.
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="cfg">Substrat et fréquence</div>
+    <div class="controls">
+      <div class="ctrl"><label data-i18n="er">Permittivité relative εr</label><input id="er" type="number" value="2.2" min="1" max="12" step="0.1" onchange="recompute()"></div>
+      <div class="ctrl"><label data-i18n="h">Hauteur substrat h (mm)</label><input id="h" type="number" value="1.588" min="0.1" max="10" step="0.1" onchange="recompute()"></div>
+      <div class="ctrl"><label data-i18n="fr">Fréquence visée fr (GHz)</label><input id="fr" type="number" value="10" min="0.3" max="40" step="0.1" onchange="recompute()"></div>
+      <div class="ctrl"><label data-i18n="tand">Tangente de pertes tan δ</label><input id="tand" type="number" value="0.0009" min="0" max="0.05" step="0.0005" onchange="recompute()"></div>
+      <div class="ctrl"><label data-i18n="z0">Impédance d'accès Z₀ (Ω)</label><input id="z0" type="number" value="50" min="20" max="300" step="5" onchange="recompute()"></div>
+      <div class="ctrl"><label data-i18n="sub">Substrat type</label>
+        <select id="sub" onchange="setSub()">
+          <option value="">— personnalisé —</option>
+          <option value="2.2">RT/Duroid 5880 (εr 2,2)</option>
+          <option value="4.4">FR-4 (εr 4,4)</option>
+          <option value="10.2">RO3010 (εr 10,2)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="design">Dimensions synthétisées &amp; performances</div>
+    <div class="metrics">
+      <div class="metric hl"><div class="k" data-i18n="m.W">Largeur W</div><div class="v" id="m_W">—</div><div class="u">mm</div></div>
+      <div class="metric hl"><div class="k" data-i18n="m.L">Longueur L</div><div class="v" id="m_L">—</div><div class="u">mm</div></div>
+      <div class="metric"><div class="k" data-i18n="m.eeff">ε effective</div><div class="v" id="m_eeff">—</div><div class="u">ε_eff</div></div>
+      <div class="metric"><div class="k" data-i18n="m.dir">Directivité</div><div class="v" id="m_D">—</div><div class="u">dBi</div></div>
+      <div class="metric"><div class="k" data-i18n="m.bw">Bande passante</div><div class="v" id="m_bw">—</div><div class="u">% (VSWR&lt;2)</div></div>
+      <div class="metric"><div class="k" data-i18n="m.q">Facteur Q (total)</div><div class="v" id="m_q">—</div><div class="u" data-i18n="m.qr">Q_rad / Q_d</div></div>
+      <div class="metric"><div class="k" data-i18n="m.eta">Efficacité de rayonnement</div><div class="v" id="m_eta">—</div><div class="u">%</div></div>
+      <div class="metric"><div class="k" data-i18n="m.hp">−3 dB (plan E)</div><div class="v" id="m_hp">—</div><div class="u">°</div></div>
+    </div>
+    <div class="geo" id="geonote"></div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="viz">Diagrammes de rayonnement (hémisphère avant)</div>
+    <div class="plots">
+      <div class="plotbox">
+        <h4 data-i18n="p.polar">Diagramme polaire</h4>
+        <div class="sub" data-i18n="p.polar.sub">Rayonnement broadside (+z, haut), demi-espace au-dessus du plan de masse.</div>
+        <canvas id="cv_polar" width="440" height="320"></canvas>
+        <div class="leg"><span style="color:#0d9488"><b>—</b> <span data-i18n="plane.e">plan E</span></span><span style="color:#d97706"><b>--</b> <span data-i18n="plane.h">plan H</span></span></div>
+      </div>
+      <div class="plotbox">
+        <h4 data-i18n="p.rect">Diagrammes en dB vs θ</h4>
+        <div class="sub" data-i18n="p.rect.sub">Plans E (longueur L) et H (largeur W).</div>
+        <canvas id="cv_rect" width="440" height="320"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="s11.title">Coefficient de réflexion S₁₁ (adaptation)</div>
+    <div class="plotbox">
+      <div class="sub" data-i18n="s11.sub">Modèle RLC résonant adapté à fr. La bande passante = largeur où S₁₁ &lt; −10 dB (VSWR &lt; 2).</div>
+      <canvas id="cv_s11" width="900" height="260"></canvas>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:0">
+    <div class="ptitle" data-i18n="valid">Validation (Balanis, exemple 14.1)</div>
+    <table class="valid">
+      <thead><tr><th data-i18n="v.q">Grandeur</th><th data-i18n="v.tool">Cet outil</th><th data-i18n="v.ref">Balanis (εr 2,2 · h 1,588 mm · 10 GHz)</th></tr></thead>
+      <tbody>
+        <tr><td>W</td><td id="vr_W">—</td><td>11,86 mm</td></tr>
+        <tr><td>L</td><td id="vr_L">—</td><td>9,06 mm</td></tr>
+        <tr><td>ε_eff</td><td id="vr_e">—</td><td>1,972</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="warn" data-i18n-html="disclaimer"><b>Outil pédagogique —</b> modèle ligne de transmission + 2 fentes (plan de masse infini, substrat sans pertes, alimentation idéale). La bande passante est une estimation. Pour un dimensionnement réel (point d'alimentation, pertes, ondes de surface), utiliser un solveur full-wave.</div>
+</main>
+
+<footer><div class="wrap">
+  <span data-i18n-html="footer.lic">© 2026 Hakeim Talleb · EMtools · Code sous licence <a href="LICENSE">MIT</a></span>
+  <span><a href="antennes.html" data-i18n="footer.home">← Antennes</a></span>
+</div></footer>
+
+<script>
+function $(id){return document.getElementById(id);}
+const C0=299792458;
+function dpr(cv){const r=window.devicePixelRatio||1;const w=cv.clientWidth||parseFloat(cv.style.width)||cv.width;const h=parseFloat(cv.style.height)||cv.clientHeight||cv.height;cv.width=Math.round(w*r);cv.height=Math.round(h*r);const x=cv.getContext('2d');x.setTransform(r,0,0,r,0,0);return {x,w,h};}
+function setSub(){const v=$('sub').value; if(v){$('er').value=v;} recompute();}
+
+let CUR=null;
+function compute(){
+  const er=parseFloat($('er').value), h=parseFloat($('h').value)/1000, fr=parseFloat($('fr').value)*1e9;
+  const lam0=C0/fr;
+  // transmission-line design (Balanis 14-6..14-9)
+  const W = C0/(2*fr)*Math.sqrt(2/(er+1));
+  const eeff = (er+1)/2 + (er-1)/2*Math.pow(1+12*h/W,-0.5);
+  const dL = h*0.412*((eeff+0.3)*(W/h+0.264))/((eeff-0.258)*(W/h+0.8));
+  const Leff = C0/(2*fr*Math.sqrt(eeff));
+  const L = Leff - 2*dL;
+  // radiation-only fractional bandwidth (VSWR<2) -> radiation Q ; add dielectric loss -> total Q, efficiency
+  const BWrad = 3.77*((er-1)/(er*er))*(W/L)*(h/lam0);
+  const tand=parseFloat($('tand').value)||0, Z0=parseFloat($('z0').value)||50;
+  const Qrad=Math.SQRT1_2/Math.max(BWrad,1e-6), Qd= tand>0 ? 1/tand : 1e9;
+  const Qt=1/(1/Qrad+1/Qd), eta=Qt/Qrad, BW=Math.SQRT1_2/Qt;
+  // pattern: 2-slot array (sep Leff along x=E-plane) × slot width W (along y=H-plane), upper hemisphere
+  const k0=2*Math.PI/lam0;
+  const F=(th,ph)=>{ const st=Math.sin(th), sp=Math.sin(ph);
+    const af=Math.cos(k0*Leff/2*st*Math.cos(ph));               // 2-slot array factor (E-plane)
+    const yy=k0*W/2*st*sp; const slot = Math.abs(yy)<1e-6?1:Math.sin(yy)/yy;  // slot width (H-plane)
+    const elem=Math.sqrt(Math.max(0,1-(st*sp)*(st*sp)));        // y-magnetic-dipole element (→cosθ in H, →1 in E)
+    return Math.abs(af*slot)*elem; };
+  // directivity over upper hemisphere: D = 4π F(0)² / ∫∫ F² sinθ dθ dφ
+  let integ=0; const NT=90, NPp=72;
+  for(let i=0;i<NT;i++){const th=(i+0.5)/NT*Math.PI/2;
+    for(let j=0;j<NPp;j++){const ph=(j+0.5)/NPp*2*Math.PI; const f=F(th,ph); integ+=f*f*Math.sin(th)*(Math.PI/2/NT)*(2*Math.PI/NPp);}}
+  const F0=F(1e-4,0); const D=4*Math.PI*F0*F0/Math.max(integ,1e-12), DdBi=10*Math.log10(D);
+  // principal-plane cuts θ∈[-90,90]
+  const NP=360, E=new Float64Array(NP+1), H=new Float64Array(NP+1); let Em=0,Hm=0;
+  for(let i=0;i<=NP;i++){ const th=(-90+180*i/NP)*Math.PI/180; const at=Math.abs(th);
+    E[i]=F(at,0); H[i]=F(at,Math.PI/2); if(E[i]>Em)Em=E[i]; if(H[i]>Hm)Hm=H[i]; }
+  const hp=(arr,mx)=>{const half=mx/Math.SQRT2;let iL=NP/2,iR=NP/2;while(iL>0&&arr[iL]>half)iL--;while(iR<NP&&arr[iR]>half)iR++;return (iR-iL)/NP*180;};
+  // |S11|(f) with parallel-RLC model matched at fr: Zin=Z0/(1+jx), x=Qt·(f/fr−fr/f)
+  const s11=(f)=>{ const x=Qt*(f/fr-fr/f); return Math.abs(x)/Math.sqrt(4+x*x); };
+  CUR={er,h,fr,lam0,W,L,Leff,eeff,dL,BWrad,BW,Qrad,Qt,eta,Z0,tand,DdBi,E,H,NP,Em,Hm,hpE:hp(E,Em),s11};
+  return CUR;
+}
+function recompute(){
+  const c=compute();
+  $('m_W').textContent=(c.W*1000).toFixed(2);
+  $('m_L').textContent=(c.L*1000).toFixed(2);
+  $('m_eeff').textContent=c.eeff.toFixed(3);
+  $('m_D').textContent=c.DdBi.toFixed(2);
+  $('m_bw').textContent=(c.BW*100).toFixed(1);
+  $('m_q').textContent=c.Qt.toFixed(0);
+  $('m_q').nextElementSibling.textContent=c.Qrad.toFixed(0)+' / '+(c.Qt<c.Qrad?(1/c.tand).toFixed(0):'∞');
+  $('m_eta').textContent=(c.eta*100).toFixed(1);
+  $('m_hp').textContent=c.hpE.toFixed(0);
+  $('geonote').innerHTML='<span style="font-size:.85rem;color:#64748b">L<sub>eff</sub> = '+(c.Leff*1000).toFixed(2)+' mm · ΔL = '+(c.dL*1000).toFixed(3)+' mm · λ₀ = '+(c.lam0*1000).toFixed(1)+' mm · W/L = '+(c.W/c.L).toFixed(2)+'</span>';
+  $('vr_W')&&($('vr_W').textContent=(c.W*1000).toFixed(2)+' mm');
+  $('vr_L')&&($('vr_L').textContent=(c.L*1000).toFixed(2)+' mm');
+  $('vr_e')&&($('vr_e').textContent=c.eeff.toFixed(3));
+  drawPolar(c); drawRect(c); drawS11(c);
+}
+function drawS11(c){
+  const cv=$('cv_s11'); cv.style.height='260px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const f0=c.fr/1e9, span=Math.max(0.12, c.BW*4); // GHz window ~ ±2·BW around fr
+  const fmin=f0*(1-span/2), fmax=f0*(1+span/2);
+  const pad=44,x0=pad,x1=w-14,y0=h-30,y1=14, dbMin=-35;
+  const sx=f=>x0+(f-fmin)/(fmax-fmin)*(x1-x0), sy=db=>y0-(db-dbMin)/(0-dbMin)*(y0-y1);
+  // S11<-10dB band shading
+  const NP=600, pts=[];
+  for(let i=0;i<=NP;i++){const f=fmin+(fmax-fmin)*i/NP; const s=c.s11(f*1e9); const db=20*Math.log10(Math.max(s,1e-4)); pts.push({f,db});}
+  // matched band (db<-10)
+  let bL=null,bR=null; pts.forEach(p=>{if(p.db<=-10){if(bL===null)bL=p.f;bR=p.f;}});
+  if(bL!==null){x.fillStyle='#ecfdf5';x.fillRect(sx(bL),y1,sx(bR)-sx(bL),y0-y1);}
+  // axes + grid
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='right';
+  for(let db=0;db>=dbMin;db-=10){x.fillText(db,x0-4,sy(db)+3);x.strokeStyle='#f1f5f9';x.beginPath();x.moveTo(x0,sy(db));x.lineTo(x1,sy(db));x.stroke();}
+  // -10 dB line
+  x.strokeStyle='#86efac';x.setLineDash([4,4]);x.beginPath();x.moveTo(x0,sy(-10));x.lineTo(x1,sy(-10));x.stroke();x.setLineDash([]);
+  x.fillStyle='#16a34a';x.font='9px sans-serif';x.textAlign='left';x.fillText('−10 dB (VSWR 2)',x0+4,sy(-10)-3);
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.textAlign='center';
+  for(let k=0;k<=4;k++){const f=fmin+(fmax-fmin)*k/4;x.fillText(f.toFixed(2),sx(f),y0+14);}
+  x.fillText('f (GHz)',(x0+x1)/2,h-5);
+  x.save();x.translate(13,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText('|S₁₁| (dB)',0,0);x.restore();
+  // curve
+  x.strokeStyle='#0d9488';x.lineWidth=2.2;x.beginPath();
+  pts.forEach((p,i)=>{const X=sx(p.f),Y=sy(Math.max(p.db,dbMin));i?x.lineTo(X,Y):x.moveTo(X,Y);});x.stroke();
+  // fr marker
+  x.strokeStyle='#1a2e4a';x.setLineDash([3,3]);x.beginPath();x.moveTo(sx(f0),y1);x.lineTo(sx(f0),y0);x.stroke();x.setLineDash([]);
+  x.fillStyle='#1a2e4a';x.font='10px sans-serif';x.textAlign='center';x.fillText('fr',sx(f0),y1-2);
+  if(bL!==null){x.fillStyle='#0f766e';x.font='11px sans-serif';x.textAlign='center';x.fillText('BW = '+((bR-bL)/f0*100).toFixed(1)+' %',(sx(bL)+sx(bR))/2,y1+12);}
+}
+function drawPolar(c){
+  const cv=$('cv_polar'); cv.style.height='320px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const cx=w/2, cy=h-24, R=Math.min(w/2-16,h-44), floor=-25;
+  const toR=(v,mx)=>{const dB=20*Math.log10(Math.max(v/mx,1e-6));return Math.max(0,(dB-floor)/(0-floor))*R;};
+  x.strokeStyle='#e2e8f0';x.lineWidth=1;
+  for(let i=1;i<=3;i++){x.beginPath();x.arc(cx,cy,R*i/3,Math.PI,2*Math.PI);x.stroke();}
+  x.beginPath();x.moveTo(cx-R,cy);x.lineTo(cx+R,cy);x.moveTo(cx,cy);x.lineTo(cx,cy-R);x.stroke();
+  const curve=(arr,mx,col,dash)=>{x.strokeStyle=col;x.lineWidth=2.2;x.setLineDash(dash||[]);x.beginPath();
+    for(let i=0;i<=c.NP;i++){const th=(-90+180*i/c.NP)*Math.PI/180;const r=toR(arr[i],mx);const px=cx+r*Math.sin(th),py=cy-r*Math.cos(th);i?x.lineTo(px,py):x.moveTo(px,py);}x.stroke();x.setLineDash([]);};
+  curve(c.E,c.Em,'#0d9488',[]); curve(c.H,c.Hm,'#d97706',[5,4]);
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.textAlign='center';x.fillText('+z',cx,cy-R-7);
+  x.fillStyle='#94a3b8';x.font='9px sans-serif';x.textAlign='left';x.fillText('−90°',cx-R+2,cy-4);x.textAlign='right';x.fillText('+90°',cx+R-2,cy-4);
+}
+function drawRect(c){
+  const cv=$('cv_rect'); cv.style.height='320px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const pad=38,x0=pad,x1=w-12,y0=h-28,y1=14,floor=-30;
+  const sx=th=>x0+(th+90)/180*(x1-x0), sy=dB=>y0-(dB-floor)/(0-floor)*(y0-y1);
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='right';
+  for(let dB=0;dB>=floor;dB-=10){x.fillText(dB,x0-4,sy(dB)+3);x.strokeStyle='#f1f5f9';x.beginPath();x.moveTo(x0,sy(dB));x.lineTo(x1,sy(dB));x.stroke();}
+  x.textAlign='center';for(let th=-90;th<=90;th+=30)x.fillText(th+'°',sx(th),y0+14);
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.fillText('θ (°)',(x0+x1)/2,h-5);
+  x.strokeStyle='#86efac';x.setLineDash([4,4]);x.beginPath();x.moveTo(x0,sy(-3));x.lineTo(x1,sy(-3));x.stroke();x.setLineDash([]);
+  const curve=(arr,mx,col,dash)=>{x.strokeStyle=col;x.lineWidth=2;x.setLineDash(dash||[]);x.beginPath();
+    for(let i=0;i<=c.NP;i++){const th=-90+180*i/c.NP;const dB=20*Math.log10(Math.max(arr[i]/mx,1e-6));const X=sx(th),Y=sy(Math.max(dB,floor));i?x.lineTo(X,Y):x.moveTo(X,Y);}x.stroke();x.setLineDash([]);};
+  curve(c.E,c.Em,'#0d9488',[]); curve(c.H,c.Hm,'#d97706',[5,4]);
+}
+
+const I18N={
+ 'back.hub':{fr:"Antennes",en:"Antennas"},
+ 'title':{fr:"Antennes patch",en:"Patch antennas"},
+ 'tag':{fr:"Patch microruban rectangulaire : conception (W, L), résonance, directivité, bande passante et diagrammes.",en:"Rectangular microstrip patch: design (W, L), resonance, directivity, bandwidth and patterns."},
+ 'intro':{fr:"<b>Principe —</b> un patch est une plaque métallique sur substrat (εr, hauteur h) au-dessus d'un plan de masse, résonnant en <b>mode TM₁₀</b>. Il rayonne par ses <b>deux fentes</b> aux bords (séparées de L). On synthétise W et L pour la fréquence visée via le modèle de <b>ligne de transmission</b> (permittivité effective ε_eff + allongement de frange ΔL), puis on calcule le diagramme (réseau de 2 fentes), la directivité et la bande passante.",
+          en:"<b>Principle —</b> a patch is a metal plate on a substrate (εr, height h) over a ground plane, resonating in the <b>TM₁₀ mode</b>. It radiates from its <b>two edge slots</b> (separated by L). W and L are synthesised for the target frequency via the <b>transmission-line model</b> (effective permittivity ε_eff + fringing extension ΔL); then the pattern (2-slot array), directivity and bandwidth are computed."},
+ 'cfg':{fr:"Substrat et fréquence",en:"Substrate and frequency"},
+ 'er':{fr:"Permittivité relative εr",en:"Relative permittivity εr"},
+ 'h':{fr:"Hauteur substrat h (mm)",en:"Substrate height h (mm)"},
+ 'fr':{fr:"Fréquence visée fr (GHz)",en:"Target frequency fr (GHz)"},
+ 'tand':{fr:"Tangente de pertes tan δ",en:"Loss tangent tan δ"},
+ 'z0':{fr:"Impédance d'accès Z₀ (Ω)",en:"Feed impedance Z₀ (Ω)"},
+ 'sub':{fr:"Substrat type",en:"Substrate preset"},
+ 'm.q':{fr:"Facteur Q (total)",en:"Q factor (total)"},
+ 'm.qr':{fr:"Q_rad / Q_d",en:"Q_rad / Q_d"},
+ 'm.eta':{fr:"Efficacité de rayonnement",en:"Radiation efficiency"},
+ 's11.title':{fr:"Coefficient de réflexion S₁₁ (adaptation)",en:"Reflection coefficient S₁₁ (matching)"},
+ 's11.sub':{fr:"Modèle RLC résonant adapté à fr. La bande passante = largeur où S₁₁ < −10 dB (VSWR < 2).",en:"Resonant RLC model matched at fr. Bandwidth = width where S₁₁ < −10 dB (VSWR < 2)."},
+ 'design':{fr:"Dimensions synthétisées & performances",en:"Synthesised dimensions & performance"},
+ 'm.W':{fr:"Largeur W",en:"Width W"},'m.L':{fr:"Longueur L",en:"Length L"},
+ 'm.eeff':{fr:"ε effective",en:"effective ε"},
+ 'm.dir':{fr:"Directivité",en:"Directivity"},
+ 'm.bw':{fr:"Bande passante",en:"Bandwidth"},
+ 'm.hp':{fr:"−3 dB (plan E)",en:"−3 dB (E-plane)"},
+ 'viz':{fr:"Diagrammes de rayonnement (hémisphère avant)",en:"Radiation patterns (forward hemisphere)"},
+ 'p.polar':{fr:"Diagramme polaire",en:"Polar pattern"},
+ 'p.polar.sub':{fr:"Rayonnement broadside (+z, haut), demi-espace au-dessus du plan de masse.",en:"Broadside radiation (+z, up), half-space above the ground plane."},
+ 'p.rect':{fr:"Diagrammes en dB vs θ",en:"Patterns in dB vs θ"},
+ 'p.rect.sub':{fr:"Plans E (longueur L) et H (largeur W).",en:"E-plane (length L) and H-plane (width W)."},
+ 'plane.e':{fr:"plan E",en:"E-plane"},'plane.h':{fr:"plan H",en:"H-plane"},
+ 'valid':{fr:"Validation (Balanis, exemple 14.1)",en:"Validation (Balanis, example 14.1)"},
+ 'v.q':{fr:"Grandeur",en:"Quantity"},'v.tool':{fr:"Cet outil",en:"This tool"},'v.ref':{fr:"Balanis (εr 2,2 · h 1,588 mm · 10 GHz)",en:"Balanis (εr 2.2 · h 1.588 mm · 10 GHz)"},
+ 'disclaimer':{fr:"<b>Outil pédagogique —</b> modèle ligne de transmission + 2 fentes (plan de masse infini, substrat sans pertes, alimentation idéale). La bande passante est une estimation. Pour un dimensionnement réel (point d'alimentation, pertes, ondes de surface), utiliser un solveur full-wave.",
+               en:"<b>Educational tool —</b> transmission-line + 2-slot model (infinite ground, lossless substrate, ideal feed). The bandwidth is an estimate. For real design (feed point, losses, surface waves), use a full-wave solver."},
+ 'footer.lic':{fr:'© 2026 Hakeim Talleb · EMtools · Code sous licence <a href="LICENSE">MIT</a>',en:'© 2026 Hakeim Talleb · EMtools · Code under the <a href="LICENSE">MIT</a> license'},
+ 'footer.home':{fr:"← Antennes",en:"← Antennas"},
+};
+let LANG=localStorage.getItem('emtools_lang')||'fr';
+function applyLang(){document.documentElement.lang=LANG;
+  document.querySelectorAll('[data-i18n]').forEach(el=>{const e=I18N[el.dataset.i18n];if(e)el.textContent=e[LANG]||e.fr;});
+  document.querySelectorAll('[data-i18n-html]').forEach(el=>{const e=I18N[el.dataset.i18nHtml];if(e)el.innerHTML=e[LANG]||e.fr;});
+  const bt=$('lang-toggle');if(bt)bt.textContent=LANG==='fr'?'EN':'FR';}
+function toggleLang(){LANG=LANG==='fr'?'en':'fr';localStorage.setItem('emtools_lang',LANG);applyLang();}
+applyLang(); recompute();
+window.addEventListener('resize',recompute);
+</script>
+</body>
+</html>

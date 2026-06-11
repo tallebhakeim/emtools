@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EMtools — Réseau planaire 2D</title>
+<meta name="description" content="EMtools — réseau planaire M×N : dépointage du faisceau en azimut et élévation, carte de gain plan UV, lobes de réseau, directivité. Par Hakeim Talleb.">
+<style>
+:root{--navy:#1a2e4a;--teal:#0d9488;--teal2:#0f766e;--teal-light:#e6f7f5;--gold:#d97706;--text:#1e293b;--text2:#64748b;--border:#e2e8f0;--bg:#f8fafc;--bg2:#f0fdf9;--white:#fff;--radius:14px;--shadow:0 2px 14px rgba(26,46,74,.08);}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--text);background:var(--bg);line-height:1.6}
+a{color:var(--teal2)}
+.wrap{max-width:980px;margin:0 auto;padding:0 1.25rem}
+#lang-toggle{position:fixed;top:14px;right:16px;z-index:50;background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.45);border-radius:8px;padding:5px 12px;font-size:13px;font-weight:700;cursor:pointer;backdrop-filter:blur(4px)}
+header{background:linear-gradient(135deg,#1a2e4a,#0f3a4d);color:#fff;padding:2.4rem 0 2rem}
+header .wrap{display:flex;flex-direction:column;gap:.4rem}
+header .back{font-size:.82rem;color:#94a3b8;text-decoration:none}
+header .back:hover{color:#cbd5e1}
+header h1{font-size:1.7rem;font-weight:800;letter-spacing:-.02em}
+header .tag{font-size:1rem;color:#cbd5e1;max-width:700px}
+main{padding:2rem 0 3rem}
+.intro{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius);padding:1rem 1.2rem;font-size:.9rem;margin-bottom:1.6rem}
+.intro b{color:var(--navy)}
+.panel{background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.3rem 1.4rem;margin-bottom:1.4rem}
+.ptitle{font-size:.78rem;font-weight:700;color:var(--teal2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:1rem}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:1rem 1.4rem}
+.ctrl{display:flex;flex-direction:column;gap:.3rem}
+.ctrl label{font-size:.82rem;font-weight:600;color:var(--text2)}
+.ctrl select{font:inherit;font-size:.92rem;padding:.45rem .55rem;border:1.5px solid var(--border);border-radius:8px;background:#fff}
+.ctrl input[type=range]{padding:0}
+.ctrl .val{font-size:.8rem;color:var(--teal2);font-weight:700}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.9rem}
+.metric{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:.8rem .9rem}
+.metric .k{font-size:.74rem;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.metric .v{font-size:1.2rem;font-weight:800;color:var(--navy);margin-top:.15rem}
+.metric .u{font-size:.76rem;color:var(--text2);font-weight:600}
+.metric.hl{background:var(--teal-light);border-color:#99e6dc}.metric.hl .v{color:var(--teal2)}
+.plots{display:grid;grid-template-columns:1.1fr .9fr;gap:1.4rem;align-items:start}
+.plotbox{display:flex;flex-direction:column;gap:.4rem}
+.plotbox h4{font-size:.86rem;font-weight:700;color:var(--navy)}
+.plotbox .sub{font-size:.74rem;color:var(--text2)}
+canvas{width:100%;height:auto;background:#fff;border:1px solid var(--border);border-radius:10px}
+.maprow{display:flex;gap:10px;align-items:flex-start}
+@media(max-width:760px){.plots{grid-template-columns:1fr}}
+.warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:10px;padding:.7rem .9rem;font-size:.83rem;margin-top:1rem}
+.warn.hide{display:none}
+footer{border-top:1px solid var(--border);padding:1.5rem 0;font-size:.8rem;color:var(--text2);margin-top:1rem}
+footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+footer a{color:var(--text2)}
+</style>
+</head>
+<body>
+<button id="lang-toggle" onclick="toggleLang()">EN</button>
+
+<header><div class="wrap">
+  <a class="back" href="antennes.html">← <span data-i18n="back.hub">Antennes</span></a>
+  <h1>🛰 <span data-i18n="title">Réseau planaire 2D</span></h1>
+  <div class="tag" data-i18n="tag">Réseau M×N : dépointage du faisceau en azimut + élévation, carte de gain (plan UV), lobes de réseau, directivité.</div>
+</div></header>
+
+<main class="wrap">
+  <div class="intro" data-i18n-html="intro">
+    <b>Principe —</b> une grille planaire de M×N éléments (espacements dx, dy) avec des déphasages progressifs
+    <b>βx, βy</b> pointe le faisceau dans une direction (θ₀, φ₀) telle que <b>βx = −k·dx·sinθ₀·cosφ₀</b> et
+    <b>βy = −k·dy·sinθ₀·sinφ₀</b>. Le facteur de réseau se sépare : AF = AFx·AFy. On visualise le gain dans le
+    <b>plan UV</b> (u = sinθ·cosφ, v = sinθ·sinφ) : le faisceau est une tache qui se déplace avec le dépointage.
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="cfg">Configuration du réseau</div>
+    <div class="controls">
+      <div class="ctrl"><label data-i18n="geo">Géométrie</label>
+        <select id="geo" onchange="recompute()">
+          <option value="rect" data-i18n="geo.rect">Grille rectangulaire M×N</option>
+          <option value="ring" data-i18n="geo.ring">Anneau circulaire (N éléments)</option>
+        </select>
+      </div>
+      <div class="ctrl rect-only"><label><span data-i18n="mx">Éléments selon x · M</span> · <span id="mxv" class="val">8</span></label><input id="mx" type="range" min="2" max="16" step="1" value="8" oninput="recompute()"></div>
+      <div class="ctrl"><label><span id="nylab" data-i18n="ny">Éléments selon y · N</span> · <span id="nyv" class="val">8</span></label><input id="ny" type="range" min="3" max="20" step="1" value="8" oninput="recompute()"></div>
+      <div class="ctrl rect-only"><label><span data-i18n="dx">Espacement dx</span> · <span id="dxv" class="val">0.50 λ</span></label><input id="dx" type="range" min="0.3" max="1.2" step="0.01" value="0.5" oninput="recompute()"></div>
+      <div class="ctrl rect-only"><label><span data-i18n="dy">Espacement dy</span> · <span id="dyv" class="val">0.50 λ</span></label><input id="dy" type="range" min="0.3" max="1.2" step="0.01" value="0.5" oninput="recompute()"></div>
+      <div class="ctrl ring-only" style="display:none"><label><span data-i18n="rad">Rayon de l'anneau</span> · <span id="radv" class="val">1.00 λ</span></label><input id="rad" type="range" min="0.3" max="3" step="0.05" value="1" oninput="recompute()"></div>
+      <div class="ctrl rect-only"><label data-i18n="taper">Pondération (x et y)</label>
+        <select id="taper" onchange="recompute()">
+          <option value="uniform" data-i18n="tap.uni">Uniforme</option>
+          <option value="binomial" data-i18n="tap.bin">Binomiale</option>
+          <option value="cheby" data-i18n="tap.cheb">Dolph-Chebyshev</option>
+        </select>
+      </div>
+      <div class="ctrl rect-only" id="sll-ctrl" style="display:none"><label><span data-i18n="sllc">Lobes visés</span> · <span id="sllv" class="val">−30 dB</span></label><input id="sllt" type="range" min="13" max="50" step="1" value="30" oninput="recompute()"></div>
+      <div class="ctrl"><label><span data-i18n="th0">Dépointage θ₀ (élévation)</span> · <span id="th0v" class="val">0°</span></label><input id="th0" type="range" min="0" max="75" step="1" value="0" oninput="recompute()"></div>
+      <div class="ctrl"><label><span data-i18n="ph0">Azimut φ₀</span> · <span id="ph0v" class="val">0°</span></label><input id="ph0" type="range" min="0" max="360" step="5" value="0" oninput="recompute()"></div>
+      <div class="ctrl"><label data-i18n="elem">Élément</label>
+        <select id="elem" onchange="recompute()">
+          <option value="iso" data-i18n="elem.iso">Isotrope</option>
+          <option value="cos" data-i18n="elem.cos">Broadside (cos θ)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="results">Caractéristiques</div>
+    <div class="metrics">
+      <div class="metric hl"><div class="k" data-i18n="m.dir">Directivité max</div><div class="v" id="m_D">—</div><div class="u">dBi</div></div>
+      <div class="metric"><div class="k" data-i18n="m.beam">Faisceau (θ₀, φ₀)</div><div class="v" id="m_beam">—</div><div class="u">°</div></div>
+      <div class="metric"><div class="k" data-i18n="m.beta">Déphasages βx, βy</div><div class="v" id="m_beta">—</div><div class="u">°/élém.</div></div>
+      <div class="metric"><div class="k" data-i18n="m.sll">Lobe secondaire</div><div class="v" id="m_sll">—</div><div class="u">dB</div></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="viz">Diagramme</div>
+    <div class="plots">
+      <div class="plotbox">
+        <h4 data-i18n="p.uv">Carte de gain — plan UV (dB)</h4>
+        <div class="sub" data-i18n="p.uv.sub">u=sinθcosφ, v=sinθsinφ. Cercle = horizon. ✕ = faisceau visé.</div>
+        <div class="maprow">
+          <canvas id="cv_uv" width="380" height="380" style="flex:1;max-width:380px;aspect-ratio:1"></canvas>
+          <canvas id="cv_cbar" width="60" height="380" style="width:60px;border:none;background:transparent"></canvas>
+        </div>
+      </div>
+      <div class="plotbox">
+        <h4 data-i18n="p.cut">Coupe dans le plan du faisceau (dB)</h4>
+        <div class="sub" data-i18n="p.cut.sub">Plan φ = φ₀, gain vs θ.</div>
+        <canvas id="cv_cut" width="420" height="380"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="warn hide" id="grating-warn" data-i18n="grat.warn">⚠ Lobe(s) de réseau présent(s) dans la zone visible : réduire dx/dy (≤ λ/2) ou limiter le dépointage.</div>
+
+  <div class="warn" data-i18n-html="disclaimer"><b>Outil pédagogique —</b> facteur de réseau planaire (éléments identiques, amplitudes uniformes, sans couplage mutuel). La directivité suppose un rayonnement dans le demi-espace avant.</div>
+</main>
+
+<footer><div class="wrap">
+  <span data-i18n-html="footer.lic">© 2026 Hakeim Talleb · EMtools · Code sous licence <a href="LICENSE">MIT</a></span>
+  <span><a href="antennes.html" data-i18n="footer.home">← Antennes</a></span>
+</div></footer>
+
+<script>
+function $(id){return document.getElementById(id);}
+function dpr(cv){const r=window.devicePixelRatio||1;const w=cv.clientWidth||parseFloat(cv.style.width)||cv.width;const h=parseFloat(cv.style.height)||cv.clientHeight||cv.height;cv.width=Math.round(w*r);cv.height=Math.round(h*r);const x=cv.getContext('2d');x.setTransform(r,0,0,r,0,0);return {x,w,h};}
+function jet(t){t=Math.max(0,Math.min(1,t));const v=t*4;const cl=z=>Math.max(0,Math.min(1,z))*255|0;return [cl(Math.min(v-1.5,-v+4.5)),cl(Math.min(v-0.5,-v+3.5)),cl(Math.min(v+0.5,-v+2.5))];}
+
+/* ---- amplitude weights (1D) ---- */
+function binomialW(N){const a=new Array(N);a[0]=1;for(let k=1;k<N;k++)a[k]=a[k-1]*(N-k)/k;return a;}
+function chebPoly(o,x){if(x>1)return Math.cosh(o*Math.acosh(x));if(x<-1)return (o%2?-1:1)*Math.cosh(o*Math.acosh(-x));return Math.cos(o*Math.acos(x));}
+function chebyW(N,at){if(N<3)return new Array(N).fill(1);const o=N-1,b=Math.cosh(Math.acosh(Math.pow(10,at/20))/o);
+  const p=new Array(N);for(let k=0;k<N;k++)p[k]=chebPoly(o,b*Math.cos(Math.PI*k/N));let w;
+  if(N%2){const f=new Array(N);for(let m=0;m<N;m++){let s=0;for(let k=0;k<N;k++)s+=p[k]*Math.cos(2*Math.PI*k*m/N);f[m]=s;}const n=(N+1)/2;w=[];for(let i=n-1;i>=1;i--)w.push(f[i]);for(let i=0;i<n;i++)w.push(f[i]);}
+  else{const f=new Array(N);for(let m=0;m<N;m++){let s=0;for(let k=0;k<N;k++)s+=p[k]*Math.cos(Math.PI*k/N-2*Math.PI*k*m/N);f[m]=s;}const n=N/2+1;w=[];for(let i=n-1;i>=1;i--)w.push(f[i]);for(let i=1;i<n;i++)w.push(f[i]);}
+  const mx=Math.max(...w.map(Math.abs))||1;return w.map(v=>v/mx);}
+function taperW(N,kind,at){return kind==='binomial'?binomialW(N):kind==='cheby'?chebyW(N,at):new Array(N).fill(1);}
+
+// generic element-list array factor. ELS=[{x,y,w}] (positions in λ); steered to (U0,V0).
+let ELS=[], U0=0, V0=0, WSUM=1, ELEM='iso';
+function pattUV(u,v){
+  let re=0,im=0; const du=u-U0, dv=v-V0;
+  for(const e of ELS){ const ph=2*Math.PI*(e.x*du+e.y*dv); re+=e.w*Math.cos(ph); im+=e.w*Math.sin(ph); }
+  let ef=1; if(ELEM==='cos'){const r2=u*u+v*v; ef=Math.sqrt(Math.max(0,1-r2));}
+  return Math.hypot(re,im)*ef/WSUM;
+}
+function pattTP(th,ph){const st=Math.sin(th);return pattUV(st*Math.cos(ph),st*Math.sin(ph));}
+let CUR=null;
+function compute(){
+  const geo=$('geo').value, N=parseInt($('ny').value);
+  const th0=parseFloat($('th0').value)*Math.PI/180, ph0=parseFloat($('ph0').value)*Math.PI/180;
+  ELEM=$('elem').value;
+  const u0=Math.sin(th0)*Math.cos(ph0), v0=Math.sin(th0)*Math.sin(ph0); U0=u0; V0=v0;
+  let M=parseInt($('mx').value), dx=parseFloat($('dx').value), dy=parseFloat($('dy').value), R=parseFloat($('rad').value);
+  let mainR;
+  ELS=[];
+  if(geo==='ring'){
+    M=1; for(let i=0;i<N;i++){const a=2*Math.PI*i/N; ELS.push({x:R*Math.cos(a),y:R*Math.sin(a),w:1});}
+    mainR=0.5/Math.max(R,0.5);
+  } else {
+    const at=parseFloat($('sllt').value), kind=$('taper').value;
+    const wx=taperW(M,kind,at), wy=taperW(N,kind,at);
+    for(let m=0;m<M;m++)for(let n=0;n<N;n++) ELS.push({x:(m-(M-1)/2)*dx,y:(n-(N-1)/2)*dy,w:wx[m]*wy[n]});
+    mainR=2/Math.min(M,N);
+  }
+  WSUM=ELS.reduce((s,e)=>s+e.w,0)||1;
+  // directivity D=4π Umax/∫U dΩ over hemisphere; dΩ=du dv/cosθ, cosθ=√(1−u²−v²)
+  const NG=140; let integ=0, Umax=0;
+  for(let iu=0;iu<NG;iu++){const u=-1+(iu+0.5)*2/NG;
+    for(let iv=0;iv<NG;iv++){const v=-1+(iv+0.5)*2/NG, rr=u*u+v*v; if(rr>=1)continue;
+      const p=pattUV(u,v), U=p*p; if(U>Umax)Umax=U;
+      integ+=U/Math.max(Math.sqrt(1-rr),1e-3)*(2/NG)*(2/NG);}}
+  const D=4*Math.PI*Umax/Math.max(integ,1e-12), DdBi=10*Math.log10(D);
+  // sidelobe level: local maxima along the two lines through the beam (u,v0) and (u0,v)
+  let sll=0; const NS=800;
+  [true,false].forEach(isU=>{const val=new Float64Array(NS+1);
+    for(let i=0;i<=NS;i++){const p=-1+2*i/NS, u=isU?p:u0, v=isU?v0:p; val[i]=(u*u+v*v>1)?0:pattUV(u,v);}
+    for(let i=1;i<NS;i++){ if(val[i]>=val[i-1]&&val[i]>=val[i+1]&&val[i]<0.999){ if(val[i]>sll)sll=val[i]; } }});
+  const sllDB=sll>1e-4?20*Math.log10(sll):-99;
+  let grat=false;
+  if(geo==='rect') for(let m=-3;m<=3;m++)for(let n=-3;n<=3;n++){ if(m===0&&n===0)continue;
+    const u=u0+m/dx, v=v0+n/dy; if(u*u+v*v<=1.0001) grat=true; }
+  const bx=-2*Math.PI*dx*u0, by=-2*Math.PI*dy*v0;
+  CUR={geo,M,N,dx,dy,R,th0,ph0,bx,by,DdBi,sllDB,Umax,grat,u0,v0,nEl:ELS.length};
+  return CUR;
+}
+function recompute(){
+  const ring=$('geo').value==='ring';
+  document.querySelectorAll('.rect-only').forEach(e=>e.style.display=ring?'none':'');
+  document.querySelectorAll('.ring-only').forEach(e=>e.style.display=ring?'':'none');
+  $('sll-ctrl').style.display=(!ring&&$('taper').value==='cheby')?'':'none';
+  $('nylab').textContent= ring? t('nring') : t('ny');
+  $('mxv').textContent=$('mx').value; $('nyv').textContent=$('ny').value;
+  $('dxv').textContent=parseFloat($('dx').value).toFixed(2)+' λ'; $('dyv').textContent=parseFloat($('dy').value).toFixed(2)+' λ';
+  $('radv').textContent=parseFloat($('rad').value).toFixed(2)+' λ';
+  $('sllv').textContent='−'+$('sllt').value+' dB';
+  $('th0v').textContent=$('th0').value+'°'; $('ph0v').textContent=$('ph0').value+'°';
+  const c=compute();
+  $('m_D').textContent=c.DdBi.toFixed(2);
+  $('m_beam').textContent=$('th0').value+'°, '+$('ph0').value+'°';
+  $('m_beta').textContent= ring? (c.nEl+' él.') : (c.bx*180/Math.PI).toFixed(0)+', '+(c.by*180/Math.PI).toFixed(0);
+  $('m_beta').previousElementSibling.textContent = ring? t('m.nel') : t('m.beta');
+  $('m_sll').textContent=c.sllDB<=-99?'—':c.sllDB.toFixed(1);
+  $('grating-warn').classList.toggle('hide', !c.grat);
+  drawUV(c); drawCut(c);
+}
+const FLOOR=-30;
+function drawUV(c){
+  const cv=$('cv_uv'); const r=window.devicePixelRatio||1, W=cv.clientWidth||380; cv.width=Math.round(W*r); cv.height=Math.round(W*r);
+  const x=cv.getContext('2d'); x.setTransform(r,0,0,r,0,0); x.clearRect(0,0,W,W);
+  const N=121, off=document.createElement('canvas'); off.width=N; off.height=N;
+  const octx=off.getContext('2d'), img=octx.createImageData(N,N), d=img.data;
+  for(let iy=0;iy<N;iy++){const v=1-2*iy/(N-1);
+    for(let ix=0;ix<N;ix++){const u=-1+2*ix/(N-1); const o=(iy*N+ix)*4; const rr=u*u+v*v;
+      if(rr>1){d[o]=241;d[o+1]=245;d[o+2]=249;d[o+3]=255;continue;}
+      const p=pattUV(u,v);
+      const dB=20*Math.log10(Math.max(p,1e-5)); const [rr2,gg,bb]=jet((dB-FLOOR)/(0-FLOOR));
+      d[o]=rr2;d[o+1]=gg;d[o+2]=bb;d[o+3]=255;}}
+  octx.putImageData(img,0,0);
+  x.imageSmoothingEnabled=true; x.drawImage(off,0,0,W,W);
+  const cx=W/2,cy=W/2,R=W/2;
+  x.strokeStyle='rgba(255,255,255,.6)';x.lineWidth=1;x.beginPath();x.arc(cx,cy,R,0,7);x.stroke();
+  // beam marker
+  const bx=cx+c.u0*R, by=cy-c.v0*R;
+  x.strokeStyle='#fff';x.lineWidth=2;x.beginPath();x.moveTo(bx-6,by-6);x.lineTo(bx+6,by+6);x.moveTo(bx+6,by-6);x.lineTo(bx-6,by+6);x.stroke();
+  x.fillStyle='rgba(255,255,255,.8)';x.font='11px sans-serif';x.textAlign='center';x.fillText('u',W-10,cy-4);x.fillText('v',cx+8,11);
+  // colorbar
+  const cb=$('cv_cbar'); cb.style.height=W+'px'; cb.width=60*r; cb.height=W*r; const xc=cb.getContext('2d'); xc.setTransform(r,0,0,r,0,0); xc.clearRect(0,0,60,W);
+  const bw=15,bx0=4,by0=14,bh=W-34;
+  for(let i=0;i<bh;i++){const t=1-i/bh;const[r2,g2,b2]=jet(t);xc.fillStyle='rgb('+r2+','+g2+','+b2+')';xc.fillRect(bx0,by0+i,bw,1);}
+  xc.strokeStyle='#cbd5e1';xc.strokeRect(bx0,by0,bw,bh);
+  xc.fillStyle='#64748b';xc.font='10px sans-serif';xc.textAlign='left';
+  for(let dB=0;dB>=FLOOR;dB-=10){const yy=by0+(-dB/-FLOOR)*bh;xc.fillText(dB+'',bx0+bw+3,yy+3);}
+  xc.fillStyle='#1a2e4a';xc.fillText('dB',bx0,by0-3);
+}
+function drawCut(c){
+  const cv=$('cv_cut'); cv.style.height='380px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const pad=38,x0=pad,x1=w-12,y0=h-28,y1=16,floor=-30;
+  const sx=th=>x0+(th+90)/180*(x1-x0), sy=dB=>y0-(dB-floor)/(0-floor)*(y0-y1);
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='right';
+  for(let dB=0;dB>=floor;dB-=10){x.fillText(dB,x0-4,sy(dB)+3);x.strokeStyle='#f1f5f9';x.beginPath();x.moveTo(x0,sy(dB));x.lineTo(x1,sy(dB));x.stroke();}
+  x.textAlign='center';for(let th=-90;th<=90;th+=30)x.fillText(th+'°',sx(th),y0+14);
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.fillText('θ (°) — plan φ₀',(x0+x1)/2,h-5);
+  x.strokeStyle='#86efac';x.setLineDash([4,4]);x.beginPath();x.moveTo(x0,sy(-3));x.lineTo(x1,sy(-3));x.stroke();x.setLineDash([]);
+  // cut at φ=φ0 (and its mirror φ0+π for negative θ)
+  x.strokeStyle='#0d9488';x.lineWidth=2;x.beginPath();
+  const NP=360;
+  for(let i=0;i<=NP;i++){const thd=-90+180*i/NP, th=Math.abs(thd)*Math.PI/180, ph=thd>=0?c.ph0:c.ph0+Math.PI;
+    const p=pattTP(th,ph); const dB=20*Math.log10(Math.max(p,1e-5)); const X=sx(thd),Y=sy(Math.max(dB,floor)); i?x.lineTo(X,Y):x.moveTo(X,Y);}
+  x.stroke();
+  x.strokeStyle='#d97706';x.setLineDash([3,3]);x.beginPath();x.moveTo(sx(c.th0*180/Math.PI),y1);x.lineTo(sx(c.th0*180/Math.PI),y0);x.stroke();x.setLineDash([]);
+}
+
+const I18N={
+ 'back.hub':{fr:"Antennes",en:"Antennas"},
+ 'title':{fr:"Réseau planaire 2D",en:"2D planar array"},
+ 'tag':{fr:"Réseau M×N : dépointage du faisceau en azimut + élévation, carte de gain (plan UV), lobes de réseau, directivité.",en:"M×N array: azimuth + elevation beam steering, gain map (UV plane), grating lobes, directivity."},
+ 'intro':{fr:"<b>Principe —</b> une grille planaire de M×N éléments (espacements dx, dy) avec des déphasages progressifs <b>βx, βy</b> pointe le faisceau dans une direction (θ₀, φ₀) telle que <b>βx = −k·dx·sinθ₀·cosφ₀</b> et <b>βy = −k·dy·sinθ₀·sinφ₀</b>. Le facteur de réseau se sépare : AF = AFx·AFy. On visualise le gain dans le <b>plan UV</b> (u = sinθ·cosφ, v = sinθ·sinφ) : le faisceau est une tache qui se déplace avec le dépointage.",
+          en:"<b>Principle —</b> a planar grid of M×N elements (spacings dx, dy) with progressive phases <b>βx, βy</b> points the beam toward (θ₀, φ₀) such that <b>βx = −k·dx·sinθ₀·cosφ₀</b> and <b>βy = −k·dy·sinθ₀·sinφ₀</b>. The array factor separates: AF = AFx·AFy. The gain is shown in the <b>UV plane</b> (u = sinθ·cosφ, v = sinθ·sinφ): the beam is a spot that moves as you steer."},
+ 'cfg':{fr:"Configuration du réseau",en:"Array configuration"},
+ 'geo':{fr:"Géométrie",en:"Geometry"},
+ 'geo.rect':{fr:"Grille rectangulaire M×N",en:"Rectangular grid M×N"},
+ 'geo.ring':{fr:"Anneau circulaire (N éléments)",en:"Circular ring (N elements)"},
+ 'rad':{fr:"Rayon de l'anneau",en:"Ring radius"},
+ 'nring':{fr:"Éléments sur l'anneau · N",en:"Elements on the ring · N"},
+ 'taper':{fr:"Pondération (x et y)",en:"Taper (x and y)"},
+ 'tap.uni':{fr:"Uniforme",en:"Uniform"},'tap.bin':{fr:"Binomiale",en:"Binomial"},'tap.cheb':{fr:"Dolph-Chebyshev",en:"Dolph-Chebyshev"},
+ 'sllc':{fr:"Lobes visés",en:"Target sidelobes"},
+ 'm.nel':{fr:"Nombre d'éléments",en:"Number of elements"},
+ 'mx':{fr:"Éléments selon x · M",en:"Elements along x · M"},
+ 'ny':{fr:"Éléments selon y · N",en:"Elements along y · N"},
+ 'dx':{fr:"Espacement dx",en:"Spacing dx"},'dy':{fr:"Espacement dy",en:"Spacing dy"},
+ 'th0':{fr:"Dépointage θ₀ (élévation)",en:"Steering θ₀ (elevation)"},
+ 'ph0':{fr:"Azimut φ₀",en:"Azimuth φ₀"},
+ 'elem':{fr:"Élément",en:"Element"},'elem.iso':{fr:"Isotrope",en:"Isotropic"},'elem.cos':{fr:"Broadside (cos θ)",en:"Broadside (cos θ)"},
+ 'results':{fr:"Caractéristiques",en:"Characteristics"},
+ 'm.dir':{fr:"Directivité max",en:"Max directivity"},
+ 'm.beam':{fr:"Faisceau (θ₀, φ₀)",en:"Beam (θ₀, φ₀)"},
+ 'm.beta':{fr:"Déphasages βx, βy",en:"Phase shifts βx, βy"},
+ 'm.sll':{fr:"Lobe secondaire",en:"Sidelobe level"},
+ 'viz':{fr:"Diagramme",en:"Pattern"},
+ 'p.uv':{fr:"Carte de gain — plan UV (dB)",en:"Gain map — UV plane (dB)"},
+ 'p.uv.sub':{fr:"u=sinθcosφ, v=sinθsinφ. Cercle = horizon. ✕ = faisceau visé.",en:"u=sinθcosφ, v=sinθsinφ. Circle = horizon. ✕ = steered beam."},
+ 'p.cut':{fr:"Coupe dans le plan du faisceau (dB)",en:"Cut in the beam plane (dB)"},
+ 'p.cut.sub':{fr:"Plan φ = φ₀, gain vs θ.",en:"Plane φ = φ₀, gain vs θ."},
+ 'grat.warn':{fr:"⚠ Lobe(s) de réseau présent(s) dans la zone visible : réduire dx/dy (≤ λ/2) ou limiter le dépointage.",en:"⚠ Grating lobe(s) in the visible region: reduce dx/dy (≤ λ/2) or limit the steering."},
+ 'disclaimer':{fr:"<b>Outil pédagogique —</b> facteur de réseau planaire (éléments identiques, amplitudes uniformes, sans couplage mutuel). La directivité suppose un rayonnement dans le demi-espace avant.",
+               en:"<b>Educational tool —</b> planar array factor (identical elements, uniform amplitudes, no mutual coupling). Directivity assumes forward half-space radiation."},
+ 'footer.lic':{fr:'© 2026 Hakeim Talleb · EMtools · Code sous licence <a href="LICENSE">MIT</a>',en:'© 2026 Hakeim Talleb · EMtools · Code under the <a href="LICENSE">MIT</a> license'},
+ 'footer.home':{fr:"← Antennes",en:"← Antennas"},
+};
+let LANG=localStorage.getItem('emtools_lang')||'fr';
+function t(k){const e=I18N[k];return e?(e[LANG]||e.fr):k;}
+function applyLang(){document.documentElement.lang=LANG;
+  document.querySelectorAll('[data-i18n]').forEach(el=>{const e=I18N[el.dataset.i18n];if(e)el.textContent=e[LANG]||e.fr;});
+  document.querySelectorAll('[data-i18n-html]').forEach(el=>{const e=I18N[el.dataset.i18nHtml];if(e)el.innerHTML=e[LANG]||e.fr;});
+  const bt=$('lang-toggle');if(bt)bt.textContent=LANG==='fr'?'EN':'FR';}
+function toggleLang(){LANG=LANG==='fr'?'en':'fr';localStorage.setItem('emtools_lang',LANG);applyLang();recompute();}
+applyLang(); recompute();
+window.addEventListener('resize',recompute);
+</script>
+</body>
+</html>
