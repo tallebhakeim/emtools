@@ -80,6 +80,13 @@ footer a{color:var(--text2)}
       <div class="ctrl rect-only"><label><span data-i18n="dx">Espacement dx</span> · <span id="dxv" class="val">0.50 λ</span></label><input id="dx" type="range" min="0.3" max="1.2" step="0.01" value="0.5" oninput="recompute()"></div>
       <div class="ctrl rect-only"><label><span data-i18n="dy">Espacement dy</span> · <span id="dyv" class="val">0.50 λ</span></label><input id="dy" type="range" min="0.3" max="1.2" step="0.01" value="0.5" oninput="recompute()"></div>
       <div class="ctrl ring-only" style="display:none"><label><span data-i18n="rad">Rayon de l'anneau</span> · <span id="radv" class="val">1.00 λ</span></label><input id="rad" type="range" min="0.3" max="3" step="0.05" value="1" oninput="recompute()"></div>
+      <div class="ctrl ring-only" style="display:none"><label data-i18n="rtaper">Pondération de l'anneau</label>
+        <select id="rtaper" onchange="recompute()">
+          <option value="unif" data-i18n="rt.uni">Uniforme</option>
+          <option value="cos" data-i18n="rt.cos">Effilage cosinus (vers le faisceau)</option>
+          <option value="cos2" data-i18n="rt.cos2">Effilage cosinus²</option>
+        </select>
+      </div>
       <div class="ctrl rect-only"><label data-i18n="taper">Pondération (x et y)</label>
         <select id="taper" onchange="recompute()">
           <option value="uniform" data-i18n="tap.uni">Uniforme</option>
@@ -172,7 +179,10 @@ function compute(){
   let mainR;
   ELS=[];
   if(geo==='ring'){
-    M=1; for(let i=0;i<N;i++){const a=2*Math.PI*i/N; ELS.push({x:R*Math.cos(a),y:R*Math.sin(a),w:1});}
+    M=1; const rt=$('rtaper').value, ph0d=ph0;
+    for(let i=0;i<N;i++){const an=2*Math.PI*i/N;
+      let w=1; if(rt==='cos') w=0.5+0.5*Math.cos(an-ph0d); else if(rt==='cos2'){const c=0.5+0.5*Math.cos(an-ph0d); w=c*c;}
+      ELS.push({x:R*Math.cos(an),y:R*Math.sin(an),w});}
     mainR=0.5/Math.max(R,0.5);
   } else {
     const at=parseFloat($('sllt').value), kind=$('taper').value;
@@ -181,18 +191,19 @@ function compute(){
     mainR=2/Math.min(M,N);
   }
   WSUM=ELS.reduce((s,e)=>s+e.w,0)||1;
-  // directivity D=4π Umax/∫U dΩ over hemisphere; dΩ=du dv/cosθ, cosθ=√(1−u²−v²)
-  const NG=140; let integ=0, Umax=0;
-  for(let iu=0;iu<NG;iu++){const u=-1+(iu+0.5)*2/NG;
-    for(let iv=0;iv<NG;iv++){const v=-1+(iv+0.5)*2/NG, rr=u*u+v*v; if(rr>=1)continue;
-      const p=pattUV(u,v), U=p*p; if(U>Umax)Umax=U;
+  // one shared UV grid for both directivity and 2D sidelobe detection
+  const NG=180, NW=NG+1, P=new Float64Array(NW*NW); let integ=0, Umax=0;
+  for(let iu=0;iu<=NG;iu++){const u=-1+2*iu/NG;
+    for(let iv=0;iv<=NG;iv++){const v=-1+2*iv/NG, rr=u*u+v*v, idx=iu*NW+iv;
+      if(rr>1){P[idx]=0;continue;}
+      const p=pattUV(u,v); P[idx]=p; const U=p*p; if(U>Umax)Umax=U;
       integ+=U/Math.max(Math.sqrt(1-rr),1e-3)*(2/NG)*(2/NG);}}
   const D=4*Math.PI*Umax/Math.max(integ,1e-12), DdBi=10*Math.log10(D);
-  // sidelobe level: local maxima along the two lines through the beam (u,v0) and (u0,v)
-  let sll=0; const NS=800;
-  [true,false].forEach(isU=>{const val=new Float64Array(NS+1);
-    for(let i=0;i<=NS;i++){const p=-1+2*i/NS, u=isU?p:u0, v=isU?v0:p; val[i]=(u*u+v*v>1)?0:pattUV(u,v);}
-    for(let i=1;i<NS;i++){ if(val[i]>=val[i-1]&&val[i]>=val[i+1]&&val[i]<0.999){ if(val[i]>sll)sll=val[i]; } }});
+  // sidelobe level via 2D local maxima (catches off-axis ring sidelobes)
+  let sll=0;
+  for(let iu=1;iu<NG;iu++)for(let iv=1;iv<NG;iv++){const idx=iu*NW+iv, c=P[idx];
+    if(c<0.999 && c>sll && c>=P[idx-1]&&c>=P[idx+1]&&c>=P[idx-NW]&&c>=P[idx+NW]
+       && c>=P[idx-NW-1]&&c>=P[idx-NW+1]&&c>=P[idx+NW-1]&&c>=P[idx+NW+1]) sll=c;}
   const sllDB=sll>1e-4?20*Math.log10(sll):-99;
   let grat=false;
   if(geo==='rect') for(let m=-3;m<=3;m++)for(let n=-3;n<=3;n++){ if(m===0&&n===0)continue;
@@ -286,6 +297,10 @@ const I18N={
  'tap.uni':{fr:"Uniforme",en:"Uniform"},'tap.bin':{fr:"Binomiale",en:"Binomial"},'tap.cheb':{fr:"Dolph-Chebyshev",en:"Dolph-Chebyshev"},
  'sllc':{fr:"Lobes visés",en:"Target sidelobes"},
  'm.nel':{fr:"Nombre d'éléments",en:"Number of elements"},
+ 'rtaper':{fr:"Pondération de l'anneau",en:"Ring taper"},
+ 'rt.uni':{fr:"Uniforme",en:"Uniform"},
+ 'rt.cos':{fr:"Effilage cosinus (vers le faisceau)",en:"Cosine taper (toward the beam)"},
+ 'rt.cos2':{fr:"Effilage cosinus²",en:"Cosine² taper"},
  'mx':{fr:"Éléments selon x · M",en:"Elements along x · M"},
  'ny':{fr:"Éléments selon y · N",en:"Elements along y · N"},
  'dx':{fr:"Espacement dx",en:"Spacing dx"},'dy':{fr:"Espacement dy",en:"Spacing dy"},

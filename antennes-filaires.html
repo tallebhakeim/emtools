@@ -116,6 +116,8 @@ table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
           <option value="yagi3" data-i18n="type.yagi3">Yagi 3 él. : + 1 directeur</option>
           <option value="yagi5" data-i18n="type.yagi5">Yagi 5 él. : + 3 directeurs</option>
           <option value="cage" data-i18n="type.cage">Dipôle entouré de N fils (environnement)</option>
+          <option value="helix" data-i18n="type.helix">Hélice (mode axial, polarisation circulaire)</option>
+          <option value="array" data-i18n="type.array">Réseau de dipôles couplés (MoM)</option>
           <option value="custom" data-i18n="type.custom">Géométrie libre (éditeur de fils)</option>
         </select>
       </div>
@@ -179,6 +181,30 @@ table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
           <option value="z" data-i18n="env.vert">Verticaux (∥ dipôle)</option>
           <option value="x" data-i18n="env.horiz">Horizontaux (⟂)</option>
         </select>
+      </div>
+      <div class="ctrl helix-ctrl" style="display:none">
+        <label><span data-i18n="hx.n">Nombre de tours</span> · <span id="hx_nv" class="val">6</span></label>
+        <input id="hx_n" type="range" min="2" max="12" step="1" value="6" oninput="recompute()">
+      </div>
+      <div class="ctrl helix-ctrl" style="display:none">
+        <label><span data-i18n="hx.c">Circonférence C</span> · <span id="hx_cv" class="val">1.00 λ</span></label>
+        <input id="hx_c" type="range" min="0.5" max="1.4" step="0.01" value="1" oninput="recompute()">
+      </div>
+      <div class="ctrl helix-ctrl" style="display:none">
+        <label><span data-i18n="hx.s">Espacement entre tours S</span> · <span id="hx_sv" class="val">0.23 λ</span></label>
+        <input id="hx_s" type="range" min="0.1" max="0.4" step="0.01" value="0.23" oninput="recompute()">
+      </div>
+      <div class="ctrl array-ctrl" style="display:none">
+        <label><span data-i18n="ar.n">Dipôles (selon x)</span> · <span id="ar_nv" class="val">6</span></label>
+        <input id="ar_n" type="range" min="2" max="12" step="1" value="6" oninput="recompute()">
+      </div>
+      <div class="ctrl array-ctrl" style="display:none">
+        <label><span data-i18n="ar.d">Espacement d</span> · <span id="ar_dv" class="val">0.50 λ</span></label>
+        <input id="ar_d" type="range" min="0.2" max="1.0" step="0.01" value="0.5" oninput="recompute()">
+      </div>
+      <div class="ctrl array-ctrl" style="display:none">
+        <label><span data-i18n="ar.b">Déphasage β / élément</span> · <span id="ar_bv" class="val">0°</span></label>
+        <input id="ar_b" type="range" min="-180" max="180" step="5" value="0" oninput="recompute()">
       </div>
     </div>
 
@@ -469,7 +495,7 @@ function buildElements(wires,k){
   wires.forEach((nodes,wi)=>{const b=buildBasis(nodes,k);b.forEach(x=>{x.wire=wi;});bases=bases.concat(b);});
   return bases;
 }
-function solveMoMElements(wires,feedGlobal,a,freqHz,fast){
+function solveMoMElements(wires,feedGlobal,a,freqHz,fast,feedList){
   const k=2*Math.PI*freqHz/C0, bases=buildElements(wires,k), N=bases.length;
   const Cconst={re:0,im:-ETA/(4*Math.PI*k)}, subNear=fast?4:6, subFar=fast?1:2;
   const Z=[];
@@ -482,9 +508,15 @@ function solveMoMElements(wires,feedGlobal,a,freqHz,fast){
       }
       Z[m][nn]=cMul(Cconst,sum);
     }}
-  const V=[]; for(let m=0;m<N;m++)V.push(m===feedGlobal?{re:1,im:0}:{re:0,im:0});
+  const V=new Array(N); for(let m=0;m<N;m++)V[m]={re:0,im:0};
+  if(feedList){ feedList.forEach(fd=>{V[fd.idx]=fd.V;}); }
+  else V[feedGlobal]={re:1,im:0};
   const I=complexSolve(Z,V), If=I[feedGlobal], den=If.re*If.re+If.im*If.im;
-  return {Zin:{re:If.re/den,im:-If.im/den},I,bases,k,Ifeed:If,wires};
+  // active impedance at each fed port (V_n/I_n) when multi-fed
+  let active=null;
+  if(feedList){ active=feedList.map(fd=>{const i=I[fd.idx],D=i.re*i.re+i.im*i.im;
+    return {re:(fd.V.re*i.re+fd.V.im*i.im)/D, im:(fd.V.im*i.re-fd.V.re*i.im)/D};}); }
+  return {Zin:{re:If.re/den,im:-If.im/den},I,bases,k,Ifeed:If,wires,active};
 }
 // gain (linear) in a direction unit-vector
 function gainAt(bases,I,k,Prad,dir){
@@ -497,6 +529,15 @@ function gainAt(bases,I,k,Prad,dir){
   const Nph={re:vdot([Nv[0].re,Nv[1].re,Nv[2].re],phh),im:vdot([Nv[0].im,Nv[1].im,Nv[2].im],phh)};
   const u=Uf*(Nth.re*Nth.re+Nth.im*Nth.im+Nph.re*Nph.re+Nph.im*Nph.im);
   return 4*Math.PI*u/Prad;
+}
+// axial ratio (linear) of the far field along dir≈+z (transverse = x,y components)
+function axialRatio(bases,I,k,dir){
+  const N=radiationVector(bases,I,k,dir), Ex=N[0], Ey=N[1];
+  const a2=Ex.re*Ex.re+Ex.im*Ex.im, b2=Ey.re*Ey.re+Ey.im*Ey.im;
+  const Re=Ex.re*Ey.re+Ex.im*Ey.im, Im=Ex.im*Ey.re-Ex.re*Ey.im;
+  const disc=Math.sqrt(Math.max(0,a2*a2+b2*b2+2*(Re*Re-Im*Im)));
+  const maj=Math.sqrt(Math.max(0,(a2+b2+disc)/2)), mn=Math.sqrt(Math.max(0,(a2+b2-disc)/2));
+  return mn<1e-12?99:maj/mn;
 }
 
 // Total near-field E(r) (complex 3-vector) from the solved currents:
@@ -550,6 +591,24 @@ function makeGeometry(type,Lfrac,f,Mforce){
     const isMono=(type==='monopole'), physElem=Lfrac*lambda, Lmodel=(isMono?2:1)*physElem;
     let M=M0||autoSegments(Lmodel/lambda); if(M%2)M++;
     return {wires:[straightNodes(Lmodel,M)], feed:M/2-1, isMono, forward:null, nEl:1, M, physElem, lambda};
+  }
+  if(type==='helix'){
+    // axial-mode helix along +z, fed at the base. C, S in λ.
+    const Nt=parseInt($('hx_n').value), C=parseFloat($('hx_c').value)*lambda, S=parseFloat($('hx_s').value)*lambda;
+    const rad=C/(2*Math.PI), segPerTurn=M0||14, M=Nt*segPerTurn;
+    const nodes=[]; for(let i=0;i<=M;i++){const phi=2*Math.PI*Nt*i/M; nodes.push([rad*Math.cos(phi),rad*Math.sin(phi),S*Nt*i/M]);}
+    return {wires:[nodes], feed:0, isMono:false, forward:[0,0,1], nEl:1, M, physElem:Nt*S, lambda, helix:true, C:C/lambda};
+  }
+  if(type==='array'){
+    // coupled array: Na driven z-dipoles (λ/2) along x, spacing d, progressive phase β (MoM, full coupling)
+    const Na=parseInt($('ar_n').value), d=parseFloat($('ar_d').value)*lambda, beta=parseFloat($('ar_b').value)*Math.PI/180;
+    const Ld=0.47*lambda; let M=M0||Math.min(autoSegments(0.47),12); if(M%2)M++;
+    const wires=[], feeds=[], els=[];
+    for(let e=0;e<Na;e++){const x=(e-(Na-1)/2)*d; const nd=[];
+      for(let j=0;j<=M;j++)nd.push([x,0,-Ld/2+Ld*j/M]); wires.push(nd);
+      els.push({x, y:0, len:Ld, axis:'z', driven:true});
+      feeds.push({idx:e*(M-1)+(M/2-1), V:{re:Math.cos(e*beta),im:Math.sin(e*beta)}});}
+    return {wires, feed:feeds[Math.floor(Na/2)].idx, feeds, els, isMono:false, forward:null, nEl:Na, M, physElem:Ld, lambda, beta, d, Na};
   }
   if(type==='cage'){
     // central driven dipole (along z) + N parasitic wires (the "environment").
@@ -630,6 +689,8 @@ function onTypeChange(){
   const ty=$('type').value;
   $('len').value = ty==='monopole'?'0.25' : ty.startsWith('yagi')?'0.47' : '0.50';
   document.querySelectorAll('.env-ctrl').forEach(e=>{e.style.display = ty==='cage'?'':'none';});
+  document.querySelectorAll('.helix-ctrl').forEach(e=>{e.style.display = ty==='helix'?'':'none';});
+  document.querySelectorAll('.array-ctrl').forEach(e=>{e.style.display = ty==='array'?'':'none';});
   $('wire-editor').style.display = ty==='custom'?'':'none';
   if(ty==='custom') renderWireEditor();
   recompute();
@@ -640,13 +701,17 @@ function recompute(){
   const Lf=parseFloat($('len').value); $('lenval').textContent=Lf.toFixed(3)+' λ';
   if($('env_n')) $('env_nv').textContent=$('env_n').value;
   if($('env_r')) $('env_rv').textContent=parseFloat($('env_r').value).toFixed(2)+' λ';
+  if($('hx_n')){ $('hx_nv').textContent=$('hx_n').value; $('hx_cv').textContent=parseFloat($('hx_c').value).toFixed(2)+' λ'; $('hx_sv').textContent=parseFloat($('hx_s').value).toFixed(2)+' λ'; }
+  if($('ar_n')){ $('ar_nv').textContent=$('ar_n').value; $('ar_dv').textContent=parseFloat($('ar_d').value).toFixed(2)+' λ'; $('ar_bv').textContent=$('ar_b').value+'°'; }
   clearTimeout(_tMain);  _tMain =setTimeout(computeMain, 70);
   clearTimeout(_tSweep); _tSweep=setTimeout(computeSweep, 320);
   recomputeMap();
 }
 let _sweepGen=0;
 function computeSweep(){
-  const type=$('type').value, f0=parseFloat($('freq').value)*1e6;
+  const type=$('type').value;
+  if(type==='helix'){const cv=$('cv_sweep');if(cv){cv.style.height='240px';const x=cv.getContext('2d');cv.width=cv.clientWidth||900;cv.height=240;x.clearRect(0,0,cv.width,240);x.fillStyle='#94a3b8';x.font='12px sans-serif';x.textAlign='center';x.fillText(t('na.helix'),cv.width/2,120);}return;}
+  const f0=parseFloat($('freq').value)*1e6;
   const Lfrac=parseFloat($('len').value), a=parseFloat($('rad').value)/1000, Z0=parseFloat($('z0').value);
   drawSweep(type,Lfrac,a,f0,Z0);
 }
@@ -671,8 +736,45 @@ function ohmicLoss(sol,wires,a,f,sigma){
   return {Rloss,eta,Rs};
 }
 
+// axial-mode helix: analytical (Kraus) — the free-space MoM does not establish the travelling-wave
+// axial mode (needs a ground plane), so we use the validated empirical model.
+function helixPattern(th,N,S){ const psi=2*Math.PI*S*(Math.cos(th)-1)-Math.PI/N;
+  const af=Math.abs(Math.sin(psi/2))<1e-6?N:Math.sin(N*psi/2)/Math.sin(psi/2);
+  return Math.abs(Math.cos(th))*Math.abs(af); }
+function computeHelix(){
+  const f0=parseFloat($('freq').value)*1e6, lambda0=C0/f0;
+  const N=parseInt($('hx_n').value), C=parseFloat($('hx_c').value), S=parseFloat($('hx_s').value), Z0=parseFloat($('z0').value);
+  $('lenval').textContent='—'; $('lenmm').textContent=(N*S*lambda0*1000).toFixed(0)+' mm ('+t('hx.height')+')'; $('segval').textContent='—';
+  const Glin=6.2*C*C*N*S, DdBi=10*Math.log10(Glin);            // Kraus axial-mode gain
+  const Rin=140*C, Zin={re:Rin,im:0};                          // ≈ resistive, 140·C/λ
+  const AR=(2*N+1)/(2*N), ARdB=20*Math.log10(AR);
+  const HPBW=52/(C*Math.sqrt(N*S));
+  const g=reflection(Zin,Z0), vswr=(1+g)/(1-g), rl=g>0?-20*Math.log10(g):99;
+  $('m_zin').textContent=fmtZ(Zin);
+  $('m_vswr').textContent=vswr>30?'∞':vswr.toFixed(2);
+  const vb=$('m_vswr_b'); vb.innerHTML=''; const bd=document.createElement('span'); bd.className='badge-vswr';
+  if(vswr<=1.5){bd.style.background='#dcfce7';bd.style.color='#166534';bd.textContent=t('match.good');}
+  else if(vswr<=2){bd.style.background='#fef9c3';bd.style.color='#854d0e';bd.textContent=t('match.ok');}
+  else{bd.style.background='#fee2e2';bd.style.color='#991b1b';bd.textContent=t('match.bad');} vb.appendChild(bd);
+  $('m_rl').textContent=(rl>=99?'>99':rl.toFixed(1));
+  $('m_elen_k').textContent=t('m.ar'); $('m_elen_u').textContent='dB'; $('m_elen').textContent=ARdB.toFixed(1);
+  $('m_dir_k').textContent=t('m.gain'); $('m_dir').textContent=DdBi.toFixed(2);
+  $('m_gain_box').style.display='none'; $('m_rendt_box').style.display='none';
+  $('m_eff').textContent=HPBW.toFixed(0)+'°'; $('m_eff').previousElementSibling.textContent=t('m.hpbw'); $('m_eff').nextElementSibling.textContent='−3 dB';
+  $('resnote').textContent=t('note.helix').replace('{n}',N).replace('{c}',C.toFixed(2)).replace('{ar}',ARdB.toFixed(1));
+  // synthesized pattern (rotationally symmetric about +z); reuse drawPattern
+  const Pmax=helixPattern(1e-4,N,S)||1, cE=[],cH=[];
+  for(let i=0;i<=180;i++){const a=2*Math.PI*i/180, th=a<=Math.PI?a:2*Math.PI-a, p=helixPattern(th,N,S)/Pmax; cE.push({ang:a,gain:Glin*p*p});}
+  const pH=helixPattern(Math.PI/2,N,S)/Pmax; for(let i=0;i<=180;i++)cH.push({ang:2*Math.PI*i/180,gain:Glin*pH*pH});
+  drawPattern(cE,cH,1,false,Glin,false);
+  // current / map not applicable for the analytical helix
+  [['cv_curr','240px'],['cv_map','']].forEach(([id])=>{const cv=$(id);if(cv){cv.style.height=cv.style.height||'240px';const x=cv.getContext('2d');cv.width=cv.clientWidth||300;cv.height=240;x.clearRect(0,0,cv.width,cv.height);x.fillStyle='#94a3b8';x.font='12px sans-serif';x.textAlign='center';x.fillText(t('na.helix'),cv.width/2,120);}});
+  last={Zin,vswr,DdBi};
+}
+
 function computeMain(){
   const type=$('type').value;
+  if(type==='helix'){ computeHelix(); return; }
   const f0=parseFloat($('freq').value)*1e6;
   const Lfrac=parseFloat($('len').value);
   const a=parseFloat($('rad').value)/1000; // mm->m
@@ -685,24 +787,27 @@ function computeMain(){
   $('lenmm').textContent=(G.physElem*1000).toFixed(1)+' mm'+(G.isMono?' '+t('permono'):isYagi?' '+t('perdriven'):'');
   $('segval').textContent = (parseInt($('seg').value)?String(G.M):'auto ('+G.M+')');
 
-  const sol=solveMoMElements(G.wires,G.feed,a,f0,G.nEl>1);   // fast mode for multi-element
+  const sol=solveMoMElements(G.wires,G.feed,a,f0, G.nEl>1||G.helix, G.feeds);
   let Zin={re:sol.Zin.re,im:sol.Zin.im};
   if(G.isMono){Zin.re/=2;Zin.im/=2;}          // image theory: half the dipole impedance
+  // coupled array: input impedance = active impedance of the central element (incl. mutual coupling)
+  if(G.feeds && sol.active){ const c=sol.active[Math.floor(G.Na/2)]; Zin={re:c.re,im:c.im}; }
   // conductor (ohmic) loss → radiation efficiency, loss resistance added to Zin
   let eta=1, Rloss=0; const sigma=parseFloat($('mat').value);
-  if(sigma>0){ const L=ohmicLoss(sol,G.wires,a,f0,sigma); eta=L.eta; Rloss=L.Rloss; Zin.re += G.isMono?Rloss/2:Rloss; }
+  if(sigma>0 && !G.feeds){ const L=ohmicLoss(sol,G.wires,a,f0,sigma); eta=L.eta; Rloss=L.Rloss; Zin.re += G.isMono?Rloss/2:Rloss; }
 
   // far field (full sphere for directivity / radiated power)
   const ff=farField(sol.bases,sol.I,sol.k,sol.Zin,sol.Ifeed,60,24);
   let Dmax=ff.Dmax; if(G.isMono)Dmax*=2;       // upper hemisphere only -> +3 dB
-  // headline gain: forward gain for Yagi, else max directivity
-  let gFwd=null, fb=null, headGain=Dmax;
-  if(isYagi){
-    gFwd=gainAt(sol.bases,sol.I,sol.k,ff.Prad,[1,0,0]);
-    const gBack=gainAt(sol.bases,sol.I,sol.k,ff.Prad,[-1,0,0]);
-    fb=10*Math.log10(gFwd/Math.max(gBack,1e-9));
-    headGain=gFwd;
+  // headline gain: forward gain when the antenna is directional (Yagi/helix/array)
+  const directional=!!G.forward;
+  let fb=null, headGain=Dmax, AR=null;
+  if(directional){
+    const gFwd=gainAt(sol.bases,sol.I,sol.k,ff.Prad,G.forward);
+    const gBack=gainAt(sol.bases,sol.I,sol.k,ff.Prad,G.forward.map(c=>-c));
+    fb=10*Math.log10(gFwd/Math.max(gBack,1e-9)); headGain=gFwd;
   }
+  if(G.helix) AR=20*Math.log10(axialRatio(sol.bases,sol.I,sol.k,[0,0,1]));   // CP axial ratio at boresight
   const DdBi=10*Math.log10(headGain);
 
   // VSWR / return loss vs Z0
@@ -718,11 +823,11 @@ function computeMain(){
   else{badge.style.background='#fee2e2';badge.style.color='#991b1b';badge.textContent=t('match.bad');}
   vb.appendChild(badge);
   $('m_rl').textContent=(rl>=99?'>99':rl.toFixed(1));
-  // 4th metric: electrical length, OR front/back ratio for Yagi
-  $('m_elen_k').textContent = isYagi ? t('m.fb') : t('m.elen');
-  $('m_elen_u').textContent = isYagi ? 'dB' : 'λ';
-  $('m_elen').textContent = isYagi ? fb.toFixed(1) : (G.physElem/lambda0).toFixed(3);
-  $('m_dir_k').textContent = isYagi ? t('m.gain') : t('m.dir');
+  // 4th metric: axial ratio (helix) / front-back (directional) / electrical length
+  if(G.helix){ $('m_elen_k').textContent=t('m.ar'); $('m_elen_u').textContent='dB'; $('m_elen').textContent=AR.toFixed(1); }
+  else if(directional){ $('m_elen_k').textContent=t('m.fb'); $('m_elen_u').textContent='dB'; $('m_elen').textContent=fb.toFixed(1); }
+  else { $('m_elen_k').textContent=t('m.elen'); $('m_elen_u').textContent='λ'; $('m_elen').textContent=(G.physElem/lambda0).toFixed(3); }
+  $('m_dir_k').textContent = directional ? t('m.gain') : t('m.dir');
   $('m_dir').textContent=DdBi.toFixed(2);
   // loss-related metrics (shown only when a real conductor is selected)
   const lossy = sigma>0;
@@ -732,8 +837,12 @@ function computeMain(){
     $('m_rendt').textContent=(eta*100).toFixed(1);
     $('m_rendt').nextElementSibling.textContent='% · R_loss '+Rloss.toFixed(2)+' Ω'; }
   $('m_eff').textContent=(ff.energyErr*100).toFixed(2)+' %';
+  let arrNote='';
+  if(G.feeds){const Rs=sol.active.map(z=>z.re); arrNote=Math.min(...Rs).toFixed(0)+'–'+Math.max(...Rs).toFixed(0);}
   $('resnote').textContent = G.isMono ? t('note.mono')
     : isYagi ? t('note.yagi').replace('{n}',G.nEl).replace('{g}',DdBi.toFixed(1)).replace('{fb}',fb.toFixed(1))
+    : G.helix ? t('note.helix').replace('{n}',parseInt($('hx_n').value)).replace('{c}',G.C.toFixed(2)).replace('{ar}',AR.toFixed(1))
+    : G.feeds ? t('note.array').replace('{n}',G.Na).replace('{b}',$('ar_b').value).replace('{r}',arrNote)
     : type==='cage' ? t('note.cage').replace('{n}',G.nEl-1)
     : type==='custom' ? t('note.custom').replace('{n}',G.nEl)
     : t('note.dip');
@@ -933,8 +1042,9 @@ async function drawSweep(type,Lfrac,a,f0,Z0){
   for(let i=0;i<Npt;i++){
     if(gen!==_sweepGen) return;                      // a newer sweep superseded this one
     const f=fmin+(fmax-fmin)*i/(Npt-1);
-    const sol=solveMoMElements(G.wires,G.feed,a,f,true);
+    const sol=solveMoMElements(G.wires,G.feed,a,f,true,G.feeds);
     let Z={re:sol.Zin.re,im:sol.Zin.im}; if(G.isMono){Z.re/=2;Z.im/=2;}
+    if(G.feeds&&sol.active){const c=sol.active[Math.floor(G.Na/2)];Z={re:c.re,im:c.im};}
     const g=reflection(Z,Z0);
     data.push({f, v:Math.min((1+g)/(1-g),10), s11:20*Math.log10(Math.max(g,1e-4))});
     if(i%4===3){ renderSweep(data,f0,fmin,fmax,false); await new Promise(r=>setTimeout(r,0)); }
@@ -955,9 +1065,10 @@ function recomputeMap(){
 async function drawMap(){
   const gen=++_mapGen;
   const type=$('type').value, f0=parseFloat($('freq').value)*1e6;
+  if(type==='helix') return;   // analytical helix: near-field map not applicable
   const Lfrac=parseFloat($('len').value), a=parseFloat($('rad').value)/1000;
   const G=makeGeometry(type,Lfrac,f0);
-  const sol=solveMoMElements(G.wires,G.feed,a,f0,type.startsWith('yagi'));
+  const sol=solveMoMElements(G.wires,G.feed,a,f0,G.nEl>1||G.helix,G.feeds);
   const lambda=C0/f0, ext=parseFloat($('map_ext').value)*lambda;
   const Nres=parseInt($('map_res').value), plane=$('map_plane').value, comp=$('map_comp').value;
   const vals=new Float64Array(Nres*Nres); let vmax=1e-30;
@@ -1085,6 +1196,22 @@ const I18N={
             en:"The “driven” wire carries the source; the others are parasitic (coupling). Centre (x,y,z) and length L in λ."},
  'note.custom':{fr:"Géométrie libre : {n} fils. Le fil alimenté est la source ; les autres sont couplés par induction mutuelle.",
                 en:"Free geometry: {n} wires. The driven wire is the source; the others couple by mutual induction."},
+ 'type.helix':{fr:"Hélice (mode axial, polarisation circulaire)",en:"Helix (axial mode, circular polarisation)"},
+ 'type.array':{fr:"Réseau de dipôles couplés (MoM)",en:"Coupled dipole array (MoM)"},
+ 'hx.n':{fr:"Nombre de tours",en:"Number of turns"},
+ 'hx.c':{fr:"Circonférence C",en:"Circumference C"},
+ 'hx.s':{fr:"Espacement entre tours S",en:"Turn spacing S"},
+ 'ar.n':{fr:"Dipôles (selon x)",en:"Dipoles (along x)"},
+ 'ar.d':{fr:"Espacement d",en:"Spacing d"},
+ 'ar.b':{fr:"Déphasage β / élément",en:"Phase shift β / element"},
+ 'm.ar':{fr:"Rapport axial",en:"Axial ratio"},
+ 'm.hpbw':{fr:"Largeur à −3 dB",en:"−3 dB beamwidth"},
+ 'hx.height':{fr:"hauteur",en:"height"},
+ 'na.helix':{fr:"— modèle analytique (Kraus) —",en:"— analytical model (Kraus) —"},
+ 'note.helix':{fr:"Hélice {n} tours, C≈{c} λ : mode axial → faisceau end-fire (+z) et polarisation circulaire (rapport axial {ar} dB). Fil hélicoïdal résolu par MoM.",
+               en:"{n}-turn helix, C≈{c} λ: axial mode → end-fire beam (+z) and circular polarisation (axial ratio {ar} dB). Helical wire solved by MoM."},
+ 'note.array':{fr:"Réseau de {n} dipôles tous alimentés (déphasage {b}°), résolu par MoM avec couplage mutuel complet. Impédance active par élément : {r} Ω (varie avec le balayage — effet du couplage, au-delà du facteur de réseau idéal).",
+               en:"Array of {n} all-driven dipoles (phase {b}°), solved by MoM with full mutual coupling. Active impedance per element: {r} Ω (varies with scan — coupling effect, beyond the ideal array factor)."},
  'freq':{fr:"Fréquence f₀",en:"Frequency f₀"},
  'len':{fr:"Longueur",en:"Length"},
  'rad':{fr:"Rayon du fil",en:"Wire radius"},
