@@ -101,6 +101,7 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
   <button class="tab" onclick="switchTab('results')"><span class="tab-dot" style="background:#1D9E75"></span><span data-i18n="tab.results">Résultats</span></button>
   <button class="tab" onclick="switchTab('diel')"><span class="tab-dot" style="background:#9F3FAE"></span><span data-i18n="tab.diel">Diélectriques</span></button>
   <button class="tab" onclick="switchTab('therm')"><span class="tab-dot" style="background:#E24B4A"></span><span data-i18n="tab.therm">Thermique</span></button>
+  <button class="tab" onclick="switchTab('limits')"><span class="tab-dot" style="background:#d97706"></span><span data-i18n="tab.limits">Limites &amp; normes</span></button>
   <button class="tab" onclick="switchTab('valid')"><span class="tab-dot" style="background:#16a34a"></span><span data-i18n="tab.valid">Validation</span></button>
 </div>
 
@@ -622,6 +623,52 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
   </div>
 </div>
 
+<!-- LIMITES & NORMES -->
+<div id="tab-limits" class="panel">
+  <div class="stitle0" data-i18n="lim.t1">DAS (SAR) — de quoi parle-t-on ?</div>
+  <div class="info" data-i18n-html="lim.intro"><b>DAS</b> (Débit d'Absorption Spécifique ; en anglais <b>SAR</b>) = <b>σ·|E|²/ρ</b> (W/kg) : la puissance radiofréquence absorbée par unité de masse de tissu. C'est la grandeur dosimétrique de base de 100 kHz à 6 GHz.</div>
+  <div data-i18n-html="lim.tbl1"><table>
+    <tr><th>Grandeur</th><th>On moyenne sur…</th><th>Ce qu'elle protège</th></tr>
+    <tr><td><b>DAS corps entier</b></td><td>toute la masse du corps</td><td>échauffement global (température du cœur du corps)</td></tr>
+    <tr><td><b>DAS local</b></td><td>un petit volume de tissu</td><td>point chaud localisé</td></tr>
+  </table></div>
+  <div class="info" data-i18n-html="lim.mass"><b>1 g vs 10 g</b> — le DAS local se moyenne sur une petite masse : <b>10 g</b> (ICNIRP, IEEE, Europe) ou <b>1 g</b> (FCC, États-Unis). Plus la masse est petite, plus le pic capté est élevé → <b>les deux ne se comparent pas directement</b> (un DAS 1 g est typiquement plus haut qu'un DAS 10 g au même endroit). C'est pourquoi la limite 1 g (1,6 W/kg) et la limite 10 g (2 W/kg) coexistent sans se contredire.</div>
+
+  <div class="stitle0" data-i18n="lim.t2">DAS → température, et pourquoi 6 min / 30 min</div>
+  <div class="info" data-i18n-html="lim.temp">Les limites ne sont pas arbitraires : elles sont <b>calées sur une élévation de température</b> à ne pas dépasser. Le temps de moyennage correspond à la <b>constante de temps thermique</b> du phénomène — c'est tout le sens des « 6 min » et « 30 min ».</div>
+  <div data-i18n-html="lim.tbl2"><table>
+    <tr><th>Grandeur</th><th>Temps</th><th>Pourquoi ce temps</th><th>Seuil de température (base ICNIRP 2020)</th></tr>
+    <tr><td>DAS <b>local</b></td><td><b>6 min</b></td><td>un petit volume atteint son régime thermique permanent en ~6 min</td><td>ΔT local ≤ ~2–5 °C (moins pour les tissus sensibles : œil, cerveau)</td></tr>
+    <tr><td>DAS <b>corps entier</b></td><td><b>30 min</b></td><td>la thermorégulation du corps entier répond sur ~30 min</td><td>ΔT du cœur du corps ≤ ~1 °C</td></tr>
+  </table></div>
+  <div class="info" style="background:#fff7ed;color:#9a3412;border:1px solid #fed7aa" data-i18n-html="lim.ghz">Au-delà de <b>6 GHz</b> (5G mmW, 24/28 GHz…), la pénétration devient très faible (chauffage de <b>surface</b>) : on ne raisonne plus en DAS mais en <b>densité de puissance absorbée</b> (W/m²), moyennée sur 6 min.</div>
+
+  <div class="stitle0" data-i18n="lim.t3">Explorateur de limites</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:.5rem">
+    <div class="field"><label data-i18n="lim.std">Norme</label>
+      <select id="lim-std" onchange="updateLimit()">
+        <option value="icnirp">ICNIRP 2020</option><option value="ieee">IEEE C95.1-2019</option><option value="fcc">FCC (États-Unis)</option>
+      </select></div>
+    <div class="field"><label data-i18n="lim.pop">Population</label>
+      <select id="lim-pop" onchange="updateLimit()">
+        <option value="public" data-i18n="lim.public">Public général</option><option value="worker" data-i18n="lim.worker">Travailleurs</option>
+      </select></div>
+    <div class="field"><label data-i18n="lim.reg">Région du corps</label>
+      <select id="lim-reg" onchange="updateLimit()">
+        <option value="head" data-i18n="lim.head">Tête / tronc (local)</option><option value="limb" data-i18n="lim.limb">Membres (local)</option><option value="wb" data-i18n="lim.wbody">Corps entier</option>
+      </select></div>
+  </div>
+  <div class="metrics" style="grid-template-columns:repeat(3,1fr)">
+    <div class="metric"><div class="mlbl" data-i18n="lim.mlim">Limite de DAS</div><div class="mval" id="lim-val">—</div></div>
+    <div class="metric"><div class="mlbl" data-i18n="lim.mmass">Moyennage</div><div class="mval" id="lim-mass" style="font-size:16px">—</div></div>
+    <div class="metric"><div class="mlbl" data-i18n="lim.mtime">Temps de moyennage</div><div class="mval" id="lim-time" style="font-size:16px">—</div></div>
+  </div>
+  <div class="info" id="lim-note" style="font-size:12px"></div>
+
+  <div class="stitle0" data-i18n="lim.t4">Dispositif implanté</div>
+  <div class="info" style="background:#fff7ed;color:#9a3412;border:1px solid #fed7aa" data-i18n-html="lim.implant"><b>Ce que cet outil peut estimer :</b> le DAS et l'échauffement dans le <b>tissu de fond</b> (sans implant). <b>Ce qu'il ne capte pas :</b> près d'un <b>implant métallique</b>, le champ se concentre et crée un <b>point chaud local</b> (effet de pointe/antenne) que le modèle planaire (TMM) ne modélise pas. Pour une étude santé d'un dispositif implanté, les cadres de référence sont : <b>ISO/TS 10974</b> (sécurité en IRM des implants actifs), <b>ISO 14117</b> (CEM des implants cardiaques) et la <b>directive 2013/35/UE</b> (protection des travailleurs, dont porteurs d'implants).</div>
+</div>
+
 <!-- VALIDATION -->
 <div id="tab-valid" class="panel">
   <div class="stitle0">Validation du moteur — comparaison avec la solution analytique exacte</div>
@@ -690,6 +737,32 @@ const I18N={
   'tab.stack':{fr:'Empilement',en:'Tissue stack'},'tab.results':{fr:'Résultats',en:'Results'},
   'tab.diel':{fr:'Diélectriques',en:'Dielectrics'},'tab.therm':{fr:'Thermique',en:'Thermal'},
   'tab.valid':{fr:'Validation',en:'Validation'},
+  'tab.limits':{fr:'Limites & normes',en:'Limits & standards'},
+  'lim.t1':{fr:'DAS (SAR) — de quoi parle-t-on ?',en:'SAR — what are we talking about?'},
+  'lim.t2':{fr:'DAS → température, et pourquoi 6 min / 30 min',en:'SAR → temperature, and why 6 min / 30 min'},
+  'lim.t3':{fr:'Explorateur de limites',en:'Limits explorer'},
+  'lim.t4':{fr:'Dispositif implanté',en:'Implanted device'},
+  'lim.intro':{fr:'<b>DAS</b> (Débit d’Absorption Spécifique ; en anglais <b>SAR</b>) = <b>σ·|E|²/ρ</b> (W/kg) : la puissance radiofréquence absorbée par unité de masse de tissu. C’est la grandeur dosimétrique de base de 100 kHz à 6 GHz.',
+              en:'<b>SAR</b> (Specific Absorption Rate) = <b>σ·|E|²/ρ</b> (W/kg): the radiofrequency power absorbed per unit mass of tissue. It is the basic dosimetric quantity from 100 kHz to 6 GHz.'},
+  'lim.tbl1':{fr:'<table><tr><th>Grandeur</th><th>On moyenne sur…</th><th>Ce qu’elle protège</th></tr><tr><td><b>DAS corps entier</b></td><td>toute la masse du corps</td><td>échauffement global (température du cœur du corps)</td></tr><tr><td><b>DAS local</b></td><td>un petit volume de tissu</td><td>point chaud localisé</td></tr></table>',
+              en:'<table><tr><th>Quantity</th><th>Averaged over…</th><th>What it protects</th></tr><tr><td><b>Whole-body SAR</b></td><td>the whole body mass</td><td>global heating (body core temperature)</td></tr><tr><td><b>Local SAR</b></td><td>a small tissue volume</td><td>localised hot spot</td></tr></table>'},
+  'lim.mass':{fr:'<b>1 g vs 10 g</b> — le DAS local se moyenne sur une petite masse : <b>10 g</b> (ICNIRP, IEEE, Europe) ou <b>1 g</b> (FCC, États-Unis). Plus la masse est petite, plus le pic capté est élevé → <b>les deux ne se comparent pas directement</b> (un DAS 1 g est typiquement plus haut qu’un DAS 10 g au même endroit). C’est pourquoi la limite 1 g (1,6 W/kg) et la limite 10 g (2 W/kg) coexistent sans se contredire.',
+              en:'<b>1 g vs 10 g</b> — local SAR is averaged over a small mass: <b>10 g</b> (ICNIRP, IEEE, Europe) or <b>1 g</b> (FCC, USA). The smaller the mass, the higher the captured peak → <b>the two are not directly comparable</b> (a 1 g SAR is typically higher than a 10 g SAR at the same spot). That is why the 1 g limit (1.6 W/kg) and the 10 g limit (2 W/kg) coexist without contradiction.'},
+  'lim.temp':{fr:'Les limites ne sont pas arbitraires : elles sont <b>calées sur une élévation de température</b> à ne pas dépasser. Le temps de moyennage correspond à la <b>constante de temps thermique</b> du phénomène — c’est tout le sens des « 6 min » et « 30 min ».',
+              en:'The limits are not arbitrary: they are <b>set from a temperature rise</b> not to be exceeded. The averaging time corresponds to the <b>thermal time constant</b> of the phenomenon — that is the meaning of “6 min” and “30 min”.'},
+  'lim.tbl2':{fr:'<table><tr><th>Grandeur</th><th>Temps</th><th>Pourquoi ce temps</th><th>Seuil de température (base ICNIRP 2020)</th></tr><tr><td>DAS <b>local</b></td><td><b>6 min</b></td><td>un petit volume atteint son régime thermique permanent en ~6 min</td><td>ΔT local ≤ ~2–5 °C (moins pour les tissus sensibles : œil, cerveau)</td></tr><tr><td>DAS <b>corps entier</b></td><td><b>30 min</b></td><td>la thermorégulation du corps entier répond sur ~30 min</td><td>ΔT du cœur du corps ≤ ~1 °C</td></tr></table>',
+              en:'<table><tr><th>Quantity</th><th>Time</th><th>Why this time</th><th>Temperature threshold (ICNIRP 2020 basis)</th></tr><tr><td><b>Local</b> SAR</td><td><b>6 min</b></td><td>a small volume reaches thermal steady state in ~6 min</td><td>local ΔT ≤ ~2–5 °C (less for sensitive tissue: eye, brain)</td></tr><tr><td><b>Whole-body</b> SAR</td><td><b>30 min</b></td><td>whole-body thermoregulation responds over ~30 min</td><td>body-core ΔT ≤ ~1 °C</td></tr></table>'},
+  'lim.ghz':{fr:'Au-delà de <b>6 GHz</b> (5G mmW, 24/28 GHz…), la pénétration devient très faible (chauffage de <b>surface</b>) : on ne raisonne plus en DAS mais en <b>densité de puissance absorbée</b> (W/m²), moyennée sur 6 min.',
+             en:'Above <b>6 GHz</b> (5G mmW, 24/28 GHz…), penetration becomes very shallow (<b>surface</b> heating): one no longer uses SAR but <b>absorbed power density</b> (W/m²), averaged over 6 min.'},
+  'lim.implant':{fr:'<b>Ce que cet outil peut estimer :</b> le DAS et l’échauffement dans le <b>tissu de fond</b> (sans implant). <b>Ce qu’il ne capte pas :</b> près d’un <b>implant métallique</b>, le champ se concentre et crée un <b>point chaud local</b> (effet de pointe/antenne) que le modèle planaire (TMM) ne modélise pas. Pour une étude santé d’un dispositif implanté, les cadres de référence sont : <b>ISO/TS 10974</b> (sécurité en IRM des implants actifs), <b>ISO 14117</b> (CEM des implants cardiaques) et la <b>directive 2013/35/UE</b> (protection des travailleurs, dont porteurs d’implants).',
+                 en:'<b>What this tool can estimate:</b> SAR and heating in the <b>background tissue</b> (no implant). <b>What it misses:</b> near a <b>metallic implant</b>, the field concentrates and creates a <b>local hot spot</b> (tip/antenna effect) that the planar model (TMM) does not capture. For a health study of an implanted device, the reference frameworks are: <b>ISO/TS 10974</b> (MRI safety of active implants), <b>ISO 14117</b> (EMC of cardiac implants) and <b>EU Directive 2013/35/EU</b> (protection of workers, including implant wearers).'},
+  'lim.std':{fr:'Norme',en:'Standard'},'lim.pop':{fr:'Population',en:'Population'},'lim.reg':{fr:'Région du corps',en:'Body region'},
+  'lim.public':{fr:'Public général',en:'General public'},'lim.worker':{fr:'Travailleurs',en:'Workers'},
+  'lim.head':{fr:'Tête / tronc (local)',en:'Head / trunk (local)'},'lim.limb':{fr:'Membres (local)',en:'Limbs (local)'},'lim.wbody':{fr:'Corps entier',en:'Whole body'},
+  'lim.mlim':{fr:'Limite de DAS',en:'SAR limit'},'lim.mmass':{fr:'Moyennage',en:'Averaging'},'lim.mtime':{fr:'Temps de moyennage',en:'Averaging time'},
+  'lim.wb':{fr:'corps entier',en:'whole body'},
+  'lim.note.local':{fr:'DAS <b>local</b> : pic spatial dans le volume de moyennage indiqué. Vise à limiter un <b>point chaud</b> de température.',en:'<b>Local</b> SAR: spatial peak within the stated averaging volume. Limits a temperature <b>hot spot</b>.'},
+  'lim.note.wb':{fr:'DAS <b>corps entier</b> : moyenne sur toute la masse corporelle. Vise à limiter l’<b>échauffement global</b> (≈ 1 °C cœur du corps).',en:'<b>Whole-body</b> SAR: average over the entire body mass. Limits <b>global heating</b> (≈ 1 °C body core).'},
   // Métriques résultats
   'm.einc':{fr:'E incident',en:'Incident E'},'m.sarpic':{fr:'SAR pic',en:'Peak SAR'},
   'm.sar10g':{fr:'SAR 10g',en:'10g SAR'},'m.refl':{fr:'Réflexion |R|',en:'Reflection |R|'},
@@ -1338,7 +1411,7 @@ function exportCSV(){
 
 // ── Diélectriques ─────────────────────────────────────────────────────────────
 function switchTab(name){
-  const names=['source','onde','stack','results','diel','therm','valid'];
+  const names=['source','onde','stack','results','diel','therm','limits','valid'];
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',names[i]===name));
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
@@ -1347,6 +1420,24 @@ function switchTab(name){
   if(name==='therm') runThermal();
   if(name==='valid') runValidation();
   if(name==='onde') ondeLambda();
+  if(name==='limits') updateLimit();
+}
+// SAR limits explorer: [value W/kg, averaging-mass code, averaging time]
+const SARLIM={
+ icnirp:{public:{wb:[0.08,'wb','30 min'],head:[2,'10g','6 min'],limb:[4,'10g','6 min']},
+         worker:{wb:[0.4,'wb','30 min'],head:[10,'10g','6 min'],limb:[20,'10g','6 min']}},
+ ieee:  {public:{wb:[0.08,'wb','30 min'],head:[2,'10g','6 min'],limb:[4,'10g','6 min']},
+         worker:{wb:[0.4,'wb','30 min'],head:[10,'10g','6 min'],limb:[20,'10g','6 min']}},
+ fcc:   {public:{wb:[0.08,'wb','30 min'],head:[1.6,'1g','30 min'],limb:[4,'10g','30 min']},
+         worker:{wb:[0.4,'wb','6 min'],head:[8,'1g','6 min'],limb:[20,'10g','6 min']}}};
+function updateLimit(){
+  const g=id=>document.getElementById(id); if(!g('lim-std'))return;
+  const d=(SARLIM[g('lim-std').value]||{})[g('lim-pop').value]||{}; const r=g('lim-reg').value, v=d[r];
+  if(!v)return;
+  g('lim-val').innerHTML=v[0]+' <span class="munit">W/kg</span>';
+  g('lim-mass').textContent= v[1]==='wb'?t('lim.wb'):(v[1]==='10g'?'10 g':'1 g');
+  g('lim-time').textContent=v[2];
+  g('lim-note').innerHTML=t(r==='wb'?'lim.note.wb':'lim.note.local');
 }
 
 // ── Onde EM (pédagogie) : longueur d'onde λ = c/f et frontière champ proche/lointain ──
