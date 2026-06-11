@@ -41,6 +41,10 @@ h1 span{color:var(--teal)}
 .lrow .lmv button:first-child{margin-bottom:1px}
 .lrow .lmv button:hover:not(:disabled){background:#e2e8f0;color:#1e293b}
 .lrow .lmv button:disabled{opacity:.3;cursor:default}
+.lins{display:flex;align-items:center;gap:6px;height:13px;cursor:pointer;opacity:.3;transition:opacity .12s,height .12s}
+.lins:hover{opacity:1;height:17px}
+.lins .bar{flex:1;height:1px;background:var(--teal2);border-radius:1px}
+.lins .pl{font-size:13px;line-height:1;color:var(--teal2);font-weight:700}
 .tab.active{background:var(--navy);border-color:var(--navy);color:var(--white);
             font-weight:600;box-shadow:0 4px 14px rgba(26,46,74,.18)}
 .tab:hover:not(.active){background:var(--teal-light);border-color:var(--teal);color:var(--navy)}
@@ -1425,6 +1429,7 @@ function renderStack(){ renderSchema(); return;   // editor moved into the geome
 
 function addLayer(){layers.push({t:'Muscle',d:10});renderSchema();}
 function moveLayer(i,dir){const j=i+dir; if(j<0||j>=layers.length)return; const tmp=layers[i];layers[i]=layers[j];layers[j]=tmp; renderSchema();}
+function insertLayer(k){ layers.splice(k,0,{t:'Skin',d:1.5}); renderSchema(); }   // insert a new layer at position k
 
 function loadPreset(n){
   layers=PRESETS[n].map(l=>({...l}));
@@ -1800,13 +1805,16 @@ function renderSchema(){
   if(srcCat==='ff') drawFarField(gS,cx,cy,outerRX,outerRY);
   else drawNearField(gS,cx,cy,outerRX,outerRY,nearType);
   // Liste éditable des couches (remplace l'ancienne légende lecture seule)
-  document.getElementById('schema-legend').innerHTML=layers.map((l,i)=>`<div class="lrow">`+
+  const _lrow=(l,i)=>`<div class="lrow">`+
     `<span class="lc" style="background:${LCOLORS[i%LCOLORS.length]}"></span>`+
     `<select class="lsel" onchange="layers[${i}].t=this.value;renderSchema();">${TNAMES.map(n=>`<option value="${n}"${n===l.t?' selected':''}>${n}${IFAC_DATA[n]?' ★':''}</option>`).join('')}</select>`+
     `<input class="lthk" type="number" value="${l.d}" min="0.01" step="0.1" onchange="layers[${i}].d=+this.value;renderSchema();"><span class="um">mm</span>`+
     `<span class="lmv"><button onclick="moveLayer(${i},-1)" title="Monter"${i===0?' disabled':''}>↑</button><button onclick="moveLayer(${i},1)" title="Descendre"${i===layers.length-1?' disabled':''}>↓</button></span>`+
     `<button class="lrm" onclick="layers.splice(${i},1);renderSchema();" title="Retirer">✕</button>`+
-    `</div>`).join('');
+    `</div>`;
+  const _lins=k=>`<div class="lins" onclick="insertLayer(${k})" title="Insérer une couche ici"><span class="bar"></span><span class="pl">+</span><span class="bar"></span></div>`;
+  let _h=_lins(0); layers.forEach((l,i)=>{_h+=_lrow(l,i)+_lins(i+1);});
+  document.getElementById('schema-legend').innerHTML=_h;
   document.getElementById('schema-hint').style.display=lastResult?'none':'';
   // Cartographie de l'absorption
   const mapWrap=document.getElementById('sar-map-wrap');
