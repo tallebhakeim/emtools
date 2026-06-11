@@ -1417,12 +1417,12 @@ function plotDiel(){
   const axX={type:'linear',min:1,max:11,title:{display:true,text:'Fréquence'},ticks:{callback:tickCb,maxTicksLimit:12}};
 
   const dsEps=[];
-  if(src!=='ifac') dsEps.push({label:'IT’IS V5.0',data:epsData,borderColor:'var(--teal)',backgroundColor:'transparent',borderWidth:2,pointRadius:0,showLine:true,tension:0.2});
-  if(showIFAC) dsEps.push({label:'IFAC (Gabriel 1996)',data:ifacEpsData,borderColor:'var(--gold)',backgroundColor:'transparent',borderWidth:1.5,pointStyle:'cross',pointRadius:ifacEpsData.length<100?4:0,showLine:true,borderDash:[4,2]});
+  if(src!=='ifac') dsEps.push({label:'IT’IS V5.0',data:epsData,borderColor:'#0d9488',backgroundColor:'transparent',borderWidth:2,pointRadius:0,showLine:true,tension:0.2});
+  if(showIFAC) dsEps.push({label:'IFAC (Gabriel 1996)',data:ifacEpsData,borderColor:'#d97706',backgroundColor:'transparent',borderWidth:1.5,pointStyle:'cross',pointRadius:ifacEpsData.length<100?4:0,showLine:true,borderDash:[4,2]});
 
   const dsSig=[];
-  if(src!=='ifac') dsSig.push({label:'IT’IS V5.0',data:sigData,borderColor:'var(--teal)',backgroundColor:'transparent',borderWidth:2,pointRadius:0,showLine:true,tension:0.2});
-  if(showIFAC) dsSig.push({label:'IFAC',data:ifacSigData,borderColor:'var(--gold)',backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,showLine:true,borderDash:[4,2]});
+  if(src!=='ifac') dsSig.push({label:'IT’IS V5.0',data:sigData,borderColor:'#0d9488',backgroundColor:'transparent',borderWidth:2,pointRadius:0,showLine:true,tension:0.2});
+  if(showIFAC) dsSig.push({label:'IFAC',data:ifacSigData,borderColor:'#d97706',backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,showLine:true,borderDash:[4,2]});
 
   const ctx1=document.getElementById('diel-eps-chart').getContext('2d');
   if(cEps) cEps.destroy();
@@ -1453,7 +1453,7 @@ function plotDiel(){
     if(cDiff) cDiff.destroy();
     cDiff=new Chart(ctx3,{type:'scatter',data:{datasets:[{
       label:"Δε' IT’IS−IFAC (%)",data:diffData,
-      borderColor:'var(--navy)',backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,showLine:true}]},
+      borderColor:'#1a2e4a',backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,showLine:true}]},
       options:{responsive:true,maintainAspectRatio:false,
         plugins:{legend:{display:true,labels:{font:{size:11}}}},
         scales:{x:axX,y:{title:{display:true,text:"Δε' (%)"},suggestedMin:-50,suggestedMax:50}}}});
@@ -1485,7 +1485,7 @@ function plotColeCole(){
   cCC=new Chart(ctx,{type:'scatter',
     data:{datasets:[{
       label:"ε''(ε') — "+tname,
-      data,borderColor:'var(--navy)',backgroundColor:'rgba(26,46,74,0.05)',
+      data,borderColor:'#1a2e4a',backgroundColor:'rgba(26,46,74,0.05)',
       borderWidth:2,pointRadius:0,showLine:true,tension:0,fill:true}]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:true,labels:{font:{size:11},boxWidth:16}}},
@@ -1562,10 +1562,10 @@ function plotProp(){
     </tbody></table>`;
   const ctx1=document.getElementById('prop-ds-chart')?.getContext('2d');
   if(ctx1){if(cPropDs) cPropDs.destroy();
-    cPropDs=new Chart(ctx1,{type:'scatter',data:{datasets:[{label:'δs (mm)',data:dsData,borderColor:'var(--teal)',backgroundColor:'rgba(13,148,136,0.06)',borderWidth:2,pointRadius:0,showLine:true,tension:0.2,fill:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{font:{size:11}}}},scales:{x:{title:{display:true,text:'log₁₀(f)'},ticks:{callback:tickCb}},y:{type:'logarithmic',title:{display:true,text:'δs (mm)'},ticks:{callback:v=>Number.isInteger(Math.log10(v))?v+'mm':null}}}}});}
+    cPropDs=new Chart(ctx1,{type:'scatter',data:{datasets:[{label:'δs (mm)',data:dsData,borderColor:'#0d9488',backgroundColor:'rgba(13,148,136,0.06)',borderWidth:2,pointRadius:0,showLine:true,tension:0.2,fill:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{font:{size:11}}}},scales:{x:{title:{display:true,text:'log₁₀(f)'},ticks:{callback:tickCb}},y:{type:'logarithmic',title:{display:true,text:'δs (mm)'},ticks:{callback:v=>Number.isInteger(Math.log10(v))?v+'mm':null}}}}});}
   const ctx2=document.getElementById('prop-ln-chart')?.getContext('2d');
   if(ctx2){if(cPropLn) cPropLn.destroy();
-    cPropLn=new Chart(ctx2,{type:'scatter',data:{datasets:[{label:'λn (mm)',data:lnData,borderColor:'var(--navy)',backgroundColor:'transparent',borderWidth:2,pointRadius:0,showLine:true,tension:0.2,yAxisID:'y'},{label:'tan(δ)',data:tanData,borderColor:'var(--gold)',backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,showLine:true,borderDash:[5,3],yAxisID:'y2'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{font:{size:11}}}},scales:{x:{title:{display:true,text:'log₁₀(f)'},ticks:{callback:tickCb}},y:{type:'logarithmic',title:{display:true,text:'λn (mm)'},position:'left',ticks:{callback:v=>Number.isInteger(Math.log10(v))?v+'mm':null}},y2:{type:'logarithmic',title:{display:true,text:'tan(δ)'},position:'right',grid:{drawOnChartArea:false},ticks:{callback:v=>Number.isInteger(Math.log10(v))?v:null}}}}});}
+    cPropLn=new Chart(ctx2,{type:'scatter',data:{datasets:[{label:'λn (mm)',data:lnData,borderColor:'#1a2e4a',backgroundColor:'transparent',borderWidth:2,pointRadius:0,showLine:true,tension:0.2,yAxisID:'y'},{label:'tan(δ)',data:tanData,borderColor:'#d97706',backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,showLine:true,borderDash:[5,3],yAxisID:'y2'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{font:{size:11}}}},scales:{x:{title:{display:true,text:'log₁₀(f)'},ticks:{callback:tickCb}},y:{type:'logarithmic',title:{display:true,text:'λn (mm)'},position:'left',ticks:{callback:v=>Number.isInteger(Math.log10(v))?v+'mm':null}},y2:{type:'logarithmic',title:{display:true,text:'tan(δ)'},position:'right',grid:{drawOnChartArea:false},ticks:{callback:v=>Number.isInteger(Math.log10(v))?v:null}}}}});}
 }
 
 // ── Schéma géométrique ────────────────────────────────────────────────────────
@@ -1915,17 +1915,17 @@ function runThermal(){
   const tau=parseFloat(document.getElementById('th-tau').value)||(gamma>0?1/gamma:1e9);
   const tend=(parseFloat(document.getElementById('th-tend').value)||30)*60;
   const dt=1.0,Nt=Math.round(tend/dt)+1;
-  const t=[]; for(let i=0;i<Nt;i++) t.push(i*dt);
+  const tArr=[]; for(let i=0;i<Nt;i++) tArr.push(i*dt);
   // ΔT(t) — formulation perturbative (métabolisme & perfusion basale supposés à l'équilibre à t=0)
   const T0=[0]; for(let n=0;n<Nt-1;n++) T0.push(T0[n]+dt*SAR/c);                                  // adiabatique
   const T1=[0]; for(let n=0;n<Nt-1;n++) T1.push(T1[n]+dt*(SAR/c-T1[n]/tau));                       // lumped τ
   const T3=[0],T3inf=gamma>0?(SAR/c)/gamma:T0[Nt-1]; for(let n=0;n<Nt-1;n++) T3.push(T3[n]+dt*(SAR/c-gamma*T3[n])); // Pennes 0D
   const step=Math.max(1,Math.round(Nt/200));
-  const tLbl=t.filter((_,i)=>i%step===0).map(v=>(v/60).toFixed(1));
+  const tLbl=tArr.filter((_,i)=>i%step===0).map(v=>(v/60).toFixed(1));
   const models=[
     {id:'th-m0',data:T0,label:'Adiabatique',color:'#888'},
-    {id:'th-m1',data:T1,label:'Lumped τ='+Math.round(tau)+'s',color:'var(--blue)'},
-    {id:'th-m3',data:T3,label:'Pennes 0D ('+tissue+')',color:'var(--gold)'},
+    {id:'th-m1',data:T1,label:'Lumped τ='+Math.round(tau)+'s',color:'#2563eb'},
+    {id:'th-m3',data:T3,label:'Pennes 0D ('+tissue+')',color:'#d97706'},
   ];
   const datasets=[];
   models.forEach(m=>{
@@ -1941,15 +1941,15 @@ function runThermal(){
     datasets.push({
       label:'Pennes continu (DC=100%, palier='+T3inf_cont.toFixed(2)+'°C)',
       data:T3cont.filter((_,i)=>i%step===0),
-      borderColor:'var(--navy)',backgroundColor:'var(--navy)',
+      borderColor:'#1a2e4a',backgroundColor:'transparent',
       borderWidth:1.5,
       pointRadius:T3cont.filter((_,i)=>i%step===0).map((_,i)=>i%markerStep===0?5:0),
-      pointStyle:'triangle',pointBorderColor:'var(--navy)',
+      pointStyle:'triangle',pointBorderColor:'#1a2e4a',
       tension:0.1,borderDash:[8,4]
     });
   }
   datasets.push({label:'ΔT=1°C (réf. sensation / corps entier)',data:Array(tLbl.length).fill(1),borderColor:'#E24B4A',borderDash:[6,4],borderWidth:1.5,pointRadius:0,tension:0});
-  datasets.push({label:'ΔT=2°C (local tête/tronc, ICNIRP 2020)',data:Array(tLbl.length).fill(2),borderColor:'var(--gold2)',borderDash:[3,3],borderWidth:1.5,pointRadius:0,tension:0});
+  datasets.push({label:'ΔT=2°C (local tête/tronc, ICNIRP 2020)',data:Array(tLbl.length).fill(2),borderColor:'#b45309',borderDash:[3,3],borderWidth:1.5,pointRadius:0,tension:0});
   datasets.push({label:'ΔT=5°C (local membres, ICNIRP 2020)',data:Array(tLbl.length).fill(5),borderColor:'#9F3FAE',borderDash:[2,3],borderWidth:1,pointRadius:0,tension:0});
   const idx15=Math.min(Math.round(15*60/dt),Nt-1);
   const T3_15=T3[idx15],T3_inf=T3inf;
@@ -2125,8 +2125,8 @@ function runThermal1D(){
   if(cThSpace) cThSpace.destroy();
   cThSpace=new Chart(ctx,{type:'scatter',
     data:{datasets:[
-      {label:'ΔT(z)',data:zArr.map((z,i)=>({x:z,y:T[i]})),borderColor:'var(--gold)',backgroundColor:'rgba(217,119,6,0.07)',borderWidth:2,pointRadius:0,showLine:true,tension:0.2,fill:true},
-      {label:'SAR(z)/10 norm. (pic='+SAR_input_th.toFixed(2)+'W/kg)',data:zArr.map((z,i)=>({x:z,y:sarZ[i]/10})),borderColor:'var(--teal)',backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,showLine:true,tension:0.2,borderDash:[5,3]},
+      {label:'ΔT(z)',data:zArr.map((z,i)=>({x:z,y:T[i]})),borderColor:'#d97706',backgroundColor:'rgba(217,119,6,0.07)',borderWidth:2,pointRadius:0,showLine:true,tension:0.2,fill:true},
+      {label:'SAR(z)/10 norm. (pic='+SAR_input_th.toFixed(2)+'W/kg)',data:zArr.map((z,i)=>({x:z,y:sarZ[i]/10})),borderColor:'#0d9488',backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,showLine:true,tension:0.2,borderDash:[5,3]},
       {label:'Seuil 1°C',data:[{x:0,y:1},{x:zArr[Nz-1],y:1}],borderColor:'#E24B4A',borderWidth:1,pointRadius:0,showLine:true,borderDash:[4,3]},
     ]},
     options:{responsive:true,maintainAspectRatio:false,
