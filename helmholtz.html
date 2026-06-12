@@ -143,6 +143,28 @@ table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
   </div>
 
   <div class="panel">
+    <div class="ptitle" data-i18n="tri.t">Banc tri-axial — champ vectoriel &amp; compensation des mutuelles</div>
+    <div data-i18n-html="tri.intro"></div>
+    <div class="controls" style="margin-top:.9rem">
+      <div class="ctrl">
+        <label><span data-i18n="tri.th">Direction θ (depuis z)</span> · <span id="tri-thv" class="val">55°</span></label>
+        <input id="tri-th" type="range" min="0" max="180" step="1" value="55" oninput="recomputeTri()">
+      </div>
+      <div class="ctrl">
+        <label><span data-i18n="tri.ph">Azimut φ (autour de z)</span> · <span id="tri-phv" class="val">35°</span></label>
+        <input id="tri-ph" type="range" min="0" max="360" step="1" value="35" oninput="recomputeTri()">
+      </div>
+    </div>
+    <div class="metrics" style="margin-top:1rem">
+      <div class="metric hl"><div class="k" data-i18n="tri.b">Champ uniforme résultant |B|</div><div class="v" id="m_tb">—</div><div class="u" id="m_tbu">mT</div></div>
+      <div class="metric"><div class="k" data-i18n="tri.dir">Direction du champ</div><div class="v" id="m_tdir" style="font-size:.95rem">—</div><div class="u">θ, φ</div></div>
+      <div class="metric"><div class="k" data-i18n="tri.mut">Mutuelle inter-axes</div><div class="v ok" id="m_tmut">≈ 0</div><div class="u" data-i18n="tri.mutu">compensée</div></div>
+    </div>
+    <canvas id="cv_tri" width="900" height="460" style="cursor:grab;touch-action:none;margin-top:1rem"></canvas>
+    <div class="sub" style="font-size:.76rem;color:var(--text2);margin-top:.4rem" data-i18n="tri.sub">Glisse pour tourner. Trois paires de Helmholtz orthogonales (axes x rouge, y vert, z bleu) ; en combinant les courants, le champ uniforme central (flèche orange) pointe dans n'importe quelle direction. Les paires d'axes perpendiculaires ne se couplent pas (mutuelle nulle).</div>
+  </div>
+
+  <div class="panel">
     <div class="ptitle" data-i18n="elec">Dimensionnement &amp; compensation réactive</div>
     <div data-i18n-html="elec.intro"></div>
     <div class="controls" style="margin-top:.9rem">
@@ -313,6 +335,7 @@ function recompute(){
   $('vr2').textContent=fmtB(axTwo(c.R,c.NI,c.R,0))+(Math.abs(axTwo(c.R,c.NI,c.R,0))<1e-3?' µT':' mT')+'  (= '+fmtB(Math.pow(4/5,1.5)*MU0*c.NI/c.R)+')';
   $('vr3').textContent=(c.Ccomp*1e9).toFixed(2)+' nF  (Im≈0)';
   drawAxial(c); drawMap(c); draw3D(c); drawImZ(c); drawVc(c);
+  if($('tri-th')) recomputeTri();
 }
 function preset(p){
   if(p==='one'){$('dR').value=2.5;}        // far apart → each bell is one coil's field
@@ -475,6 +498,72 @@ function draw3D(c){
   x.fillStyle='#1e293b';x.fillText((LANG==='fr'?'2 bobines (d/R='+c.dR.toFixed(2)+')':'2 coils (d/R='+c.dR.toFixed(2)+')'),14,36);
 }
 
+/* ---------- tri-axial bench : 3 orthogonal Helmholtz pairs, vector field ---------- */
+function cross(a,b){return[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];}
+function normalize(v){const m=Math.hypot(v[0],v[1],v[2])||1;return[v[0]/m,v[1]/m,v[2]/m];}
+// field of one arbitrarily-oriented coil at global point p → vector [Bx,By,Bz]
+function coilB(co,p){
+  const rel=[p[0]-co.cc[0],p[1]-co.cc[1],p[2]-co.cc[2]];
+  const z=rel[0]*co.ax[0]+rel[1]*co.ax[1]+rel[2]*co.ax[2];
+  const rad=[rel[0]-z*co.ax[0],rel[1]-z*co.ax[1],rel[2]-z*co.ax[2]], r=Math.hypot(rad[0],rad[1],rad[2]);
+  const {Bz,Br}=loopB(co.R,co.NI,r,z);
+  const rh=r>1e-12?[rad[0]/r,rad[1]/r,rad[2]/r]:[0,0,0];
+  return [Bz*co.ax[0]+Br*rh[0], Bz*co.ax[1]+Br*rh[1], Bz*co.ax[2]+Br*rh[2]];
+}
+function B3(coils,p){let b=[0,0,0];for(const co of coils){const v=coilB(co,p);b[0]+=v[0];b[1]+=v[1];b[2]+=v[2];}return b;}
+function triLine(coils,seed,R){
+  const ds=R/22, maxN=380, lim=3.1*R, fwd=[],bwd=[]; let p;
+  p=seed.slice(); for(let i=0;i<maxN;i++){const b=B3(coils,p),m=Math.hypot(b[0],b[1],b[2])||1e-30;p=[p[0]+b[0]/m*ds,p[1]+b[1]/m*ds,p[2]+b[2]/m*ds];fwd.push(p.slice());if(Math.hypot(p[0],p[1],p[2])>lim)break;}
+  p=seed.slice(); for(let i=0;i<maxN;i++){const b=B3(coils,p),m=Math.hypot(b[0],b[1],b[2])||1e-30;p=[p[0]-b[0]/m*ds,p[1]-b[1]/m*ds,p[2]-b[2]/m*ds];bwd.push(p.slice());if(Math.hypot(p[0],p[1],p[2])>lim)break;}
+  return bwd.reverse().concat([seed.slice()],fwd);
+}
+let TRI=null;
+function recomputeTri(){
+  if(!CUR)return;
+  $('tri-thv').textContent=$('tri-th').value+'°'; $('tri-phv').textContent=$('tri-ph').value+'°';
+  const th=parseFloat($('tri-th').value)*Math.PI/180, ph=parseFloat($('tri-ph').value)*Math.PI/180;
+  const u=[Math.sin(th)*Math.cos(ph),Math.sin(th)*Math.sin(ph),Math.cos(th)];
+  const R=CUR.R, NI=CUR.NI, Rk=[R,1.16*R,1.32*R], axes=[[1,0,0],[0,1,0],[0,0,1]], coils=[];
+  axes.forEach((a,k)=>{const NIk=NI*u[k]*Rk[k]/R, d=Rk[k];
+    [-0.5,0.5].forEach(s=>coils.push({cc:[a[0]*s*d,a[1]*s*d,a[2]*s*d],ax:a,R:Rk[k],NI:NIk}));});
+  // field lines seeded on a disc perpendicular to u
+  const e1=normalize(cross(u,Math.abs(u[2])<0.9?[0,0,1]:[1,0,0])), e2=cross(u,e1), lines=[];
+  [0.4,0.8].forEach(fr=>{const sr=fr*R; for(let a=0;a<2*Math.PI-1e-6;a+=Math.PI/2){
+    const seed=[sr*(Math.cos(a)*e1[0]+Math.sin(a)*e2[0]),sr*(Math.cos(a)*e1[1]+Math.sin(a)*e2[1]),sr*(Math.cos(a)*e1[2]+Math.sin(a)*e2[2])];
+    lines.push(triLine(coils,seed,R));}});
+  const B0mag=Math.pow(4/5,1.5)*MU0*NI/R;
+  TRI={coils,lines,u,B0mag,R};
+  $('m_tb').textContent=fmtB(B0mag); $('m_tbu').textContent=B0mag<1e-3?'µT':'mT';
+  $('m_tdir').textContent='θ='+$('tri-th').value+'° · φ='+$('tri-ph').value+'°';
+  drawTri();
+}
+let _az2=0.9,_el2=0.45;
+function drawTri(){
+  if(!TRI)return; const cv=$('cv_tri'); if(!cv)return; cv.style.height='460px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const R=TRI.R, sc=Math.min(w,h)/(4.4*R), cx=w/2, cy=h/2+6;
+  const ca=Math.cos(_az2),sa=Math.sin(_az2),ce=Math.cos(_el2),se=Math.sin(_el2);
+  const P=(px,py,pz)=>{let X=px*ca-py*sa,Y=px*sa+py*ca,Z=pz;const Y2=Y*ce-Z*se,Z2=Y*se+Z*ce;return{sx:cx+X*sc,sy:cy-Z2*sc,d:Y2};};
+  const items=[], cols=['#ef4444','#16a34a','#2563eb'];
+  TRI.lines.forEach(line=>{if(line.length<3)return;const pr=line.map(p=>P(p[0],p[1],p[2]));let d=0;pr.forEach(q=>d+=q.d);items.push({d:d/pr.length,type:'line',pts:pr});});
+  TRI.coils.forEach((co,idx)=>{const a=co.ax, e1=normalize(cross(a,Math.abs(a[2])<0.9?[0,0,1]:[1,0,0])), e2=cross(a,e1), pr=[]; let d=0;
+    for(let k=0;k<=48;k++){const t=2*Math.PI*k/48;const pt=[co.cc[0]+co.R*(Math.cos(t)*e1[0]+Math.sin(t)*e2[0]),co.cc[1]+co.R*(Math.cos(t)*e1[1]+Math.sin(t)*e2[1]),co.cc[2]+co.R*(Math.cos(t)*e1[2]+Math.sin(t)*e2[2])];const q=P(pt[0],pt[1],pt[2]);pr.push(q);d+=q.d;}
+    items.push({d:d/pr.length+1e6,type:'coil',col:cols[Math.floor(idx/2)],pts:pr});});
+  items.sort((p,q)=>p.d-q.d);
+  for(const it of items){
+    if(it.type==='line'){x.strokeStyle='rgba(13,148,136,.45)';x.lineWidth=1.2;x.beginPath();it.pts.forEach((p,i)=>i?x.lineTo(p.sx,p.sy):x.moveTo(p.sx,p.sy));x.stroke();}
+    else{x.strokeStyle=it.col;x.lineWidth=2.6;x.beginPath();it.pts.forEach((p,i)=>i?x.lineTo(p.sx,p.sy):x.moveTo(p.sx,p.sy));x.closePath();x.stroke();}
+  }
+  // resultant field arrow along u
+  const o=P(0,0,0), tip=P(TRI.u[0]*1.7*R,TRI.u[1]*1.7*R,TRI.u[2]*1.7*R);
+  x.strokeStyle='#d97706';x.lineWidth=3.2;x.beginPath();x.moveTo(o.sx,o.sy);x.lineTo(tip.sx,tip.sy);x.stroke();
+  const ang=Math.atan2(tip.sy-o.sy,tip.sx-o.sx);x.fillStyle='#d97706';x.beginPath();x.moveTo(tip.sx,tip.sy);x.lineTo(tip.sx-13*Math.cos(ang-0.4),tip.sy-13*Math.sin(ang-0.4));x.lineTo(tip.sx-13*Math.cos(ang+0.4),tip.sy-13*Math.sin(ang+0.4));x.closePath();x.fill();
+  x.fillStyle='#b45309';x.font='700 13px sans-serif';x.fillText('B',tip.sx+7,tip.sy+2);
+  // axis legend
+  x.font='11px sans-serif';const labs=[(LANG==='fr'?'paire x':'pair x'),(LANG==='fr'?'paire y':'pair y'),(LANG==='fr'?'paire z':'pair z')];
+  labs.forEach((l,i)=>{x.fillStyle=cols[i];x.fillText(l,14,20+i*15);});
+}
+
 /* ---------- electrical plots (around f0) ---------- */
 function drawImZ(c){
   const cv=$('cv_imz'); cv.style.height='300px'; const {x,w,h}=dpr(cv);
@@ -551,6 +640,17 @@ const I18N={
  'viz3d':{fr:"Vue 3D — bobines & lignes de champ",en:"3D view — coils & field lines"},
  'viz3d.sub':{fr:"Glisse pour tourner. Les deux bobines (anneaux) et les lignes de champ (révolution autour de l'axe) : presque rectilignes au centre (région uniforme), refermées à l'extérieur.",
               en:"Drag to rotate. The two coils (rings) and the field lines (revolved around the axis): nearly straight at the centre (uniform region), closing back outside."},
+ 'tri.t':{fr:"Banc tri-axial — champ vectoriel & compensation des mutuelles",en:"Tri-axial bench — vector field & mutual compensation"},
+ 'tri.intro':{fr:"<b>Banc 3 axes —</b> trois paires de Helmholtz <b>orthogonales</b> (x, y, z) permettent de générer un champ uniforme dans <b>n'importe quelle direction</b> en combinant les courants. Point clé (ta Figure 2.14) : les <b>mutuelles entre axes orthogonaux s'annulent</b> — le flux d'une paire « secondaire » à travers une bobine « considérée » perpendiculaire se compense (un <b>+</b> et un <b>−</b> d'aires égales). Chaque bobine ne couple donc qu'avec sa paire (L<sub>équ</sub> = L<sub>propre</sub> + M).",
+              en:"<b>3-axis bench —</b> three <b>orthogonal</b> Helmholtz pairs (x, y, z) generate a uniform field in <b>any direction</b> by combining the currents. Key point (your Figure 2.14): the <b>mutuals between orthogonal axes cancel</b> — the flux of a “secondary” pair through a perpendicular “considered” coil compensates (a <b>+</b> and a <b>−</b> of equal area). Each coil thus couples only with its own pair (L<sub>eq</sub> = L<sub>self</sub> + M)."},
+ 'tri.th':{fr:"Direction θ (depuis z)",en:"Direction θ (from z)"},
+ 'tri.ph':{fr:"Azimut φ (autour de z)",en:"Azimuth φ (around z)"},
+ 'tri.b':{fr:"Champ uniforme résultant |B|",en:"Resulting uniform field |B|"},
+ 'tri.dir':{fr:"Direction du champ",en:"Field direction"},
+ 'tri.mut':{fr:"Mutuelle inter-axes",en:"Inter-axis mutual"},
+ 'tri.mutu':{fr:"compensée",en:"compensated"},
+ 'tri.sub':{fr:"Glisse pour tourner. Trois paires de Helmholtz orthogonales (axes x rouge, y vert, z bleu) ; en combinant les courants, le champ uniforme central (flèche orange) pointe dans n'importe quelle direction. Les paires d'axes perpendiculaires ne se couplent pas (mutuelle nulle).",
+            en:"Drag to rotate. Three orthogonal Helmholtz pairs (axes x red, y green, z blue); by combining the currents the central uniform field (orange arrow) points in any direction. Perpendicular-axis pairs do not couple (zero mutual)."},
  'elec':{fr:"Dimensionnement & compensation réactive",en:"Sizing & reactive compensation"},
  'elec.intro':{fr:"<b>Côté électrique —</b> à la fréquence de travail f₀, la bobine est inductive (Z = R<sub>coil</sub> + jω₀L). On ajoute un <b>condensateur en série</b> pour annuler la réactance : <b>C = 1/(ω₀²L)</b>. À courant imposé, la tension aux bornes de C atteint <b>V = I·ω₀L</b> (surtension), d'où le besoin éventuel de plusieurs condos en série. (Reprend la démarche du code MATLAB.)",
                en:"<b>Electrical side —</b> at the working frequency f₀ the coil is inductive (Z = R<sub>coil</sub> + jω₀L). A <b>series capacitor</b> cancels the reactance: <b>C = 1/(ω₀²L)</b>. At imposed current the voltage across C reaches <b>V = I·ω₀L</b> (resonant rise), hence possibly several capacitors in series. (Follows the MATLAB workflow.)"},
@@ -589,11 +689,17 @@ function applyLang(){
 }
 function toggleLang(){LANG=LANG==='fr'?'en':'fr';localStorage.setItem('emtools_lang',LANG);applyLang();recompute();}
 applyLang(); recompute();
-window.addEventListener('resize',()=>{const c=CUR||compute();drawAxial(c);drawMap(c);draw3D(c);drawImZ(c);drawVc(c);});
+window.addEventListener('resize',()=>{const c=CUR||compute();drawAxial(c);drawMap(c);draw3D(c);drawImZ(c);drawVc(c);drawTri();});
 // 3D rotation by pointer drag
 (function(){const cv=$('cv_3d'); if(!cv)return; let drag=false,px=0,py=0;
   cv.addEventListener('pointerdown',e=>{drag=true;px=e.clientX;py=e.clientY;cv.style.cursor='grabbing';cv.setPointerCapture(e.pointerId);});
   cv.addEventListener('pointermove',e=>{if(!drag||!CUR)return;_az+=(e.clientX-px)*0.01;_el-=(e.clientY-py)*0.01;_el=Math.max(-1.45,Math.min(1.45,_el));px=e.clientX;py=e.clientY;draw3D(CUR);});
+  const up=()=>{drag=false;cv.style.cursor='grab';}; cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
+})();
+// 3D rotation for the tri-axial view
+(function(){const cv=$('cv_tri'); if(!cv)return; let drag=false,px=0,py=0;
+  cv.addEventListener('pointerdown',e=>{drag=true;px=e.clientX;py=e.clientY;cv.style.cursor='grabbing';cv.setPointerCapture(e.pointerId);});
+  cv.addEventListener('pointermove',e=>{if(!drag||!TRI)return;_az2+=(e.clientX-px)*0.01;_el2-=(e.clientY-py)*0.01;_el2=Math.max(-1.45,Math.min(1.45,_el2));px=e.clientX;py=e.clientY;drawTri();});
   const up=()=>{drag=false;cv.style.cursor='grab';}; cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
 })();
 </script>
