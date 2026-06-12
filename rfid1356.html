@@ -275,6 +275,28 @@ table.frames code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8
     <div class="warn" style="background:#fffbeb;border-color:#fde68a;color:#854d0e;margin-top:.7rem" data-i18n-html="seq.note"></div>
   </div>
 
+  <div class="panel">
+    <div class="ptitle" data-i18n="sens.t">Exemple : capteur de pression → trame</div>
+    <div data-i18n-html="sens.intro"></div>
+    <div class="controls" style="margin-top:.9rem">
+      <div class="ctrl">
+        <label><span data-i18n="sens.p">Pression mesurée</span> · <span id="sens-pv" class="val">1013 hPa</span></label>
+        <input id="sens-p" type="range" min="300" max="1200" step="1" value="1013" oninput="recompute()">
+      </div>
+      <div class="ctrl">
+        <label data-i18n="sens.bits">Résolution ADC</label>
+        <select id="sens-bits" onchange="recompute()">
+          <option value="8">8 bits</option>
+          <option value="10" selected>10 bits</option>
+          <option value="12">12 bits</option>
+        </select>
+      </div>
+    </div>
+    <div id="sens-out" style="font-size:.9rem;margin:.9rem 0 .2rem"></div>
+    <canvas id="cv_sensor" width="900" height="210"></canvas>
+    <div class="sub" style="font-size:.76rem;color:var(--text2);margin-top:.4rem" data-i18n="sens.sub">Rétro-modulation des 2 octets de données : sous-porteuse 847,5 kHz, codage Manchester (1 = salve en 1ʳᵉ moitié de bit, 0 = en 2ᵉ moitié). C'est ce motif que le lecteur démodule pour relire la pression.</div>
+  </div>
+
   <div class="panel" style="margin-top:1.4rem">
     <div class="ptitle" data-i18n="valid">Validation</div>
     <table class="valid">
@@ -298,6 +320,9 @@ table.frames code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8
 <script>
 function $(id){return document.getElementById(id);}
 function dpr(cv){const r=window.devicePixelRatio||1;const w=cv.clientWidth||parseFloat(cv.style.width)||cv.width;const h=parseFloat(cv.style.height)||cv.clientHeight||cv.height;cv.width=Math.round(w*r);cv.height=Math.round(h*r);const x=cv.getContext('2d');x.setTransform(r,0,0,r,0,0);return {x,w,h};}
+function hex2(b){return b.toString(16).toUpperCase().padStart(2,'0');}
+// ISO/IEC 14443-A CRC (CRC_A), init 0x6363, transmitted LSB then MSB
+function crcA(bytes){let crc=0x6363;for(const byte of bytes){let ch=(byte^(crc&0xFF))&0xFF;ch=(ch^(ch<<4))&0xFF;crc=((crc>>8)^(ch<<8)^(ch<<3)^(ch>>4))&0xFFFF;}return crc;}
 
 const MU0=4*Math.PI*1e-7, F0=13.56e6, W0=2*Math.PI*F0;
 const HMIN=1.5, HMAX=7.5;          // ISO 14443 operating field band (A/m)
@@ -350,6 +375,15 @@ function compute(){
   const Zref=wM*wM/rs;                               // reflected resistance (ωM)²/Z_tag
   const ZrefMod=wM*wM/(2*rs);                        // modulation state: tag Q halved → r_s doubled
   const modDepth=(Zref-ZrefMod)/(R1+Zref);           // relative voltage change seen by the reader
+  // ── sensor → frame : digitise a pressure reading and pack it into a 2-byte payload ──
+  const Pmin=300, Pmax=1200;                          // sensor range (hPa)
+  const Phpa=parseFloat($('sens-p').value), nbit=parseInt($('sens-bits').value);
+  const maxc=(1<<nbit)-1;
+  const code=Math.max(0,Math.min(maxc,Math.round((Phpa-Pmin)/(Pmax-Pmin)*maxc)));
+  const sensData=[(code>>8)&0xFF, code&0xFF];          // 2-byte payload (MSB, LSB)
+  const sCrc=crcA(sensData), sensCrc=[sCrc&0xFF,(sCrc>>8)&0xFF]; // CRC_A, transmitted LSB first
+  const v16=(sensData[0]<<8)|sensData[1], sensBits16=[];
+  for(let i=15;i>=0;i--) sensBits16.push((v16>>i)&1);  // 16 payload bits, MSB first
   // ── SAR in tissue (implanted tag) : eddy currents from the reader's B field ──
   const ti=TISSUE[$('sar-tissue').value]||TISSUE.muscle, sig=ti.s, rhoT=ti.rho;
   const rT=parseFloat($('sar-r').value)/100;         // exposed-tissue / eddy-loop radius (m)
@@ -359,7 +393,8 @@ function compute(){
   const SARlim=$('sar-pop').value==='worker'?10:2;   // ICNIRP 2020 local 10 g limit
   const Hmax=Math.sqrt(8*rhoT*SARlim/sig)/(W0*MU0*rT);// max H before reaching the SAR limit (A/m)
   CUR={a,N1,I1,b,N2,Q,z,shape,A2,angDeg,cosA,H,B,Mgeo,M,L1,L2,k,C2,Voc,Vtag,Vtag0,VCLAMP,Vchip,XL,I2,range,Zref,modDepth,
-       rs,Rp,Rchip,rtot,Qload,Vtank,Vtank0,sig,rhoT,rT,Eind,SAR,SARlim,Hmax};
+       rs,Rp,Rchip,rtot,Qload,Vtank,Vtank0,Phpa,nbit,code,maxc,sensData,sensCrc,sensBits16,Pmin,Pmax,
+       sig,rhoT,rT,Eind,SAR,SARlim,Hmax};
   return CUR;
 }
 
@@ -382,6 +417,7 @@ function recompute(){
   $('angv').textContent=$('ang').value+'°';
   $('sar-rv').textContent=parseFloat($('sar-r').value).toFixed(1)+' cm';
   $('rchipv').textContent=parseFloat($('rchip').value).toFixed(1)+' kΩ';
+  $('sens-pv').textContent=$('sens-p').value+' hPa';
   const c=compute();
   const hEl=$('m_h');
   hEl.textContent=fmtSI(c.H);
@@ -435,7 +471,14 @@ function recompute(){
   // validation
   $('vr1').textContent=fmtSI(Hax(c.N1,c.I1,c.a,0),'A/m')+'  (= '+fmtSI(c.N1*c.I1/(2*c.a),'A/m')+')';
   $('vr2').textContent=(1/(2*Math.PI*Math.sqrt(c.L2*c.C2))/1e6).toFixed(2)+' MHz';
-  drawSchema(c); drawFront(c); drawField(c); drawRes(c); drawSignal(c); drawAngle(c);
+  // sensor → frame text
+  const bin=c.sensBits16.join('').replace(/(.{4})/g,'$1 ').trim();
+  $('sens-out').innerHTML=t('sens.line')
+    .replace('{P}',c.Phpa).replace('{n}',c.nbit).replace('{code}',c.code).replace('{max}',c.maxc)
+    .replace('{hexcode}','0x'+(((c.sensData[0]<<8)|c.sensData[1]).toString(16).toUpperCase().padStart(4,'0')))
+    .replace('{bin}',bin).replace('{d0}',hex2(c.sensData[0])).replace('{d1}',hex2(c.sensData[1]))
+    .replace('{crc0}',hex2(c.sensCrc[0])).replace('{crc1}',hex2(c.sensCrc[1]));
+  drawSchema(c); drawFront(c); drawField(c); drawRes(c); drawSignal(c); drawAngle(c); drawSensor(c);
 }
 function preset(p){
   if(p==='card'){$('a').value=3;$('n1').value=1;$('i1').value=0.5;$('b').value=2.2;$('n2').value=4;$('q').value=20;$('z').value=2;}
@@ -575,6 +618,37 @@ function drawFront(c){
   x.fillText((LANG==='fr'?'Lecteur':'Reader')+' · N₁='+c.N1,cxL,h-14);
   x.fillText('Tag '+(LANG==='fr'?(sq?'(spirale carrée)':'(circulaire)'):(sq?'(square spiral)':'(circular)'))+' · N₂='+c.N2,cxR,h-14);
 }
+// load-modulation of the 16 payload bits: subcarrier burst, Manchester-coded (1=first half, 0=second)
+function drawSensor(c){
+  const cv=$('cv_sensor'); cv.style.height='210px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const fr=LANG==='fr', bits=c.sensBits16, n=16;
+  const x0=22,x1=w-14,yb=h*0.55,amp=30, cw=(x1-x0)/n;
+  // byte group shading
+  x.fillStyle='rgba(37,99,235,.05)';x.fillRect(x0,yb-amp-20,cw*8,2*amp+38);
+  x.fillStyle='rgba(13,148,136,.05)';x.fillRect(x0+cw*8,yb-amp-20,cw*8,2*amp+38);
+  // grid + baseline
+  for(let i=0;i<=n;i++){const bx=x0+i*cw;x.strokeStyle=(i%8===0)?'#cbd5e1':'#eef2f7';x.lineWidth=(i%8===0)?1.2:1;x.beginPath();x.moveTo(bx,yb-amp-16);x.lineTo(bx,yb+amp+8);x.stroke();}
+  x.strokeStyle='#e2e8f0';x.lineWidth=1;x.beginPath();x.moveTo(x0,yb);x.lineTo(x1,yb);x.stroke();
+  // per-bit label + Manchester subcarrier burst
+  for(let i=0;i<n;i++){
+    const b=bits[i], bx=x0+i*cw;
+    x.fillStyle=b?'#0f766e':'#64748b';x.textAlign='center';x.font='700 12px sans-serif';
+    x.fillText(b,bx+cw/2,yb-amp-22);
+    const hx0=bx+(b?0:cw*0.5);                  // burst half: bit1→first, bit0→second
+    x.strokeStyle='#0d9488';x.lineWidth=1.7;x.beginPath();
+    const NN=48; for(let j=0;j<=NN;j++){const u=j/NN;const X=hx0+u*cw*0.5;const Y=yb-amp*Math.sin(2*Math.PI*4*u);j?x.lineTo(X,Y):x.moveTo(X,Y);}
+    x.stroke();
+  }
+  // byte captions
+  x.fillStyle='#1e3a8a';x.font='11px sans-serif';x.textAlign='center';
+  x.fillText((fr?'octet fort':'high byte')+' 0x'+hex2(c.sensData[0]),x0+cw*4,yb+amp+24);
+  x.fillStyle='#0f766e';
+  x.fillText((fr?'octet faible':'low byte')+' 0x'+hex2(c.sensData[1]),x0+cw*12,yb+amp+24);
+  // title
+  x.textAlign='left';x.fillStyle='#94a3b8';x.font='10px sans-serif';
+  x.fillText(fr?'temps → (sous-porteuse 847,5 kHz, Manchester)':'time → (847.5 kHz subcarrier, Manchester)',x0,15);
+}
 // time-domain envelope of the carrier: ASK 100 % downlink then load-modulated uplink
 function drawSignal(c){
   const cv=$('cv_signal'); cv.style.height='300px'; const {x,w,h}=dpr(cv);
@@ -699,6 +773,15 @@ const I18N={
             en:"⚠️ <b>Loaded tank voltage {vt} V</b>: loaded Q = <b>{ql}</b> (vs {qu} unloaded). Just above the minimum supply — low margin (move the tag closer, lighten the load R_chip, or increase coupling)."},
  'res.under':{fr:"⛔ <b>Tension tank chargée {vt} V &lt; {vc} V</b> : le Q chargé ({ql}) est trop bas — la puce n'atteint pas sa tension d'alimentation, le tag ne démarre pas. Augmente R_chip (charge plus légère), le couplage ou le nombre de spires.",
               en:"⛔ <b>Loaded tank voltage {vt} V &lt; {vc} V</b>: the loaded Q ({ql}) is too low — the chip never reaches its supply voltage, the tag won't start. Increase R_chip (lighter load), the coupling or the turns."},
+ 'sens.t':{fr:"Exemple : capteur de pression → trame",en:"Example: pressure sensor → frame"},
+ 'sens.intro':{fr:"<b>Chaîne capteur —</b> le tag alimenté numérise sa mesure puis la renvoie par rétro-modulation : <b>capteur de pression</b> → <b>ADC</b> (n bits) → valeur binaire → <b>trame</b> (octets + CRC) → <b>codage Manchester</b> sur la sous-porteuse 847,5 kHz → <b>modulation de charge</b>. Le lecteur démodule les bandes latérales et reconstitue la valeur. (Ex. tags capteurs : pression de pneu, implants de pression intra-oculaire/crânienne, patchs NFC.)",
+               en:"<b>Sensor chain —</b> the powered tag digitises its reading then sends it back by load modulation: <b>pressure sensor</b> → <b>ADC</b> (n bits) → binary value → <b>frame</b> (bytes + CRC) → <b>Manchester coding</b> on the 847.5 kHz subcarrier → <b>load modulation</b>. The reader demodulates the sidebands and recovers the value. (e.g. sensor tags: tyre pressure, intraocular/intracranial pressure implants, NFC patches.)"},
+ 'sens.p':{fr:"Pression mesurée",en:"Measured pressure"},
+ 'sens.bits':{fr:"Résolution ADC",en:"ADC resolution"},
+ 'sens.line':{fr:"Pression <b>P = {P} hPa</b> → code ADC {n} bits = <b>{code}</b> / {max} = <b>{hexcode}</b> = <code>{bin}</code><br>Trame réponse (PICC→PCD) : <b>SOF</b> | données <code>{d0} {d1}</code> | CRC_A <code>{crc0} {crc1}</code> | <b>EOF</b>",
+               en:"Pressure <b>P = {P} hPa</b> → {n}-bit ADC code = <b>{code}</b> / {max} = <b>{hexcode}</b> = <code>{bin}</code><br>Response frame (PICC→PCD): <b>SOF</b> | data <code>{d0} {d1}</code> | CRC_A <code>{crc0} {crc1}</code> | <b>EOF</b>"},
+ 'sens.sub':{fr:"Rétro-modulation des 2 octets de données : sous-porteuse 847,5 kHz, codage Manchester (1 = salve en 1ʳᵉ moitié de bit, 0 = en 2ᵉ moitié). C'est ce motif que le lecteur démodule pour relire la pression.",
+             en:"Load modulation of the 2 data bytes: 847.5 kHz subcarrier, Manchester coding (1 = burst in the first half-bit, 0 = in the second). This is the pattern the reader demodulates to read the pressure back."},
  'sch.t':{fr:"Schéma de la liaison",en:"Link schematic"},
  'sch.side':{fr:"Vue de côté — alignement",en:"Side view — alignment"},
  'sch.frontt':{fr:"Vue de face — géométrie des bobines",en:"Front view — coil geometry"},
@@ -785,7 +868,7 @@ function applyLang(){
 }
 function toggleLang(){LANG=LANG==='fr'?'en':'fr';localStorage.setItem('emtools_lang',LANG);applyLang();recompute();}
 applyLang(); recompute();
-window.addEventListener('resize',()=>{const c=CUR||compute();drawSchema(c);drawFront(c);drawField(c);drawRes(c);drawSignal(c);drawAngle(c);});
+window.addEventListener('resize',()=>{const c=CUR||compute();drawSchema(c);drawFront(c);drawField(c);drawRes(c);drawSignal(c);drawAngle(c);drawSensor(c);});
 </script>
 </body>
 </html>
