@@ -294,7 +294,7 @@ table.frames code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8
     </div>
     <div id="sens-out" style="font-size:.9rem;margin:.9rem 0 .2rem"></div>
     <canvas id="cv_sensor" width="900" height="210"></canvas>
-    <div class="sub" style="font-size:.76rem;color:var(--text2);margin-top:.4rem" data-i18n="sens.sub">Rétro-modulation des 2 octets de données : sous-porteuse 847,5 kHz, codage Manchester (1 = salve en 1ʳᵉ moitié de bit, 0 = en 2ᵉ moitié). C'est ce motif que le lecteur démodule pour relire la pression.</div>
+    <div class="sub" style="font-size:.76rem;color:var(--text2);margin-top:.4rem" data-i18n-html="sens.sub"></div>
   </div>
 
   <div class="panel" style="margin-top:1.4rem">
@@ -618,36 +618,39 @@ function drawFront(c){
   x.fillText((LANG==='fr'?'Lecteur':'Reader')+' · N₁='+c.N1,cxL,h-14);
   x.fillText('Tag '+(LANG==='fr'?(sq?'(spirale carrée)':'(circulaire)'):(sq?'(square spiral)':'(circular)'))+' · N₂='+c.N2,cxR,h-14);
 }
-// load-modulation of the 16 payload bits: subcarrier burst, Manchester-coded (1=first half, 0=second)
+// payload bits as (1) NRZ logic levels — connected high/low — and (2) the Manchester load-modulation
 function drawSensor(c){
-  const cv=$('cv_sensor'); cv.style.height='210px'; const {x,w,h}=dpr(cv);
+  const cv=$('cv_sensor'); cv.style.height='250px'; const {x,w,h}=dpr(cv);
   x.clearRect(0,0,w,h);
   const fr=LANG==='fr', bits=c.sensBits16, n=16;
-  const x0=22,x1=w-14,yb=h*0.55,amp=30, cw=(x1-x0)/n;
-  // byte group shading
-  x.fillStyle='rgba(37,99,235,.05)';x.fillRect(x0,yb-amp-20,cw*8,2*amp+38);
-  x.fillStyle='rgba(13,148,136,.05)';x.fillRect(x0+cw*8,yb-amp-20,cw*8,2*amp+38);
-  // grid + baseline
-  for(let i=0;i<=n;i++){const bx=x0+i*cw;x.strokeStyle=(i%8===0)?'#cbd5e1':'#eef2f7';x.lineWidth=(i%8===0)?1.2:1;x.beginPath();x.moveTo(bx,yb-amp-16);x.lineTo(bx,yb+amp+8);x.stroke();}
+  const x0=24,x1=w-14, cw=(x1-x0)/n;
+  // byte group shading (full height)
+  x.fillStyle='rgba(37,99,235,.05)';x.fillRect(x0,28,cw*8,h-50);
+  x.fillStyle='rgba(13,148,136,.05)';x.fillRect(x0+cw*8,28,cw*8,h-50);
+  // bit grid
+  for(let i=0;i<=n;i++){const bx=x0+i*cw;x.strokeStyle=(i%8===0)?'#cbd5e1':'#eef2f7';x.lineWidth=(i%8===0)?1.2:1;x.beginPath();x.moveTo(bx,28);x.lineTo(bx,h-22);x.stroke();}
+  // bit value labels on top
+  for(let i=0;i<n;i++){const b=bits[i];x.fillStyle=b?'#0f766e':'#64748b';x.textAlign='center';x.font='700 12px sans-serif';x.fillText(b,x0+i*cw+cw/2,24);}
+  // ── trace 1 : NRZ logic levels — connected square wave (1 = high, 0 = low) ──
+  const yHi=58, yLo=98;
+  x.fillStyle='#cbd5e1';x.textAlign='right';x.font='9px sans-serif';x.fillText('1',x0-4,yHi+3);x.fillText('0',x0-4,yLo+3);
+  x.strokeStyle='#e2e8f0';x.setLineDash([2,3]);x.lineWidth=1;
+  x.beginPath();x.moveTo(x0,yHi);x.lineTo(x1,yHi);x.moveTo(x0,yLo);x.lineTo(x1,yLo);x.stroke();x.setLineDash([]);
+  x.strokeStyle='#2563eb';x.lineWidth=2.4;x.beginPath();
+  for(let i=0;i<n;i++){const y=bits[i]?yHi:yLo; if(i===0)x.moveTo(x0,y); else x.lineTo(x0+i*cw,y); x.lineTo(x0+(i+1)*cw,y);}
+  x.stroke();
+  x.fillStyle='#1e3a8a';x.font='11px sans-serif';x.textAlign='left';x.fillText(fr?'bits de données — niveaux logiques (NRZ)':'data bits — logic levels (NRZ)',x0+4,yLo+22);
+  // ── trace 2 : Manchester load modulation — subcarrier burst per half-bit ──
+  const yb=h-66, amp=24;
   x.strokeStyle='#e2e8f0';x.lineWidth=1;x.beginPath();x.moveTo(x0,yb);x.lineTo(x1,yb);x.stroke();
-  // per-bit label + Manchester subcarrier burst
-  for(let i=0;i<n;i++){
-    const b=bits[i], bx=x0+i*cw;
-    x.fillStyle=b?'#0f766e':'#64748b';x.textAlign='center';x.font='700 12px sans-serif';
-    x.fillText(b,bx+cw/2,yb-amp-22);
-    const hx0=bx+(b?0:cw*0.5);                  // burst half: bit1→first, bit0→second
-    x.strokeStyle='#0d9488';x.lineWidth=1.7;x.beginPath();
-    const NN=48; for(let j=0;j<=NN;j++){const u=j/NN;const X=hx0+u*cw*0.5;const Y=yb-amp*Math.sin(2*Math.PI*4*u);j?x.lineTo(X,Y):x.moveTo(X,Y);}
-    x.stroke();
-  }
+  for(let i=0;i<n;i++){const b=bits[i],bx=x0+i*cw,hx0=bx+(b?0:cw*0.5);
+    x.strokeStyle='#0d9488';x.lineWidth=1.6;x.beginPath();
+    const NN=44;for(let j=0;j<=NN;j++){const u=j/NN;const X=hx0+u*cw*0.5;const Y=yb-amp*Math.sin(2*Math.PI*4*u);j?x.lineTo(X,Y):x.moveTo(X,Y);}
+    x.stroke();}
+  x.fillStyle='#0f766e';x.font='11px sans-serif';x.textAlign='left';x.fillText(fr?'rétro-modulation — Manchester sur sous-porteuse 847,5 kHz':'load modulation — Manchester on 847.5 kHz subcarrier',x0+4,yb-amp-6);
   // byte captions
-  x.fillStyle='#1e3a8a';x.font='11px sans-serif';x.textAlign='center';
-  x.fillText((fr?'octet fort':'high byte')+' 0x'+hex2(c.sensData[0]),x0+cw*4,yb+amp+24);
-  x.fillStyle='#0f766e';
-  x.fillText((fr?'octet faible':'low byte')+' 0x'+hex2(c.sensData[1]),x0+cw*12,yb+amp+24);
-  // title
-  x.textAlign='left';x.fillStyle='#94a3b8';x.font='10px sans-serif';
-  x.fillText(fr?'temps → (sous-porteuse 847,5 kHz, Manchester)':'time → (847.5 kHz subcarrier, Manchester)',x0,15);
+  x.fillStyle='#1e3a8a';x.font='11px sans-serif';x.textAlign='center';x.fillText((fr?'octet fort':'high byte')+' 0x'+hex2(c.sensData[0]),x0+cw*4,h-7);
+  x.fillStyle='#0f766e';x.fillText((fr?'octet faible':'low byte')+' 0x'+hex2(c.sensData[1]),x0+cw*12,h-7);
 }
 // time-domain envelope of the carrier: ASK 100 % downlink then load-modulated uplink
 function drawSignal(c){
@@ -780,8 +783,8 @@ const I18N={
  'sens.bits':{fr:"Résolution ADC",en:"ADC resolution"},
  'sens.line':{fr:"Pression <b>P = {P} hPa</b> → code ADC {n} bits = <b>{code}</b> / {max} = <b>{hexcode}</b> = <code>{bin}</code><br>Trame réponse (PICC→PCD) : <b>SOF</b> | données <code>{d0} {d1}</code> | CRC_A <code>{crc0} {crc1}</code> | <b>EOF</b>",
                en:"Pressure <b>P = {P} hPa</b> → {n}-bit ADC code = <b>{code}</b> / {max} = <b>{hexcode}</b> = <code>{bin}</code><br>Response frame (PICC→PCD): <b>SOF</b> | data <code>{d0} {d1}</code> | CRC_A <code>{crc0} {crc1}</code> | <b>EOF</b>"},
- 'sens.sub':{fr:"Rétro-modulation des 2 octets de données : sous-porteuse 847,5 kHz, codage Manchester (1 = salve en 1ʳᵉ moitié de bit, 0 = en 2ᵉ moitié). C'est ce motif que le lecteur démodule pour relire la pression.",
-             en:"Load modulation of the 2 data bytes: 847.5 kHz subcarrier, Manchester coding (1 = burst in the first half-bit, 0 = in the second). This is the pattern the reader demodulates to read the pressure back."},
+ 'sens.sub':{fr:"En haut : les 2 octets en <b>niveaux logiques NRZ</b> (1 = niveau haut, 0 = niveau bas, reliés par les transitions). En bas : le codage <b>Manchester</b> de ces bits sur la sous-porteuse 847,5 kHz (1 = salve en 1ʳᵉ moitié de bit, 0 = en 2ᵉ moitié) — le motif réellement rétro-modulé que le lecteur démodule pour relire la pression.",
+             en:"Top: the 2 bytes as <b>NRZ logic levels</b> (1 = high, 0 = low, joined by transitions). Bottom: the <b>Manchester</b> coding of those bits on the 847.5 kHz subcarrier (1 = burst in the first half-bit, 0 = in the second) — the actually load-modulated pattern the reader demodulates to read the pressure back."},
  'sch.t':{fr:"Schéma de la liaison",en:"Link schematic"},
  'sch.side':{fr:"Vue de côté — alignement",en:"Side view — alignment"},
  'sch.frontt':{fr:"Vue de face — géométrie des bobines",en:"Front view — coil geometry"},
