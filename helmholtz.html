@@ -167,6 +167,7 @@ table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
       <div class="metric"><div class="k" data-i18n="tri.dir">Direction du champ</div><div class="v" id="m_tdir" style="font-size:.95rem">—</div><div class="u">θ, φ</div></div>
       <div class="metric"><div class="k" data-i18n="tri.mut">Mutuelle inter-axes</div><div class="v ok" id="m_tmut">≈ 0</div><div class="u" data-i18n="tri.mutu">compensée</div></div>
     </div>
+    <div id="tri-curr" style="display:flex;gap:.7rem;flex-wrap:wrap;align-items:center;margin-top:1rem"></div>
     <canvas id="cv_tri" width="900" height="460" style="cursor:grab;touch-action:none;margin-top:1rem"></canvas>
     <div class="sub" style="font-size:.76rem;color:var(--text2);margin-top:.4rem" data-i18n="tri.sub">Glisse pour tourner. Trois paires de Helmholtz orthogonales (axes x rouge, y vert, z bleu) ; en combinant les courants, le champ uniforme central (flèche orange) pointe dans n'importe quelle direction. Les paires d'axes perpendiculaires ne se couplent pas (mutuelle nulle).</div>
   </div>
@@ -532,9 +533,10 @@ function recomputeTri(){
   $('tri-th').disabled=(np===2);
   const th=(np===2?Math.PI/2:parseFloat($('tri-th').value)*Math.PI/180), ph=parseFloat($('tri-ph').value)*Math.PI/180;
   const u=[Math.sin(th)*Math.cos(ph),Math.sin(th)*Math.sin(ph),Math.cos(th)];
-  const R=CUR.R, NI=CUR.NI, Rk=[R,1.16*R,1.32*R], axes=[[1,0,0],[0,1,0],[0,0,1]], coils=[];
-  axes.slice(0,np).forEach((a,k)=>{const NIk=NI*u[k]*Rk[k]/R, d=Rk[k];
-    [-0.5,0.5].forEach(s=>coils.push({cc:[a[0]*s*d,a[1]*s*d,a[2]*s*d],ax:a,R:Rk[k],NI:NIk}));});
+  // identical pairs (same R, N): the per-axis current I_k = I·u_k sets the field direction
+  const R=CUR.R, NI=CUR.NI, I=CUR.I, axes=[[1,0,0],[0,1,0],[0,0,1]], coils=[];
+  axes.slice(0,np).forEach((a,k)=>{const NIk=NI*u[k], d=R;
+    [-0.5,0.5].forEach(s=>coils.push({cc:[a[0]*s*d,a[1]*s*d,a[2]*s*d],ax:a,R:R,NI:NIk}));});
   // field lines seeded on a disc perpendicular to u
   const e1=normalize(cross(u,Math.abs(u[2])<0.9?[0,0,1]:[1,0,0])), e2=cross(u,e1), lines=[];
   [0.4,0.8].forEach(fr=>{const sr=fr*R; for(let a=0;a<2*Math.PI-1e-6;a+=Math.PI/2){
@@ -542,6 +544,13 @@ function recomputeTri(){
     lines.push(triLine(coils,seed,R));}});
   const B0mag=Math.pow(4/5,1.5)*MU0*NI/R;
   TRI={coils,lines,u,B0mag,R};
+  // currents to inject on each pair: I_k = I·u_k (sign = sense of the current)
+  const cols=['#dc2626','#16a34a','#2563eb'], names=['x','y','z'];
+  let chips='<div style="font-size:.8rem;color:var(--text2);width:100%;margin-bottom:.35rem">'+t('tri.curr')+'</div>';
+  for(let k=0;k<np;k++){const Ik=I*u[k], sgn=Ik>=0?'+':'−', sens=t(Ik>=0?'tri.sp':'tri.sm');
+    chips+='<div style="border:1.5px solid '+cols[k]+';border-radius:9px;padding:.45rem .8rem;font-size:.86rem;background:#fff">'
+      +'<b style="color:'+cols[k]+'">'+t('tri.pair')+' '+names[k]+'</b> · I = <b>'+sgn+Math.abs(Ik).toFixed(2)+' A</b> <span style="color:var(--text2)">('+sens+')</span></div>';}
+  $('tri-curr').innerHTML=chips;
   $('m_tb').textContent=fmtB(B0mag); $('m_tbu').textContent=B0mag<1e-3?'µT':'mT';
   $('m_tdir').textContent=(np===2?(LANG==='fr'?'plan xy · φ=':'xy-plane · φ=')+$('tri-ph').value+'°':'θ='+$('tri-th').value+'° · φ='+$('tri-ph').value+'°');
   drawTri();
@@ -650,8 +659,11 @@ const I18N={
  'viz3d.sub':{fr:"Glisse pour tourner. Les deux bobines (anneaux) et les lignes de champ (révolution autour de l'axe) : presque rectilignes au centre (région uniforme), refermées à l'extérieur.",
               en:"Drag to rotate. The two coils (rings) and the field lines (revolved around the axis): nearly straight at the centre (uniform region), closing back outside."},
  'tri.t':{fr:"Banc tri-axial — champ vectoriel & compensation des mutuelles",en:"Tri-axial bench — vector field & mutual compensation"},
- 'tri.intro':{fr:"<b>Banc 3 axes —</b> trois paires de Helmholtz <b>orthogonales</b> (x, y, z) permettent de générer un champ uniforme dans <b>n'importe quelle direction</b> en combinant les courants. Point clé (ta Figure 2.14) : les <b>mutuelles entre axes orthogonaux s'annulent</b> — le flux d'une paire « secondaire » à travers une bobine « considérée » perpendiculaire se compense (un <b>+</b> et un <b>−</b> d'aires égales). Chaque bobine ne couple donc qu'avec sa paire (L<sub>équ</sub> = L<sub>propre</sub> + M).",
-              en:"<b>3-axis bench —</b> three <b>orthogonal</b> Helmholtz pairs (x, y, z) generate a uniform field in <b>any direction</b> by combining the currents. Key point (your Figure 2.14): the <b>mutuals between orthogonal axes cancel</b> — the flux of a “secondary” pair through a perpendicular “considered” coil compensates (a <b>+</b> and a <b>−</b> of equal area). Each coil thus couples only with its own pair (L<sub>eq</sub> = L<sub>self</sub> + M)."},
+ 'tri.intro':{fr:"<b>Banc 3 axes —</b> trois paires de Helmholtz <b>orthogonales</b> (x, y, z). <b>C'est le triplet de courants (I<sub>x</sub>, I<sub>y</sub>, I<sub>z</sub>) qui fixe la direction du champ</b> : le champ pointe dans la direction du vecteur courant, soit I<sub>x</sub> : I<sub>y</sub> : I<sub>z</sub> = cosinus directeurs. θ et φ ne servent qu'à choisir commodément cette direction ; l'outil <b>en déduit les courants à injecter</b> (ci-dessous), un signe négatif = courant inversé. Point clé (ta Figure 2.14) : les <b>mutuelles entre axes orthogonaux s'annulent</b> — le flux d'une paire à travers une bobine perpendiculaire se compense (un <b>+</b> et un <b>−</b> d'aires égales). Chaque bobine ne couple qu'avec sa paire (L<sub>équ</sub> = L<sub>propre</sub> + M).",
+              en:"<b>3-axis bench —</b> three <b>orthogonal</b> Helmholtz pairs (x, y, z). <b>The current triplet (I<sub>x</sub>, I<sub>y</sub>, I<sub>z</sub>) sets the field direction</b>: the field points along the current vector, i.e. I<sub>x</sub> : I<sub>y</sub> : I<sub>z</sub> = direction cosines. θ and φ are just a convenient way to choose that direction; the tool <b>derives the currents to inject</b> (below), a negative sign = reversed current. Key point (your Figure 2.14): the <b>mutuals between orthogonal axes cancel</b> — the flux of a pair through a perpendicular coil compensates (a <b>+</b> and a <b>−</b> of equal area). Each coil couples only with its own pair (L<sub>eq</sub> = L<sub>self</sub> + M)."},
+ 'tri.curr':{fr:"⚡ Courants à injecter (paires identiques R, N) — c'est leur amplitude et leur signe qui fixent la direction :",en:"⚡ Currents to inject (identical pairs R, N) — their amplitude and sign set the direction:"},
+ 'tri.pair':{fr:"paire",en:"pair"},
+ 'tri.sp':{fr:"sens +",en:"+ sense"},'tri.sm':{fr:"sens inversé",en:"reversed sense"},
  'tri.np':{fr:"Nombre de paires",en:"Number of pairs"},
  'tri.np2':{fr:"2 paires (champ dans le plan xy)",en:"2 pairs (field in the xy plane)"},
  'tri.np3':{fr:"3 paires (champ dans l'espace)",en:"3 pairs (field in space)"},
