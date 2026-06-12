@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EMtools — Recharge sans fil</title>
+<meta name="description" content="EMtools — télé-alimentation sans fil : couplage inductif/résonant et radiatif (rectenna). Émission, champ, réception, redressement, stockage, charge. Par Hakeim Talleb.">
+<style>
+:root{--navy:#1a2e4a;--teal:#0d9488;--teal2:#0f766e;--teal-light:#e6f7f5;--gold:#d97706;
+  --text:#1e293b;--text2:#64748b;--border:#e2e8f0;--bg:#f8fafc;--bg2:#f0fdf9;--white:#fff;--radius:14px;--shadow:0 2px 14px rgba(26,46,74,.08);}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--text);background:var(--bg);line-height:1.6}
+a{color:var(--teal2)}
+.wrap{max-width:980px;margin:0 auto;padding:0 1.25rem}
+#lang-toggle{position:fixed;top:14px;right:16px;z-index:50;background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.45);border-radius:8px;padding:5px 12px;font-size:13px;font-weight:700;cursor:pointer;backdrop-filter:blur(4px)}
+header{background:linear-gradient(135deg,#1a2e4a,#0f3a4d);color:#fff;padding:2.4rem 0 2rem}
+header .wrap{display:flex;flex-direction:column;gap:.4rem}
+header .back{font-size:.82rem;color:#94a3b8;text-decoration:none}
+header .back:hover{color:#cbd5e1}
+header h1{font-size:1.7rem;font-weight:800;letter-spacing:-.02em}
+header .tag{font-size:1rem;color:#cbd5e1;max-width:700px}
+main{padding:2rem 0 3rem}
+.intro{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius);padding:1rem 1.2rem;font-size:.9rem;margin-bottom:1.6rem}
+.intro b{color:var(--navy)}
+.panel{background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.3rem 1.4rem;margin-bottom:1.4rem}
+.ptitle{font-size:.78rem;font-weight:700;color:var(--teal2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:1rem}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:1rem 1.4rem}
+.ctrl{display:flex;flex-direction:column;gap:.3rem}
+.ctrl label{font-size:.82rem;font-weight:600;color:var(--text2)}
+.ctrl input,.ctrl select{font:inherit;font-size:.92rem;padding:.45rem .55rem;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--text)}
+.ctrl input[type=range]{padding:0}
+.ctrl .val{font-size:.8rem;color:var(--teal2);font-weight:700}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.9rem}
+.metric{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:.8rem .9rem}
+.metric .k{font-size:.74rem;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.metric .v{font-size:1.2rem;font-weight:800;color:var(--navy);margin-top:.15rem}
+.metric .u{font-size:.78rem;color:var(--text2);font-weight:600}
+.metric.hl{background:var(--teal-light);border-color:#99e6dc}.metric.hl .v{color:var(--teal2)}
+.metric .v.ok{color:#15803d}.metric .v.bad{color:#b45309}
+/* chain */
+.chain{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;margin:.3rem 0}
+.cbox{flex:1 1 0;min-width:120px;border:1.5px solid var(--border);border-radius:11px;padding:.7rem .6rem;text-align:center;background:#fff}
+.cbox .ct{font-size:.74rem;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.02em}
+.cbox .cv{font-size:1.05rem;font-weight:800;color:var(--navy);margin-top:.2rem}
+.cbox .cs{font-size:.72rem;color:var(--text2)}
+.cbox.tx{border-color:#bfdbfe;background:#eff6ff}.cbox.rx{border-color:#99e6dc;background:var(--teal-light)}
+.cbox.rect{border-color:#fed7aa;background:#fff7ed}.cbox.store{border-color:#ddd6fe;background:#f5f3ff}.cbox.load{border-color:#bbf7d0;background:#f0fdf4}
+.carr{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:54px;color:var(--text2)}
+.carr .ca{font-size:1.4rem;line-height:1;color:var(--teal2)}
+.carr .cl{font-size:.66rem;text-align:center;margin-top:.1rem}
+@media(max-width:760px){.chain{flex-direction:column}.carr{flex-direction:row;min-height:30px;gap:8px}.carr .ca{transform:rotate(90deg)}}
+.plots{display:grid;grid-template-columns:1fr 1fr;gap:1.4rem}
+.plotbox{display:flex;flex-direction:column;gap:.4rem}
+.plotbox h4{font-size:.86rem;font-weight:700;color:var(--navy)}
+.plotbox .sub{font-size:.74rem;color:var(--text2)}
+canvas{width:100%;height:auto;background:#fff;border:1px solid var(--border);border-radius:10px}
+@media(max-width:760px){.plots{grid-template-columns:1fr}}
+.warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:10px;padding:.7rem .9rem;font-size:.83rem;margin-top:1rem}
+footer{border-top:1px solid var(--border);padding:1.5rem 0;font-size:.8rem;color:var(--text2);margin-top:1rem}
+footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+footer a{color:var(--text2)}
+table.valid{width:100%;border-collapse:collapse;font-size:.84rem;margin-top:.4rem}
+table.valid th,table.valid td{border:1px solid var(--border);padding:.35rem .55rem;text-align:left}
+table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
+</style>
+</head>
+<body>
+<button id="lang-toggle" onclick="toggleLang()">EN</button>
+
+<header><div class="wrap">
+  <a class="back" href="index.html">← <span data-i18n="back.hub">EMtools</span></a>
+  <h1>🔋 <span data-i18n="title">Recharge sans fil</span></h1>
+  <div class="tag" data-i18n="tag">Télé-alimentation sans fil : du champ émis à l'élément alimenté — couplage (inductif/résonant ou radiatif), réception, redressement, stockage, charge.</div>
+</div></header>
+
+<main class="wrap">
+  <div class="intro" data-i18n-html="intro">
+    <b>Principe —</b> on transfère de l'énergie sans contact en passant par une chaîne :
+    <b>émetteur</b> → <b>champ/onde</b> → <b>récepteur</b> → <b>redressement (AC→DC)</b> → <b>stockage</b> →
+    <b>charge</b>. En <b>champ proche</b> (Qi, implants, véhicules), deux bobines accordées se couplent
+    (facteur de mérite <b>k·Q</b>) ; en <b>champ lointain</b> (rectenna), une antenne capte l'onde
+    rayonnée (bilan de Friis). À chaque étage, un rendement &lt; 1 réduit la puissance utile.
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="cfg">Configuration</div>
+    <div class="controls">
+      <div class="ctrl">
+        <label data-i18n="mode">Mode de transfert</label>
+        <select id="mode" onchange="setMode()">
+          <option value="ind" data-i18n="m.ind">Inductif / résonant (champ proche)</option>
+          <option value="rad" data-i18n="m.rad">Radiatif / rectenna (champ lointain)</option>
+        </select>
+      </div>
+      <div class="ctrl"><label><span data-i18n="ptx">Puissance émise P_tx</span> · <span id="ptxv" class="val">10 W</span></label><input id="ptx" type="range" min="0.5" max="100" step="0.5" value="10" oninput="recompute()"></div>
+      <!-- inductive -->
+      <div class="ctrl grp-ind"><label><span data-i18n="f0">Fréquence f₀</span> · <span id="f0v" class="val">6.78 MHz</span></label><input id="f0" type="range" min="0.05" max="13.56" step="0.01" value="6.78" oninput="recompute()"></div>
+      <div class="ctrl grp-ind"><label><span data-i18n="a1">Rayon bobine émettrice a₁</span> · <span id="a1v" class="val">15 cm</span></label><input id="a1" type="range" min="2" max="40" step="0.5" value="15" oninput="recompute()"></div>
+      <div class="ctrl grp-ind"><label><span data-i18n="a2">Rayon bobine réceptrice a₂</span> · <span id="a2v" class="val">5 cm</span></label><input id="a2" type="range" min="1" max="30" step="0.5" value="5" oninput="recompute()"></div>
+      <div class="ctrl grp-ind"><label><span data-i18n="N">Spires N₁ = N₂</span> · <span id="Nv" class="val">10</span></label><input id="N" type="range" min="1" max="40" step="1" value="10" oninput="recompute()"></div>
+      <div class="ctrl grp-ind"><label><span data-i18n="dist">Distance d</span> · <span id="distv" class="val">5 cm</span></label><input id="dist" type="range" min="0.5" max="40" step="0.5" value="5" oninput="recompute()"></div>
+      <div class="ctrl grp-ind"><label><span data-i18n="Q">Facteur de qualité Q (bobines)</span> · <span id="Qv" class="val">150</span></label><input id="Q" type="range" min="20" max="500" step="5" value="150" oninput="recompute()"></div>
+      <!-- radiative -->
+      <div class="ctrl grp-rad"><label><span data-i18n="frad">Fréquence f</span> · <span id="fradv" class="val">2.45 GHz</span></label><input id="frad" type="range" min="0.1" max="30" step="0.05" value="2.45" oninput="recompute()"></div>
+      <div class="ctrl grp-rad"><label><span data-i18n="gt">Gain émetteur G_t</span> · <span id="gtv" class="val">20 dBi</span></label><input id="gt" type="range" min="0" max="40" step="1" value="20" oninput="recompute()"></div>
+      <div class="ctrl grp-rad"><label><span data-i18n="gr">Gain récepteur G_r</span> · <span id="grv" class="val">10 dBi</span></label><input id="gr" type="range" min="0" max="40" step="1" value="10" oninput="recompute()"></div>
+      <div class="ctrl grp-rad"><label><span data-i18n="drad">Distance d</span> · <span id="drad-v" class="val">2.0 m</span></label><input id="drad" type="range" min="0.1" max="50" step="0.1" value="2" oninput="recompute()"></div>
+      <!-- common downstream -->
+      <div class="ctrl"><label><span data-i18n="erect">Rendement redresseur η_rect</span> · <span id="erectv" class="val">85 %</span></label><input id="erect" type="range" min="40" max="98" step="1" value="85" oninput="recompute()"></div>
+      <div class="ctrl"><label><span data-i18n="estore">Rendement stockage η_store</span> · <span id="estorev" class="val">90 %</span></label><input id="estore" type="range" min="50" max="99" step="1" value="90" oninput="recompute()"></div>
+      <div class="ctrl"><label><span data-i18n="batt">Capacité batterie</span> · <span id="battv" class="val">10 Wh</span></label><input id="batt" type="range" min="0.5" max="100" step="0.5" value="10" oninput="recompute()"></div>
+    </div>
+    <div class="row-btns" style="margin-top:.6rem;display:flex;gap:.5rem;flex-wrap:wrap">
+      <button class="pbtn" onclick="preset('qi')" style="font:inherit;font-size:.82rem;font-weight:700;color:var(--teal2);background:var(--teal-light);border:1px solid #99e6dc;border-radius:7px;padding:.35rem .7rem;cursor:pointer" data-i18n="p.qi">Chargeur Qi (téléphone)</button>
+      <button class="pbtn" onclick="preset('implant')" style="font:inherit;font-size:.82rem;font-weight:700;color:var(--teal2);background:var(--teal-light);border:1px solid #99e6dc;border-radius:7px;padding:.35rem .7rem;cursor:pointer" data-i18n="p.implant">Implant biomédical</button>
+      <button class="pbtn" onclick="preset('beam')" style="font:inherit;font-size:.82rem;font-weight:700;color:var(--teal2);background:var(--teal-light);border:1px solid #99e6dc;border-radius:7px;padding:.35rem .7rem;cursor:pointer" data-i18n="p.beam">Faisceau micro-ondes</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="ch">Chaîne de télé-alimentation</div>
+    <div class="chain">
+      <div class="cbox tx"><div class="ct" data-i18n="c.tx">Émetteur</div><div class="cv" id="c-tx">—</div><div class="cs" data-i18n="c.txs">puissance émise</div></div>
+      <div class="carr"><div class="ca">→</div><div class="cl" id="c-link">—</div></div>
+      <div class="cbox rx"><div class="ct" data-i18n="c.rx">Récepteur</div><div class="cv" id="c-rx">—</div><div class="cs" data-i18n="c.rxs">capté (AC)</div></div>
+      <div class="carr"><div class="ca">→</div><div class="cl" id="c-rect">—</div></div>
+      <div class="cbox rect"><div class="ct" data-i18n="c.rect">Redresseur</div><div class="cv" id="c-dc">—</div><div class="cs" data-i18n="c.rects">DC</div></div>
+      <div class="carr"><div class="ca">→</div><div class="cl" id="c-store">—</div></div>
+      <div class="cbox store"><div class="ct" data-i18n="c.store">Stockage</div><div class="cv" id="c-batt">—</div><div class="cs" data-i18n="c.stores">batterie</div></div>
+      <div class="carr"><div class="ca">→</div><div class="cl"></div></div>
+      <div class="cbox load"><div class="ct" data-i18n="c.load">Charge</div><div class="cv" id="c-load">—</div><div class="cs" data-i18n="c.loads">élément alimenté</div></div>
+    </div>
+    <div class="metrics" style="margin-top:1.1rem">
+      <div class="metric hl"><div class="k" data-i18n="m.eff">Rendement total (P_load/P_tx)</div><div class="v" id="m_eff">—</div><div class="u">%</div></div>
+      <div class="metric"><div class="k" id="m1k" data-i18n="m.k">Couplage k</div><div class="v" id="m1">—</div><div class="u" id="m1u"></div></div>
+      <div class="metric"><div class="k" id="m2k" data-i18n="m.kq">Facteur de mérite k·Q</div><div class="v" id="m2">—</div><div class="u" id="m2u"></div></div>
+      <div class="metric"><div class="k" data-i18n="m.charge">Temps de charge batterie</div><div class="v" id="m_tc">—</div><div class="u" id="m_tcu"></div></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="viz">Rendement</div>
+    <div class="plots">
+      <div class="plotbox">
+        <h4 id="p1t" data-i18n="p.dist">Rendement total vs distance</h4>
+        <div class="sub" id="p1s" data-i18n="p.dist.sub">Le couplage chute avec la distance → le rendement s'effondre.</div>
+        <canvas id="cv_dist" width="440" height="320"></canvas>
+      </div>
+      <div class="plotbox">
+        <h4 data-i18n="p.kq">Rendement bobine-bobine vs k·Q</h4>
+        <div class="sub" data-i18n="p.kq.sub">Courbe universelle : il faut k·Q ≫ 1 pour un bon rendement.</div>
+        <canvas id="cv_kq" width="440" height="320"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="valid">Validation &amp; repères</div>
+    <table class="valid">
+      <thead><tr><th data-i18n="v.case">Cas</th><th data-i18n="v.tool">Cet outil</th><th data-i18n="v.ref">Repère</th></tr></thead>
+      <tbody>
+        <tr><td data-i18n="v.qi">Chargeur Qi (~5–10 cm, kQ qq. unités)</td><td id="vr1">—</td><td data-i18n="v.qiref">rendement bobine ~70–90 %</td></tr>
+        <tr><td data-i18n="v.eta">η bobine-bobine = U²/(1+√(1+U²))², U=k√(Q₁Q₂)</td><td data-i18n="v.etaok">vérifié</td><td>U→∞ ⟹ η→100 %</td></tr>
+        <tr><td data-i18n="v.friis">Radiatif : Friis P_r = P_t·G_t·G_r·(λ/4πd)²</td><td data-i18n="v.friisok">vérifié</td><td data-i18n="v.friisr">décroît en 1/d²</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="warn" data-i18n-html="disclaimer"><b>Outil pédagogique —</b> modèle de premier ordre. Couplage de deux boucles coaxiales (mutuelle analytique), rendement bobine-bobine à charge optimale (figure de mérite k·Q), rendements de redressement/stockage forfaitaires. Le radiatif suppose le champ lointain (Friis, antennes adaptées). Ne tient pas compte du désaccord, de la régulation, du positionnement réel ni des limites d'exposition (voir l'outil Dosimétrie).</div>
+</main>
+
+<footer><div class="wrap">
+  <span data-i18n-html="footer.lic">© 2026 Hakeim Talleb · EMtools · Code sous licence <a href="LICENSE">MIT</a></span>
+  <span><a href="index.html" data-i18n="footer.home">← Tous les outils EMtools</a></span>
+</div></footer>
+
+<script>
+function $(id){return document.getElementById(id);}
+function dpr(cv){const r=window.devicePixelRatio||1;const w=cv.clientWidth||parseFloat(cv.style.width)||cv.width;const h=parseFloat(cv.style.height)||cv.clientHeight||cv.height;cv.width=Math.round(w*r);cv.height=Math.round(h*r);const x=cv.getContext('2d');x.setTransform(r,0,0,r,0,0);return {x,w,h};}
+const MU0=4*Math.PI*1e-7, C0=2.998e8;
+function Mut(N1,N2,a,b,z){ return MU0*Math.PI*N1*N2*a*a*b*b/(2*Math.pow(a*a+z*z,1.5)); }
+function Lself(N,r){ const rw=0.5e-3; return MU0*N*N*r*(Math.log(8*r/rw)-2); }
+// resonant coil-to-coil max efficiency from the figure of merit U=k√(Q1Q2)
+function etaLink(U){ const s=Math.sqrt(1+U*U); return U*U/((1+s)*(1+s)); }
+
+let CUR=null;
+function compute(){
+  const mode=$('mode').value, Ptx=parseFloat($('ptx').value);
+  const erect=parseFloat($('erect').value)/100, estore=parseFloat($('estore').value)/100;
+  const battWh=parseFloat($('batt').value);
+  let k=0, U=0, etaCoil=0, d, dmax, kqOut, m1='—',m1u='',m2='—',m2u='';
+  if(mode==='ind'){
+    const f0=parseFloat($('f0').value)*1e6, a1=parseFloat($('a1').value)/100, a2=parseFloat($('a2').value)/100;
+    const N=parseInt($('N').value), Q=parseFloat($('Q').value); d=parseFloat($('dist').value)/100;
+    const big=Math.max(a1,a2), small=Math.min(a1,a2);
+    const M=Mut(N,N,big,small,d), L1=Lself(N,a1), L2=Lself(N,a2);
+    k=M/Math.sqrt(L1*L2); U=k*Q; etaCoil=etaLink(U);
+    dmax=0.40; m1=(k).toFixed(3); m1u=''; m2=(k*Q).toFixed(2); m2u='';
+    CUR_extra={f0,a1,a2,N,Q};
+  } else {
+    const f=parseFloat($('frad').value)*1e9, Gt=Math.pow(10,parseFloat($('gt').value)/10), Gr=Math.pow(10,parseFloat($('gr').value)/10);
+    d=parseFloat($('drad').value); const lam=C0/f;
+    const fr=Gt*Gr*Math.pow(lam/(4*Math.PI*d),2);   // Friis power ratio
+    etaCoil=Math.min(fr,1); k=0; U=0; dmax=50;
+    m1=(etaCoil*100).toFixed(2); m1u='%'; m2=(20*Math.log10(4*Math.PI*d/lam)).toFixed(1); m2u='dB';
+    CUR_extra={f,Gt,Gr,lam};
+  }
+  const Prx=Ptx*etaCoil, Pdc=Prx*erect, Pload=Pdc*estore;
+  const etaTot=Pload/Ptx;
+  const tch=Pdc>0?battWh/Pdc:Infinity;   // hours to charge
+  CUR={mode,Ptx,erect,estore,battWh,k,U,etaCoil,etaTot,Prx,Pdc,Pload,d,dmax,m1,m1u,m2,m2u,tch};
+  return CUR;
+}
+let CUR_extra={};
+function fmtP(w){ if(w>=1)return w.toFixed(2)+' W'; if(w>=1e-3)return (w*1e3).toFixed(1)+' mW'; return (w*1e6).toFixed(1)+' µW'; }
+function recompute(){
+  $('ptxv').textContent=parseFloat($('ptx').value).toFixed(1)+' W';
+  $('f0v').textContent=parseFloat($('f0').value).toFixed(2)+' MHz';
+  $('a1v').textContent=$('a1').value+' cm';$('a2v').textContent=$('a2').value+' cm';$('Nv').textContent=$('N').value;
+  $('distv').textContent=$('dist').value+' cm';$('Qv').textContent=$('Q').value;
+  $('fradv').textContent=parseFloat($('frad').value).toFixed(2)+' GHz';$('gtv').textContent=$('gt').value+' dBi';$('grv').textContent=$('gr').value+' dBi';$('drad-v').textContent=parseFloat($('drad').value).toFixed(1)+' m';
+  $('erectv').textContent=$('erect').value+' %';$('estorev').textContent=$('estore').value+' %';$('battv').textContent=parseFloat($('batt').value).toFixed(1)+' Wh';
+  const c=compute();
+  // chain
+  $('c-tx').textContent=fmtP(c.Ptx);
+  $('c-link').textContent=(c.mode==='ind'?'η bob. ':'Friis ')+(c.etaCoil*100).toFixed(c.etaCoil<0.01?2:0)+'%';
+  $('c-rx').textContent=fmtP(c.Prx);
+  $('c-rect').textContent='η '+($('erect').value)+'%';
+  $('c-dc').textContent=fmtP(c.Pdc);
+  $('c-store').textContent='η '+($('estore').value)+'%';
+  $('c-batt').textContent=c.battWh.toFixed(1)+' Wh';
+  $('c-load').textContent=fmtP(c.Pload);
+  // metrics
+  const eff=c.etaTot*100; const el=$('m_eff'); el.textContent=eff.toFixed(eff<1?2:1); el.className='v '+(eff>=50?'ok':(eff>=5?'':'bad'));
+  $('m1k').textContent=c.mode==='ind'?t('m.k'):t('m.frac'); $('m1').textContent=c.m1; $('m1u').textContent=c.m1u;
+  $('m2k').textContent=c.mode==='ind'?t('m.kq'):t('m.fspl'); $('m2').textContent=c.m2; $('m2u').textContent=c.m2u;
+  if(isFinite(c.tch)){const h=c.tch; $('m_tc').textContent=h<1?(h*60).toFixed(0):h.toFixed(1); $('m_tcu').textContent=h<1?'min':'h';}
+  else {$('m_tc').textContent='∞';$('m_tcu').textContent='';}
+  drawDist(c); drawKQ(c);
+}
+function setMode(){
+  const m=$('mode').value;
+  document.querySelectorAll('.grp-ind').forEach(e=>e.style.display=m==='ind'?'':'none');
+  document.querySelectorAll('.grp-rad').forEach(e=>e.style.display=m==='rad'?'':'none');
+  document.getElementById('p1t').textContent=t('p.dist'); recompute();
+}
+function preset(p){
+  if(p==='qi'){$('mode').value='ind';$('ptx').value=10;$('f0').value=0.13;$('a1').value=2;$('a2').value=2;$('N').value=12;$('dist').value=0.5;$('Q').value=80;}
+  else if(p==='implant'){$('mode').value='ind';$('ptx').value=1;$('f0').value=6.78;$('a1').value=4;$('a2').value=1;$('N').value=15;$('dist').value=1.5;$('Q').value=120;}
+  else if(p==='beam'){$('mode').value='rad';$('ptx').value=100;$('frad').value=5.8;$('gt').value=30;$('gr').value=20;$('drad').value=10;}
+  setMode();
+}
+
+function etaTotAt(c, dCm_or_m){
+  // recompute total efficiency at a given distance (cm for ind, m for rad)
+  const erect=c.erect, estore=c.estore;
+  if(c.mode==='ind'){
+    const {a1,a2,N,Q}=CUR_extra, d=dCm_or_m/100, big=Math.max(a1,a2),small=Math.min(a1,a2);
+    const M=Mut(N,N,big,small,d), L1=Lself(N,a1), L2=Lself(N,a2), k=M/Math.sqrt(L1*L2), U=k*Q;
+    return etaLink(U)*erect*estore;
+  } else {
+    const {Gt,Gr,lam}=CUR_extra, d=dCm_or_m;
+    const fr=Math.min(Gt*Gr*Math.pow(lam/(4*Math.PI*d),2),1);
+    return fr*erect*estore;
+  }
+}
+function drawDist(c){
+  const cv=$('cv_dist'); cv.style.height='320px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const pad=44,x0=pad,x1=w-12,y0=h-30,y1=16;
+  const unit=c.mode==='ind'?'cm':'m', dMax=c.mode==='ind'?40:Math.max(10,c.d*1.5);
+  const sx=d=>x0+d/dMax*(x1-x0), sy=e=>y0-e*(y0-y1);
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='right';
+  for(let f=0;f<=1.001;f+=0.25){x.fillText((f*100).toFixed(0),x0-4,sy(f)+3);x.strokeStyle='#f1f5f9';x.beginPath();x.moveTo(x0,sy(f));x.lineTo(x1,sy(f));x.stroke();}
+  x.textAlign='center';for(let k=0;k<=5;k++){const d=dMax*k/5;x.fillText(d.toFixed(dMax<12?1:0),sx(d),y0+13);}
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.fillText((LANG==='fr'?'distance':'distance')+' ('+unit+')',(x0+x1)/2,h-6);
+  x.save();x.translate(12,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText(LANG==='fr'?'rendement total (%)':'total efficiency (%)',0,0);x.restore();
+  x.strokeStyle='#0d9488';x.lineWidth=2.4;x.beginPath();
+  for(let i=0;i<=200;i++){const d=Math.max(0.1,dMax*i/200);const e=etaTotAt(c,d);const X=sx(d),Y=sy(Math.min(Math.max(e,0),1));i?x.lineTo(X,Y):x.moveTo(X,Y);}
+  x.stroke();
+  // current distance marker
+  const dc=c.mode==='ind'?c.d*100:c.d;
+  if(dc<=dMax){x.strokeStyle='#d97706';x.setLineDash([3,3]);x.lineWidth=1.2;x.beginPath();x.moveTo(sx(dc),y1);x.lineTo(sx(dc),y0);x.stroke();x.setLineDash([]);
+    const e=c.etaTot;x.fillStyle='#d97706';x.beginPath();x.arc(sx(dc),sy(e),4,0,7);x.fill();
+    x.font='10px sans-serif';x.textAlign='left';x.fillText((e*100).toFixed(1)+'%',sx(dc)+6,sy(e)-5);}
+}
+function drawKQ(c){
+  const cv=$('cv_kq'); cv.style.height='320px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const pad=44,x0=pad,x1=w-12,y0=h-30,y1=16, uMax=30;
+  const sx=u=>x0+u/uMax*(x1-x0), sy=e=>y0-e*(y0-y1);
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='right';
+  for(let f=0;f<=1.001;f+=0.25){x.fillText((f*100).toFixed(0),x0-4,sy(f)+3);x.strokeStyle='#f1f5f9';x.beginPath();x.moveTo(x0,sy(f));x.lineTo(x1,sy(f));x.stroke();}
+  x.textAlign='center';for(let k=0;k<=6;k++){const u=uMax*k/6;x.fillText(u.toFixed(0),sx(u),y0+13);}
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.fillText('k·Q (= U)',(x0+x1)/2,h-6);
+  x.save();x.translate(12,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText(LANG==='fr'?'η bobine-bobine (%)':'coil-coil η (%)',0,0);x.restore();
+  x.strokeStyle='#0d9488';x.lineWidth=2.4;x.beginPath();
+  for(let i=0;i<=200;i++){const u=uMax*i/200;const e=etaLink(u);const X=sx(u),Y=sy(e);i?x.lineTo(X,Y):x.moveTo(X,Y);}
+  x.stroke();
+  if(c.mode==='ind'&&c.U<=uMax){x.strokeStyle='#d97706';x.setLineDash([3,3]);x.lineWidth=1.2;x.beginPath();x.moveTo(sx(c.U),y1);x.lineTo(sx(c.U),y0);x.stroke();x.setLineDash([]);
+    x.fillStyle='#d97706';x.beginPath();x.arc(sx(c.U),sy(c.etaCoil),4,0,7);x.fill();x.font='10px sans-serif';x.textAlign='left';x.fillText('kQ='+c.U.toFixed(1)+' → '+(c.etaCoil*100).toFixed(0)+'%',Math.min(sx(c.U)+6,x1-110),sy(c.etaCoil)-5);}
+  else if(c.mode==='rad'){x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='center';x.fillText(LANG==='fr'?'(mode radiatif : voir Friis)':'(radiative mode: see Friis)',(x0+x1)/2,(y0+y1)/2);}
+}
+
+/* i18n */
+const I18N={
+ 'back.hub':{fr:"EMtools",en:"EMtools"},
+ 'title':{fr:"Recharge sans fil",en:"Wireless power"},
+ 'tag':{fr:"Télé-alimentation sans fil : du champ émis à l'élément alimenté — couplage (inductif/résonant ou radiatif), réception, redressement, stockage, charge.",
+        en:"Wireless power transfer: from the emitted field to the powered device — coupling (inductive/resonant or radiative), reception, rectification, storage, load."},
+ 'intro':{fr:"<b>Principe —</b> on transfère de l'énergie sans contact en passant par une chaîne : <b>émetteur</b> → <b>champ/onde</b> → <b>récepteur</b> → <b>redressement (AC→DC)</b> → <b>stockage</b> → <b>charge</b>. En <b>champ proche</b> (Qi, implants, véhicules), deux bobines accordées se couplent (facteur de mérite <b>k·Q</b>) ; en <b>champ lointain</b> (rectenna), une antenne capte l'onde rayonnée (bilan de Friis). À chaque étage, un rendement &lt; 1 réduit la puissance utile.",
+          en:"<b>Principle —</b> energy is transferred contactlessly through a chain: <b>transmitter</b> → <b>field/wave</b> → <b>receiver</b> → <b>rectification (AC→DC)</b> → <b>storage</b> → <b>load</b>. In the <b>near field</b> (Qi, implants, vehicles), two tuned coils couple (figure of merit <b>k·Q</b>); in the <b>far field</b> (rectenna), an antenna captures the radiated wave (Friis link). At each stage an efficiency &lt; 1 reduces the useful power."},
+ 'cfg':{fr:"Configuration",en:"Configuration"},'mode':{fr:"Mode de transfert",en:"Transfer mode"},
+ 'm.ind':{fr:"Inductif / résonant (champ proche)",en:"Inductive / resonant (near field)"},'m.rad':{fr:"Radiatif / rectenna (champ lointain)",en:"Radiative / rectenna (far field)"},
+ 'ptx':{fr:"Puissance émise P_tx",en:"Emitted power P_tx"},
+ 'f0':{fr:"Fréquence f₀",en:"Frequency f₀"},'a1':{fr:"Rayon bobine émettrice a₁",en:"Transmit coil radius a₁"},'a2':{fr:"Rayon bobine réceptrice a₂",en:"Receive coil radius a₂"},
+ 'N':{fr:"Spires N₁ = N₂",en:"Turns N₁ = N₂"},'dist':{fr:"Distance d",en:"Distance d"},'Q':{fr:"Facteur de qualité Q (bobines)",en:"Quality factor Q (coils)"},
+ 'frad':{fr:"Fréquence f",en:"Frequency f"},'gt':{fr:"Gain émetteur G_t",en:"Transmit gain G_t"},'gr':{fr:"Gain récepteur G_r",en:"Receive gain G_r"},'drad':{fr:"Distance d",en:"Distance d"},
+ 'erect':{fr:"Rendement redresseur η_rect",en:"Rectifier efficiency η_rect"},'estore':{fr:"Rendement stockage η_store",en:"Storage efficiency η_store"},'batt':{fr:"Capacité batterie",en:"Battery capacity"},
+ 'p.qi':{fr:"Chargeur Qi (téléphone)",en:"Qi charger (phone)"},'p.implant':{fr:"Implant biomédical",en:"Biomedical implant"},'p.beam':{fr:"Faisceau micro-ondes",en:"Microwave beam"},
+ 'ch':{fr:"Chaîne de télé-alimentation",en:"Wireless-power chain"},
+ 'c.tx':{fr:"Émetteur",en:"Transmitter"},'c.txs':{fr:"puissance émise",en:"emitted power"},
+ 'c.rx':{fr:"Récepteur",en:"Receiver"},'c.rxs':{fr:"capté (AC)",en:"captured (AC)"},
+ 'c.rect':{fr:"Redresseur",en:"Rectifier"},'c.rects':{fr:"DC",en:"DC"},
+ 'c.store':{fr:"Stockage",en:"Storage"},'c.stores':{fr:"batterie",en:"battery"},
+ 'c.load':{fr:"Charge",en:"Load"},'c.loads':{fr:"élément alimenté",en:"powered device"},
+ 'm.eff':{fr:"Rendement total (P_load/P_tx)",en:"Total efficiency (P_load/P_tx)"},
+ 'm.k':{fr:"Couplage k",en:"Coupling k"},'m.frac':{fr:"Fraction captée (Friis)",en:"Captured fraction (Friis)"},
+ 'm.kq':{fr:"Facteur de mérite k·Q",en:"Figure of merit k·Q"},'m.fspl':{fr:"Affaiblissement espace libre",en:"Free-space path loss"},
+ 'm.charge':{fr:"Temps de charge batterie",en:"Battery charge time"},
+ 'viz':{fr:"Rendement",en:"Efficiency"},
+ 'p.dist':{fr:"Rendement total vs distance",en:"Total efficiency vs distance"},'p.dist.sub':{fr:"Le couplage chute avec la distance → le rendement s'effondre.",en:"Coupling drops with distance → efficiency collapses."},
+ 'p.kq':{fr:"Rendement bobine-bobine vs k·Q",en:"Coil-coil efficiency vs k·Q"},'p.kq.sub':{fr:"Courbe universelle : il faut k·Q ≫ 1 pour un bon rendement.",en:"Universal curve: k·Q ≫ 1 is needed for good efficiency."},
+ 'valid':{fr:"Validation & repères",en:"Validation & benchmarks"},
+ 'v.case':{fr:"Cas",en:"Case"},'v.tool':{fr:"Cet outil",en:"This tool"},'v.ref':{fr:"Repère",en:"Benchmark"},
+ 'v.qi':{fr:"Chargeur Qi (~5–10 cm, kQ qq. unités)",en:"Qi charger (~5–10 cm, kQ a few units)"},'v.qiref':{fr:"rendement bobine ~70–90 %",en:"coil efficiency ~70–90 %"},
+ 'v.eta':{fr:"η bobine-bobine = U²/(1+√(1+U²))², U=k√(Q₁Q₂)",en:"coil-coil η = U²/(1+√(1+U²))², U=k√(Q₁Q₂)"},'v.etaok':{fr:"vérifié",en:"verified"},
+ 'v.friis':{fr:"Radiatif : Friis P_r = P_t·G_t·G_r·(λ/4πd)²",en:"Radiative: Friis P_r = P_t·G_t·G_r·(λ/4πd)²"},'v.friisok':{fr:"vérifié",en:"verified"},'v.friisr':{fr:"décroît en 1/d²",en:"decays as 1/d²"},
+ 'disclaimer':{fr:"<b>Outil pédagogique —</b> modèle de premier ordre. Couplage de deux boucles coaxiales (mutuelle analytique), rendement bobine-bobine à charge optimale (figure de mérite k·Q), rendements de redressement/stockage forfaitaires. Le radiatif suppose le champ lointain (Friis, antennes adaptées). Ne tient pas compte du désaccord, de la régulation, du positionnement réel ni des limites d'exposition (voir l'outil Dosimétrie).",
+               en:"<b>Educational tool —</b> first-order model. Two coaxial loops coupling (analytic mutual), coil-coil efficiency at optimal load (figure of merit k·Q), flat rectifier/storage efficiencies. The radiative mode assumes far field (Friis, matched antennas). Ignores detuning, regulation, real positioning and exposure limits (see the Dosimetry tool)."},
+ 'footer.lic':{fr:'© 2026 Hakeim Talleb · EMtools · Code sous licence <a href="LICENSE">MIT</a>',en:'© 2026 Hakeim Talleb · EMtools · Code under the <a href="LICENSE">MIT</a> license'},
+ 'footer.home':{fr:"← Tous les outils EMtools",en:"← All EMtools tools"},
+};
+let LANG=localStorage.getItem('emtools_lang')||'fr';
+function t(k){const e=I18N[k];return e?(e[LANG]||e.fr):k;}
+function applyLang(){
+  document.documentElement.lang=LANG;
+  document.querySelectorAll('[data-i18n]').forEach(el=>{const e=I18N[el.dataset.i18n];if(e)el.textContent=e[LANG]||e.fr;});
+  document.querySelectorAll('[data-i18n-html]').forEach(el=>{const e=I18N[el.dataset.i18nHtml];if(e)el.innerHTML=e[LANG]||e.fr;});
+  const b=$('lang-toggle');if(b)b.textContent=LANG==='fr'?'EN':'FR';
+}
+function toggleLang(){LANG=LANG==='fr'?'en':'fr';localStorage.setItem('emtools_lang',LANG);applyLang();recompute();}
+applyLang(); setMode();
+window.addEventListener('resize',()=>{if(CUR){drawDist(CUR);drawKQ(CUR);}});
+</script>
+</body>
+</html>
