@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EMtools — RFID/NFC 13,56 MHz</title>
+<meta name="description" content="EMtools — principe du couplage inductif tag/lecteur à 13,56 MHz (RFID/NFC HF) : champ magnétique d'une boucle, inductance mutuelle, résonance LC, tension induite, distance de lecture. Par Hakeim Talleb.">
+<style>
+:root{--navy:#1a2e4a;--teal:#0d9488;--teal2:#0f766e;--teal-light:#e6f7f5;--gold:#d97706;
+  --text:#1e293b;--text2:#64748b;--border:#e2e8f0;--bg:#f8fafc;--bg2:#f0fdf9;--white:#fff;--radius:14px;--shadow:0 2px 14px rgba(26,46,74,.08);}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--text);background:var(--bg);line-height:1.6}
+a{color:var(--teal2)}
+.wrap{max-width:980px;margin:0 auto;padding:0 1.25rem}
+#lang-toggle{position:fixed;top:14px;right:16px;z-index:50;background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.45);border-radius:8px;padding:5px 12px;font-size:13px;font-weight:700;cursor:pointer;backdrop-filter:blur(4px)}
+header{background:linear-gradient(135deg,#1a2e4a,#0f3a4d);color:#fff;padding:2.4rem 0 2rem}
+header .wrap{display:flex;flex-direction:column;gap:.4rem}
+header .back{font-size:.82rem;color:#94a3b8;text-decoration:none}
+header .back:hover{color:#cbd5e1}
+header h1{font-size:1.7rem;font-weight:800;letter-spacing:-.02em}
+header .tag{font-size:1rem;color:#cbd5e1;max-width:700px}
+main{padding:2rem 0 3rem}
+.intro{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius);padding:1rem 1.2rem;font-size:.9rem;margin-bottom:1.6rem}
+.intro b{color:var(--navy)}
+.panel{background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.3rem 1.4rem;margin-bottom:1.4rem}
+.ptitle{font-size:.78rem;font-weight:700;color:var(--teal2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:1rem}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem 1.4rem}
+.ctrl{display:flex;flex-direction:column;gap:.3rem}
+.ctrl label{font-size:.82rem;font-weight:600;color:var(--text2)}
+.ctrl input,.ctrl select{font:inherit;font-size:.92rem;padding:.45rem .55rem;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--text)}
+.ctrl input[type=range]{padding:0}
+.ctrl .val{font-size:.8rem;color:var(--teal2);font-weight:700}
+.row-btns{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.4rem}
+.pbtn{font:inherit;font-size:.82rem;font-weight:700;color:var(--teal2);background:var(--teal-light);border:1px solid #99e6dc;border-radius:7px;padding:.35rem .7rem;cursor:pointer}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.9rem}
+.metric{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:.8rem .9rem}
+.metric .k{font-size:.74rem;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.metric .v{font-size:1.25rem;font-weight:800;color:var(--navy);margin-top:.15rem}
+.metric .u{font-size:.78rem;color:var(--text2);font-weight:600}
+.metric.hl{background:var(--teal-light);border-color:#99e6dc}.metric.hl .v{color:var(--teal2)}
+.metric .v.ok{color:#15803d}.metric .v.bad{color:#b91c1c}
+.plots{display:grid;grid-template-columns:1fr 1fr;gap:1.4rem}
+.plotbox{display:flex;flex-direction:column;gap:.4rem}
+.plotbox h4{font-size:.86rem;font-weight:700;color:var(--navy)}
+.plotbox .sub{font-size:.74rem;color:var(--text2)}
+canvas{width:100%;height:auto;background:#fff;border:1px solid var(--border);border-radius:10px}
+@media(max-width:760px){.plots{grid-template-columns:1fr}}
+.warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:10px;padding:.7rem .9rem;font-size:.83rem;margin-top:1rem}
+footer{border-top:1px solid var(--border);padding:1.5rem 0;font-size:.8rem;color:var(--text2);margin-top:1rem}
+footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+footer a{color:var(--text2)}
+table.valid{width:100%;border-collapse:collapse;font-size:.84rem;margin-top:.4rem}
+table.valid th,table.valid td{border:1px solid var(--border);padding:.35rem .55rem;text-align:left}
+table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
+</style>
+</head>
+<body>
+<button id="lang-toggle" onclick="toggleLang()">EN</button>
+
+<header><div class="wrap">
+  <a class="back" href="index.html">← <span data-i18n="back.hub">EMtools</span></a>
+  <h1>📶 <span data-i18n="title">RFID / NFC 13,56 MHz</span></h1>
+  <div class="tag" data-i18n="tag">Couplage inductif tag ↔ lecteur en champ proche : champ magnétique d'une boucle, inductance mutuelle, résonance LC, tension induite et distance de lecture.</div>
+</div></header>
+
+<main class="wrap">
+  <div class="intro" data-i18n-html="intro">
+    <b>Principe —</b> à 13,56 MHz (λ ≈ 22 m), le tag est à quelques centimètres du lecteur : on est en
+    <b>champ proche magnétique</b>, le couplage est un <b>transformateur à air</b>, pas une onde rayonnée.
+    Le lecteur (boucle de N₁ spires, rayon a, courant I₁) crée sur son axe un champ
+    H(z) = N₁·I₁·a² / [2(a²+z²)<sup>3/2</sup>], qui décroît en <b>1/z³</b>. Ce champ induit dans le tag une
+    f.é.m. <b>e = −dΦ/dt = jω·M·I₁</b> (M = inductance mutuelle). Le tag, accordé en <b>résonance LC</b> sur
+    13,56 MHz, amplifie cette tension d'un facteur ≈ <b>Q</b> pour s'alimenter. Pour répondre, il fait varier
+    sa charge (<b>modulation de charge</b>), ce que le lecteur détecte. La <b>distance de lecture</b> est la
+    portée où H reste dans la plage opérationnelle ISO 14443 (≈ 1,5 à 7,5 A/m).
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="cfg">Lecteur, tag et distance</div>
+    <div class="controls">
+      <div class="ctrl">
+        <label><span data-i18n="a">Rayon boucle lecteur a</span> · <span id="av" class="val">3.0 cm</span></label>
+        <input id="a" type="range" min="1" max="15" step="0.5" value="3" oninput="recompute()">
+      </div>
+      <div class="ctrl">
+        <label><span data-i18n="n1">Spires lecteur N₁</span> · <span id="n1v" class="val">1</span></label>
+        <input id="n1" type="range" min="1" max="8" step="1" value="1" oninput="recompute()">
+      </div>
+      <div class="ctrl">
+        <label><span data-i18n="i1">Courant lecteur I₁</span> · <span id="i1v" class="val">0.50 A</span></label>
+        <input id="i1" type="range" min="0.1" max="3" step="0.05" value="0.5" oninput="recompute()">
+      </div>
+      <div class="ctrl">
+        <label><span data-i18n="b">Rayon boucle tag b</span> · <span id="bv" class="val">2.0 cm</span></label>
+        <input id="b" type="range" min="0.5" max="8" step="0.25" value="2" oninput="recompute()">
+      </div>
+      <div class="ctrl">
+        <label><span data-i18n="n2">Spires tag N₂</span> · <span id="n2v" class="val">4</span></label>
+        <input id="n2" type="range" min="1" max="12" step="1" value="4" oninput="recompute()">
+      </div>
+      <div class="ctrl">
+        <label><span data-i18n="q">Facteur de qualité Q du tag</span> · <span id="qv" class="val">20</span></label>
+        <input id="q" type="range" min="5" max="60" step="1" value="20" oninput="recompute()">
+      </div>
+      <div class="ctrl">
+        <label><span data-i18n="z">Distance tag z</span> · <span id="zv" class="val">2.0 cm</span></label>
+        <input id="z" type="range" min="0" max="20" step="0.2" value="2" oninput="recompute()">
+      </div>
+    </div>
+    <div class="row-btns">
+      <button class="pbtn" onclick="preset('card')" data-i18n="p.card">Carte sans contact</button>
+      <button class="pbtn" onclick="preset('phone')" data-i18n="p.phone">NFC smartphone</button>
+      <button class="pbtn" onclick="preset('gate')" data-i18n="p.gate">Grande antenne (portique)</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="results">Couplage &amp; alimentation du tag</div>
+    <div class="metrics">
+      <div class="metric hl"><div class="k" data-i18n="m.h">Champ H au tag</div><div class="v" id="m_h">—</div><div class="u">A/m</div></div>
+      <div class="metric"><div class="k" data-i18n="m.b">Induction B</div><div class="v" id="m_b">—</div><div class="u">µT</div></div>
+      <div class="metric"><div class="k" data-i18n="m.range">Distance de lecture</div><div class="v" id="m_range">—</div><div class="u">cm</div></div>
+      <div class="metric"><div class="k" data-i18n="m.m">Inductance mutuelle M</div><div class="v" id="m_m">—</div><div class="u">nH</div></div>
+      <div class="metric"><div class="k" data-i18n="m.k">Coefficient de couplage k</div><div class="v" id="m_k">—</div><div class="u">%</div></div>
+      <div class="metric"><div class="k" data-i18n="m.voc">F.é.m. induite (circuit ouvert)</div><div class="v" id="m_voc">—</div><div class="u">V</div></div>
+      <div class="metric"><div class="k" data-i18n="m.vtag">Tension tag (résonance ≈ Q·e)</div><div class="v" id="m_vtag">—</div><div class="u">V</div></div>
+      <div class="metric"><div class="k" data-i18n="m.cap">Capacité d'accord C₂ (L₂ tag)</div><div class="v" id="m_cap">—</div><div class="u">pF</div></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="viz">Visualisation</div>
+    <div class="plots">
+      <div class="plotbox">
+        <h4 data-i18n="p.field">Champ H(z) vs distance</h4>
+        <div class="sub" data-i18n="p.field.sub">Décroissance en 1/z³ ; bande opérationnelle ISO 14443.</div>
+        <canvas id="cv_field" width="440" height="380"></canvas>
+      </div>
+      <div class="plotbox">
+        <h4 data-i18n="p.res">Réponse résonante du tag</h4>
+        <div class="sub" data-i18n="p.res.sub">Accord sur 13,56 MHz ; largeur de bande ≈ f₀/Q.</div>
+        <canvas id="cv_res" width="440" height="380"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="warn" id="iso-note" data-i18n-html="iso.note"></div>
+
+  <div class="panel" style="margin-top:1.4rem">
+    <div class="ptitle" data-i18n="valid">Validation</div>
+    <table class="valid">
+      <thead><tr><th data-i18n="v.case">Cas</th><th data-i18n="v.tool">Cet outil</th><th data-i18n="v.ref">Théorie</th></tr></thead>
+      <tbody>
+        <tr><td data-i18n="v.center">Champ au centre (z=0)</td><td id="vr1">—</td><td>H = N₁·I₁ / (2a)</td></tr>
+        <tr><td data-i18n="v.f0">Fréquence d'accord</td><td id="vr2">—</td><td>1/(2π√(L₂C₂)) = 13,56 MHz</td></tr>
+        <tr><td data-i18n="v.falloff">Décroissance lointaine</td><td data-i18n="v.falloffok">∝ 1/z³ (vérifié)</td><td>champ proche magnétique</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="warn" data-i18n-html="disclaimer"><b>Outil pédagogique —</b> couplage inductif sur l'axe de deux boucles coaxiales (champ supposé uniforme sur le tag, M ≈ µ₀·π·N₁·N₂·a²·b² / [2(a²+z²)^{3/2}]). Inductances propres estimées (boucle mince). Sans tenir compte du désaccord, des pertes du substrat, de la charge réelle de la puce ni du décalage latéral. Donne les ordres de grandeur et la physique du couplage HF.</div>
+</main>
+
+<footer><div class="wrap">
+  <span data-i18n-html="footer.lic">© 2026 Hakeim Talleb · EMtools · Code sous licence <a href="LICENSE">MIT</a></span>
+  <span><a href="index.html" data-i18n="footer.home">← Tous les outils EMtools</a></span>
+</div></footer>
+
+<script>
+function $(id){return document.getElementById(id);}
+function dpr(cv){const r=window.devicePixelRatio||1;const w=cv.clientWidth||parseFloat(cv.style.width)||cv.width;const h=parseFloat(cv.style.height)||cv.clientHeight||cv.height;cv.width=Math.round(w*r);cv.height=Math.round(h*r);const x=cv.getContext('2d');x.setTransform(r,0,0,r,0,0);return {x,w,h};}
+
+const MU0=4*Math.PI*1e-7, F0=13.56e6, W0=2*Math.PI*F0;
+const HMIN=1.5, HMAX=7.5;          // ISO 14443 operating field band (A/m)
+
+// on-axis H of a circular loop (A/m): a,z in metres
+function Hax(N1,I1,a,z){ return N1*I1*a*a/(2*Math.pow(a*a+z*z,1.5)); }
+// mutual inductance of two coaxial loops, tag small vs field (H): M = µ0·π·N1·N2·a²·b² / [2(a²+z²)^{3/2}]
+function Mut(N1,N2,a,b,z){ return MU0*Math.PI*N1*N2*a*a*b*b/(2*Math.pow(a*a+z*z,1.5)); }
+// self-inductance of a circular loop (thin wire, single layer): L = µ0·N²·r·(ln(8r/ρw)-2), ρw wire radius
+function Lself(N,r){ const rw=0.3e-3; return MU0*N*N*r*(Math.log(8*r/rw)-2); }
+
+let CUR=null;
+function compute(){
+  const a=parseFloat($('a').value)/100, N1=parseInt($('n1').value), I1=parseFloat($('i1').value);
+  const b=parseFloat($('b').value)/100, N2=parseInt($('n2').value), Q=parseFloat($('q').value);
+  const z=parseFloat($('z').value)/100;
+  const H=Hax(N1,I1,a,z), B=MU0*H*1e6;             // B in µT
+  const M=Mut(N1,N2,a,b,z);                          // H
+  const L1=Lself(N1,a), L2=Lself(N2,b);
+  const k=M/Math.sqrt(L1*L2);
+  const C2=1/(W0*W0*L2);                             // tuning cap for 13.56 MHz (F)
+  const Voc=W0*M*I1;                                 // open-circuit emf (V)
+  const Vtag=Q*Voc;                                  // resonant amplification
+  // read range: largest z where H(z) ≥ HMIN
+  const arg=Math.pow(N1*I1*a*a/(2*HMIN),2/3)-a*a;
+  const range=arg>0?Math.sqrt(arg):0;               // m
+  CUR={a,N1,I1,b,N2,Q,z,H,B,M,L1,L2,k,C2,Voc,Vtag,range};
+  return CUR;
+}
+
+function fmtSI(x,unit){ // compact value with reasonable precision
+  if(!isFinite(x))return '—';
+  const ax=Math.abs(x);
+  if(ax>=100)return x.toFixed(0)+(unit?' '+unit:'');
+  if(ax>=10)return x.toFixed(1)+(unit?' '+unit:'');
+  if(ax>=1)return x.toFixed(2)+(unit?' '+unit:'');
+  return x.toFixed(3)+(unit?' '+unit:'');
+}
+function recompute(){
+  $('av').textContent=parseFloat($('a').value).toFixed(1)+' cm';
+  $('n1v').textContent=$('n1').value;
+  $('i1v').textContent=parseFloat($('i1').value).toFixed(2)+' A';
+  $('bv').textContent=parseFloat($('b').value).toFixed(1)+' cm';
+  $('n2v').textContent=$('n2').value;
+  $('qv').textContent=$('q').value;
+  $('zv').textContent=parseFloat($('z').value).toFixed(1)+' cm';
+  const c=compute();
+  const hEl=$('m_h');
+  hEl.textContent=fmtSI(c.H);
+  hEl.className='v '+(c.H>=HMIN&&c.H<=HMAX?'ok':'bad');
+  $('m_b').textContent=fmtSI(c.B);
+  $('m_range').textContent=(c.range*100).toFixed(1);
+  $('m_m').textContent=fmtSI(c.M*1e9);
+  $('m_k').textContent=(c.k*100).toFixed(2);
+  $('m_voc').textContent=fmtSI(c.Voc);
+  $('m_vtag').textContent=fmtSI(c.Vtag);
+  $('m_cap').textContent=(c.C2*1e12).toFixed(0);
+  // ISO note
+  let msg;
+  if(c.H<HMIN) msg=t('iso.low');
+  else if(c.H>HMAX) msg=t('iso.high');
+  else msg=t('iso.ok');
+  $('iso-note').innerHTML=msg
+    .replace('{H}',fmtSI(c.H)).replace('{r}',(c.range*100).toFixed(1));
+  $('iso-note').style.background = c.H>=HMIN&&c.H<=HMAX?'#ecfdf5':'#fff7ed';
+  $('iso-note').style.borderColor = c.H>=HMIN&&c.H<=HMAX?'#a7f3d0':'#fed7aa';
+  $('iso-note').style.color = c.H>=HMIN&&c.H<=HMAX?'#065f46':'#9a3412';
+  // validation
+  $('vr1').textContent=fmtSI(Hax(c.N1,c.I1,c.a,0),'A/m')+'  (= '+fmtSI(c.N1*c.I1/(2*c.a),'A/m')+')';
+  $('vr2').textContent=(1/(2*Math.PI*Math.sqrt(c.L2*c.C2))/1e6).toFixed(2)+' MHz';
+  drawField(c); drawRes(c);
+}
+function preset(p){
+  if(p==='card'){$('a').value=3;$('n1').value=1;$('i1').value=0.5;$('b').value=2.2;$('n2').value=4;$('q').value=20;$('z').value=2;}
+  else if(p==='phone'){$('a').value=2;$('n1').value=2;$('i1').value=0.3;$('b').value=1.2;$('n2').value=5;$('q').value=15;$('z').value=1;}
+  else if(p==='gate'){$('a').value=12;$('n1').value=1;$('i1').value=2;$('b').value=3;$('n2').value=3;$('q').value=25;$('z').value=8;}
+  recompute();
+}
+
+function drawField(c){
+  const cv=$('cv_field'); cv.style.height='380px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const pad=46,x0=pad,x1=w-12,y0=h-30,y1=16, zMax=0.20;
+  // log y-axis (A/m) from 0.1 to ~field at z=0
+  const Hmax=Hax(c.N1,c.I1,c.a,0); const yTop=Math.max(10,Math.pow(10,Math.ceil(Math.log10(Hmax)))), yBot=0.1;
+  const sx=z=>x0+z/zMax*(x1-x0), sy=H=>{const l=(Math.log10(Math.max(H,yBot))-Math.log10(yBot))/(Math.log10(yTop)-Math.log10(yBot));return y0-l*(y0-y1);};
+  // ISO band
+  x.fillStyle='#ecfdf5';x.fillRect(x0,sy(HMAX),x1-x0,sy(HMIN)-sy(HMAX));
+  x.strokeStyle='#a7f3d0';x.lineWidth=1;x.beginPath();x.moveTo(x0,sy(HMIN));x.lineTo(x1,sy(HMIN));x.moveTo(x0,sy(HMAX));x.lineTo(x1,sy(HMAX));x.stroke();
+  x.fillStyle='#059669';x.font='9px sans-serif';x.textAlign='left';x.fillText('ISO 1,5–7,5 A/m',x0+6,sy(HMAX)-3);
+  // axes
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='right';
+  for(let e=Math.log10(yBot);e<=Math.log10(yTop)+1e-9;e++){const H=Math.pow(10,e);x.fillText(H<1?H.toFixed(1):H.toFixed(0),x0-4,sy(H)+3);x.strokeStyle='#f1f5f9';x.beginPath();x.moveTo(x0,sy(H));x.lineTo(x1,sy(H));x.stroke();}
+  x.textAlign='center';for(let z=0;z<=zMax*100;z+=5){x.fillText(z,sx(z/100),y0+14);}
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.fillText('distance z (cm)',(x0+x1)/2,h-6);
+  x.save();x.translate(13,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText('H (A/m)',0,0);x.restore();
+  // curve
+  x.strokeStyle='#0d9488';x.lineWidth=2.2;x.beginPath();
+  for(let i=0;i<=300;i++){const z=zMax*i/300;const H=Hax(c.N1,c.I1,c.a,z);const X=sx(z),Y=sy(H);i?x.lineTo(X,Y):x.moveTo(X,Y);}
+  x.stroke();
+  // read-range marker (H=HMIN)
+  if(c.range>0&&c.range<zMax){x.strokeStyle='#2563eb';x.setLineDash([4,3]);x.lineWidth=1.3;x.beginPath();x.moveTo(sx(c.range),y1);x.lineTo(sx(c.range),y0);x.stroke();x.setLineDash([]);
+    x.fillStyle='#2563eb';x.font='10px sans-serif';x.textAlign='center';x.fillText('portée '+(c.range*100).toFixed(1)+' cm',sx(c.range),y1+10);}
+  // current z marker
+  if(c.z<=zMax){const X=sx(c.z),Y=sy(c.H);x.fillStyle='#d97706';x.beginPath();x.arc(X,Y,4,0,7);x.fill();
+    x.strokeStyle='#d97706';x.setLineDash([2,2]);x.beginPath();x.moveTo(X,y0);x.lineTo(X,Y);x.stroke();x.setLineDash([]);}
+}
+function drawRes(c){
+  const cv=$('cv_res'); cv.style.height='380px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const pad=42,x0=pad,x1=w-12,y0=h-30,y1=18, fLo=10e6,fHi=18e6;
+  // normalized 2nd-order resonance |T(f)| = 1/sqrt((1-(f/f0)^2)^2 + (f/(f0 Q))^2), peak ≈ Q at f0
+  const Q=c.Q;
+  const sx=f=>x0+(f-fLo)/(fHi-fLo)*(x1-x0), sy=v=>y0-v/(Q*1.1)*(y0-y1);
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='right';
+  for(let g=0;g<=Q*1.1;g+=Math.max(5,Math.round(Q/4/5)*5)){x.fillText(g,x0-4,sy(g)+3);x.strokeStyle='#f1f5f9';x.beginPath();x.moveTo(x0,sy(g));x.lineTo(x1,sy(g));x.stroke();}
+  x.textAlign='center';for(let f=10;f<=18;f+=2){x.fillText(f,sx(f*1e6),y0+14);}
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.fillText('fréquence (MHz)',(x0+x1)/2,h-6);
+  x.save();x.translate(12,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText('amplification ×',0,0);x.restore();
+  // 13.56 MHz line
+  x.strokeStyle='#0f766e';x.setLineDash([4,3]);x.lineWidth=1.2;x.beginPath();x.moveTo(sx(F0),y1);x.lineTo(sx(F0),y0);x.stroke();x.setLineDash([]);
+  x.fillStyle='#0f766e';x.font='10px sans-serif';x.textAlign='left';x.fillText('13,56 MHz',sx(F0)+4,y1+8);
+  // curve
+  x.strokeStyle='#0d9488';x.lineWidth=2.2;x.beginPath();
+  for(let i=0;i<=400;i++){const f=fLo+(fHi-fLo)*i/400;const r=f/F0;const T=1/Math.sqrt(Math.pow(1-r*r,2)+Math.pow(r/Q,2));const X=sx(f),Y=sy(Math.min(T,Q*1.1));i?x.lineTo(X,Y):x.moveTo(X,Y);}
+  x.stroke();
+  // bandwidth markers at peak/√2
+  const half=Q/Math.SQRT2;
+  x.strokeStyle='#86efac';x.setLineDash([3,3]);x.lineWidth=1;x.beginPath();x.moveTo(x0,sy(half));x.lineTo(x1,sy(half));x.stroke();x.setLineDash([]);
+  x.fillStyle='#16a34a';x.font='9px sans-serif';x.textAlign='right';x.fillText('−3 dB → BP ≈ f₀/Q = '+(F0/Q/1e3).toFixed(0)+' kHz',x1-4,sy(half)-3);
+}
+
+/* i18n */
+const I18N={
+ 'back.hub':{fr:"EMtools",en:"EMtools"},
+ 'title':{fr:"RFID / NFC 13,56 MHz",en:"RFID / NFC 13.56 MHz"},
+ 'tag':{fr:"Couplage inductif tag ↔ lecteur en champ proche : champ magnétique d'une boucle, inductance mutuelle, résonance LC, tension induite et distance de lecture.",
+        en:"Inductive near-field tag ↔ reader coupling: loop magnetic field, mutual inductance, LC resonance, induced voltage and read range."},
+ 'intro':{fr:"<b>Principe —</b> à 13,56 MHz (λ ≈ 22 m), le tag est à quelques centimètres du lecteur : on est en <b>champ proche magnétique</b>, le couplage est un <b>transformateur à air</b>, pas une onde rayonnée. Le lecteur (boucle de N₁ spires, rayon a, courant I₁) crée sur son axe un champ H(z) = N₁·I₁·a² / [2(a²+z²)<sup>3/2</sup>], qui décroît en <b>1/z³</b>. Ce champ induit dans le tag une f.é.m. <b>e = −dΦ/dt = jω·M·I₁</b> (M = inductance mutuelle). Le tag, accordé en <b>résonance LC</b> sur 13,56 MHz, amplifie cette tension d'un facteur ≈ <b>Q</b> pour s'alimenter. Pour répondre, il fait varier sa charge (<b>modulation de charge</b>), ce que le lecteur détecte. La <b>distance de lecture</b> est la portée où H reste dans la plage opérationnelle ISO 14443 (≈ 1,5 à 7,5 A/m).",
+          en:"<b>Principle —</b> at 13.56 MHz (λ ≈ 22 m) the tag sits a few centimetres from the reader: this is the <b>magnetic near field</b>, the coupling is an <b>air-core transformer</b>, not a radiated wave. The reader (loop of N₁ turns, radius a, current I₁) produces on its axis a field H(z) = N₁·I₁·a² / [2(a²+z²)<sup>3/2</sup>], decaying as <b>1/z³</b>. This field induces in the tag an emf <b>e = −dΦ/dt = jω·M·I₁</b> (M = mutual inductance). The tag, tuned to <b>LC resonance</b> at 13.56 MHz, amplifies this voltage by ≈ <b>Q</b> to power itself. To reply, it varies its load (<b>load modulation</b>), which the reader detects. The <b>read range</b> is where H stays within the ISO 14443 operating band (≈ 1.5 to 7.5 A/m)."},
+ 'cfg':{fr:"Lecteur, tag et distance",en:"Reader, tag and distance"},
+ 'a':{fr:"Rayon boucle lecteur a",en:"Reader loop radius a"},
+ 'n1':{fr:"Spires lecteur N₁",en:"Reader turns N₁"},
+ 'i1':{fr:"Courant lecteur I₁",en:"Reader current I₁"},
+ 'b':{fr:"Rayon boucle tag b",en:"Tag loop radius b"},
+ 'n2':{fr:"Spires tag N₂",en:"Tag turns N₂"},
+ 'q':{fr:"Facteur de qualité Q du tag",en:"Tag quality factor Q"},
+ 'z':{fr:"Distance tag z",en:"Tag distance z"},
+ 'p.card':{fr:"Carte sans contact",en:"Contactless card"},
+ 'p.phone':{fr:"NFC smartphone",en:"Smartphone NFC"},
+ 'p.gate':{fr:"Grande antenne (portique)",en:"Large antenna (gate)"},
+ 'results':{fr:"Couplage & alimentation du tag",en:"Coupling & tag powering"},
+ 'm.h':{fr:"Champ H au tag",en:"H field at tag"},
+ 'm.b':{fr:"Induction B",en:"Flux density B"},
+ 'm.range':{fr:"Distance de lecture",en:"Read range"},
+ 'm.m':{fr:"Inductance mutuelle M",en:"Mutual inductance M"},
+ 'm.k':{fr:"Coefficient de couplage k",en:"Coupling coefficient k"},
+ 'm.voc':{fr:"F.é.m. induite (circuit ouvert)",en:"Induced emf (open circuit)"},
+ 'm.vtag':{fr:"Tension tag (résonance ≈ Q·e)",en:"Tag voltage (resonance ≈ Q·e)"},
+ 'm.cap':{fr:"Capacité d'accord C₂ (L₂ tag)",en:"Tuning capacitance C₂ (tag L₂)"},
+ 'viz':{fr:"Visualisation",en:"Visualisation"},
+ 'p.field':{fr:"Champ H(z) vs distance",en:"H(z) field vs distance"},
+ 'p.field.sub':{fr:"Décroissance en 1/z³ ; bande opérationnelle ISO 14443.",en:"1/z³ decay; ISO 14443 operating band."},
+ 'p.res':{fr:"Réponse résonante du tag",en:"Tag resonant response"},
+ 'p.res.sub':{fr:"Accord sur 13,56 MHz ; largeur de bande ≈ f₀/Q.",en:"Tuned to 13.56 MHz; bandwidth ≈ f₀/Q."},
+ 'iso.ok':{fr:"✅ <b>Champ dans la plage ISO 14443</b> ({H} A/m) : le tag est correctement alimenté. Portée estimée ≈ <b>{r} cm</b>.",
+           en:"✅ <b>Field within the ISO 14443 band</b> ({H} A/m): the tag is properly powered. Estimated range ≈ <b>{r} cm</b>."},
+ 'iso.low':{fr:"⚠ <b>Champ trop faible</b> ({H} A/m &lt; 1,5 A/m) : le tag n'est plus alimenté à cette distance. Portée max ≈ <b>{r} cm</b> — rapproche le tag, augmente I₁, N₁ ou le rayon a.",
+            en:"⚠ <b>Field too weak</b> ({H} A/m &lt; 1.5 A/m): the tag is no longer powered at this distance. Max range ≈ <b>{r} cm</b> — move the tag closer, or increase I₁, N₁ or radius a."},
+ 'iso.high':{fr:"⚠ <b>Champ très fort</b> ({H} A/m &gt; 7,5 A/m) : trop près du lecteur, risque de saturation / surtension côté tag (le shunt de la puce écrête). Portée utile jusqu'à ≈ <b>{r} cm</b>.",
+             en:"⚠ <b>Very strong field</b> ({H} A/m &gt; 7.5 A/m): too close to the reader, risk of saturation / overvoltage at the tag (the chip shunt clamps it). Useful range up to ≈ <b>{r} cm</b>."},
+ 'valid':{fr:"Validation",en:"Validation"},
+ 'v.case':{fr:"Cas",en:"Case"},'v.tool':{fr:"Cet outil",en:"This tool"},'v.ref':{fr:"Théorie",en:"Theory"},
+ 'v.center':{fr:"Champ au centre (z=0)",en:"Field at centre (z=0)"},
+ 'v.f0':{fr:"Fréquence d'accord",en:"Tuning frequency"},
+ 'v.falloff':{fr:"Décroissance lointaine",en:"Far falloff"},
+ 'v.falloffok':{fr:"∝ 1/z³ (vérifié)",en:"∝ 1/z³ (verified)"},
+ 'disclaimer':{fr:"<b>Outil pédagogique —</b> couplage inductif sur l'axe de deux boucles coaxiales (champ supposé uniforme sur le tag, M ≈ µ₀·π·N₁·N₂·a²·b² / [2(a²+z²)^{3/2}]). Inductances propres estimées (boucle mince). Sans tenir compte du désaccord, des pertes du substrat, de la charge réelle de la puce ni du décalage latéral. Donne les ordres de grandeur et la physique du couplage HF.",
+               en:"<b>Educational tool —</b> on-axis inductive coupling of two coaxial loops (field assumed uniform over the tag, M ≈ µ₀·π·N₁·N₂·a²·b² / [2(a²+z²)^{3/2}]). Self-inductances estimated (thin loop). Ignores detuning, substrate losses, the actual chip load and lateral offset. Gives orders of magnitude and the physics of HF coupling."},
+ 'footer.lic':{fr:'© 2026 Hakeim Talleb · EMtools · Code sous licence <a href="LICENSE">MIT</a>',en:'© 2026 Hakeim Talleb · EMtools · Code under the <a href="LICENSE">MIT</a> license'},
+ 'footer.home':{fr:"← Tous les outils EMtools",en:"← All EMtools tools"},
+};
+let LANG=localStorage.getItem('emtools_lang')||'fr';
+function t(k){const e=I18N[k];return e?(e[LANG]||e.fr):k;}
+function applyLang(){
+  document.documentElement.lang=LANG;
+  document.querySelectorAll('[data-i18n]').forEach(el=>{const e=I18N[el.dataset.i18n];if(e)el.textContent=e[LANG]||e.fr;});
+  document.querySelectorAll('[data-i18n-html]').forEach(el=>{const e=I18N[el.dataset.i18nHtml];if(e)el.innerHTML=e[LANG]||e.fr;});
+  const bt=$('lang-toggle');if(bt)bt.textContent=LANG==='fr'?'EN':'FR';
+}
+function toggleLang(){LANG=LANG==='fr'?'en':'fr';localStorage.setItem('emtools_lang',LANG);applyLang();recompute();}
+applyLang(); recompute();
+window.addEventListener('resize',()=>{const c=CUR||compute();drawField(c);drawRes(c);});
+</script>
+</body>
+</html>

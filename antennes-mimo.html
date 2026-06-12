@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EMtools — Antennes MIMO</title>
+<meta name="description" content="EMtools — principe des antennes MIMO : matrice de canal, capacité de Shannon, multiplexage spatial, valeurs propres, effet de la corrélation. Par Hakeim Talleb.">
+<style>
+:root{--navy:#1a2e4a;--teal:#0d9488;--teal2:#0f766e;--teal-light:#e6f7f5;--gold:#d97706;
+  --text:#1e293b;--text2:#64748b;--border:#e2e8f0;--bg:#f8fafc;--bg2:#f0fdf9;--white:#fff;--radius:14px;--shadow:0 2px 14px rgba(26,46,74,.08);}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--text);background:var(--bg);line-height:1.6}
+a{color:var(--teal2)}
+.wrap{max-width:980px;margin:0 auto;padding:0 1.25rem}
+#lang-toggle{position:fixed;top:14px;right:16px;z-index:50;background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.45);border-radius:8px;padding:5px 12px;font-size:13px;font-weight:700;cursor:pointer;backdrop-filter:blur(4px)}
+header{background:linear-gradient(135deg,#1a2e4a,#0f3a4d);color:#fff;padding:2.4rem 0 2rem}
+header .wrap{display:flex;flex-direction:column;gap:.4rem}
+header .back{font-size:.82rem;color:#94a3b8;text-decoration:none}
+header .back:hover{color:#cbd5e1}
+header h1{font-size:1.7rem;font-weight:800;letter-spacing:-.02em}
+header .tag{font-size:1rem;color:#cbd5e1;max-width:700px}
+main{padding:2rem 0 3rem}
+.intro{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius);padding:1rem 1.2rem;font-size:.9rem;margin-bottom:1.6rem}
+.intro b{color:var(--navy)}
+.panel{background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.3rem 1.4rem;margin-bottom:1.4rem}
+.ptitle{font-size:.78rem;font-weight:700;color:var(--teal2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:1rem}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem 1.4rem}
+.ctrl{display:flex;flex-direction:column;gap:.3rem}
+.ctrl label{font-size:.82rem;font-weight:600;color:var(--text2)}
+.ctrl input,.ctrl select{font:inherit;font-size:.92rem;padding:.45rem .55rem;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--text)}
+.ctrl input[type=range]{padding:0}
+.ctrl .val{font-size:.8rem;color:var(--teal2);font-weight:700}
+.row-btns{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.4rem}
+.pbtn{font:inherit;font-size:.82rem;font-weight:700;color:var(--teal2);background:var(--teal-light);border:1px solid #99e6dc;border-radius:7px;padding:.35rem .7rem;cursor:pointer}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.9rem}
+.metric{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:.8rem .9rem}
+.metric .k{font-size:.74rem;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.metric .v{font-size:1.25rem;font-weight:800;color:var(--navy);margin-top:.15rem}
+.metric .u{font-size:.78rem;color:var(--text2);font-weight:600}
+.metric.hl{background:var(--teal-light);border-color:#99e6dc}.metric.hl .v{color:var(--teal2)}
+.plots{display:grid;grid-template-columns:1fr 1fr;gap:1.4rem}
+.plotbox{display:flex;flex-direction:column;gap:.4rem}
+.plotbox h4{font-size:.86rem;font-weight:700;color:var(--navy)}
+.plotbox .sub{font-size:.74rem;color:var(--text2)}
+canvas{width:100%;height:auto;background:#fff;border:1px solid var(--border);border-radius:10px}
+@media(max-width:760px){.plots{grid-template-columns:1fr}}
+.warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:10px;padding:.7rem .9rem;font-size:.83rem;margin-top:1rem}
+.warn.hide{display:none}
+footer{border-top:1px solid var(--border);padding:1.5rem 0;font-size:.8rem;color:var(--text2);margin-top:1rem}
+footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+footer a{color:var(--text2)}
+table.valid{width:100%;border-collapse:collapse;font-size:.84rem;margin-top:.4rem}
+table.valid th,table.valid td{border:1px solid var(--border);padding:.35rem .55rem;text-align:left}
+table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
+</style>
+</head>
+<body>
+<button id="lang-toggle" onclick="toggleLang()">EN</button>
+
+<header><div class="wrap">
+  <a class="back" href="antennes.html">← <span data-i18n="back.hub">Antennes</span></a>
+  <h1>🟰 <span data-i18n="title">Antennes MIMO</span></h1>
+  <div class="tag" data-i18n="tag">Multiple-Input Multiple-Output : matrice de canal, capacité de Shannon, multiplexage spatial et effet de la corrélation des antennes.</div>
+</div></header>
+
+<main class="wrap">
+  <div class="intro" data-i18n-html="intro">
+    <b>Principe —</b> avec N<sub>t</sub> antennes en émission et N<sub>r</sub> en réception, le canal est une
+    <b>matrice H</b> (N<sub>r</sub>×N<sub>t</sub>). Dans un milieu riche en trajets multiples, H est bien
+    conditionnée : on peut transmettre <b>min(N<sub>t</sub>, N<sub>r</sub>) flux indépendants</b> en parallèle sur
+    la même fréquence (<b>multiplexage spatial</b>). La capacité vaut
+    C = log₂ det( I + (ρ/N<sub>t</sub>)·H·Hᴴ ) = Σ log₂(1 + (ρ/N<sub>t</sub>)·λ<sub>i</sub>), où ρ est le RSB et
+    les λ<sub>i</sub> sont les <b>valeurs propres de H·Hᴴ</b> (les « sous-canaux propres »). Le débit croît donc
+    ≈ <b>linéairement avec min(N<sub>t</sub>, N<sub>r</sub>)</b> — sans antennes corrélées.
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="cfg">Configuration de la liaison</div>
+    <div class="controls">
+      <div class="ctrl">
+        <label><span data-i18n="nt">Antennes émission N_t</span> · <span id="ntv" class="val">4</span></label>
+        <input id="nt" type="range" min="1" max="8" step="1" value="4" oninput="recompute()">
+      </div>
+      <div class="ctrl">
+        <label><span data-i18n="nr">Antennes réception N_r</span> · <span id="nrv" class="val">4</span></label>
+        <input id="nr" type="range" min="1" max="8" step="1" value="4" oninput="recompute()">
+      </div>
+      <div class="ctrl">
+        <label><span data-i18n="snr">RSB ρ</span> · <span id="snrv" class="val">10 dB</span></label>
+        <input id="snr" type="range" min="-10" max="30" step="1" value="10" oninput="recompute()">
+      </div>
+      <div class="ctrl">
+        <label><span data-i18n="rho">Corrélation des antennes</span> · <span id="rhov" class="val">0.00</span></label>
+        <input id="rho" type="range" min="0" max="0.95" step="0.05" value="0" oninput="recompute()">
+      </div>
+      <div class="ctrl">
+        <label data-i18n="csit">Allocation de puissance</label>
+        <select id="csit" onchange="recompute()">
+          <option value="equal" data-i18n="csit.eq">Égale (sans CSI émetteur)</option>
+          <option value="wf" data-i18n="csit.wf">Water-filling (CSI émetteur)</option>
+        </select>
+      </div>
+    </div>
+    <div class="row-btns">
+      <button class="pbtn" onclick="preset('siso')" data-i18n="p.siso">SISO 1×1</button>
+      <button class="pbtn" onclick="preset('22')" data-i18n="p.22">2×2</button>
+      <button class="pbtn" onclick="preset('44')" data-i18n="p.44">4×4</button>
+      <button class="pbtn" onclick="preset('88')" data-i18n="p.88">8×8 (massif)</button>
+      <button class="pbtn" onclick="preset('corr')" data-i18n="p.corr">Antennes corrélées</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="results">Capacité &amp; multiplexage</div>
+    <div class="metrics">
+      <div class="metric hl"><div class="k" data-i18n="m.cap">Capacité ergodique</div><div class="v" id="m_cap">—</div><div class="u">bit/s/Hz</div></div>
+      <div class="metric"><div class="k" data-i18n="m.siso">Référence SISO 1×1</div><div class="v" id="m_siso">—</div><div class="u">bit/s/Hz</div></div>
+      <div class="metric"><div class="k" data-i18n="m.gain">Gain vs SISO</div><div class="v" id="m_gain">—</div><div class="u">×</div></div>
+      <div class="metric"><div class="k" data-i18n="m.streams">Flux spatiaux min(N_t,N_r)</div><div class="v" id="m_str">—</div><div class="u" data-i18n="m.parallel">parallèles</div></div>
+      <div class="metric"><div class="k" data-i18n="m.cond">Conditionnement λ_max/λ_min</div><div class="v" id="m_cond">—</div><div class="u">dB</div></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="viz">Visualisation</div>
+    <div class="plots">
+      <div class="plotbox">
+        <h4 data-i18n="p.cap">Capacité vs RSB</h4>
+        <div class="sub" data-i18n="p.cap.sub">Pente du MIMO ≈ min(N_t,N_r) × celle du SISO.</div>
+        <canvas id="cv_cap" width="440" height="380"></canvas>
+      </div>
+      <div class="plotbox">
+        <h4 data-i18n="p.eig">Valeurs propres de H·Hᴴ</h4>
+        <div class="sub" data-i18n="p.eig.sub">Chaque mode = un sous-canal. La corrélation en éteint.</div>
+        <canvas id="cv_eig" width="440" height="380"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="warn hide" id="corr-warn" data-i18n="corr.warn">⚠ Forte corrélation des antennes (espacement trop faible ou peu de trajets multiples) : H devient mal conditionnée, une seule valeur propre domine — le canal retombe vers un débit de type SISO malgré les antennes multiples.</div>
+
+  <div class="panel" style="margin-top:1.4rem">
+    <div class="ptitle" data-i18n="valid">Validation (canal i.i.d. Rayleigh)</div>
+    <table class="valid">
+      <thead><tr><th data-i18n="v.case">Cas</th><th data-i18n="v.tool">Cet outil</th><th data-i18n="v.ref">Théorie</th></tr></thead>
+      <tbody>
+        <tr><td data-i18n="v.trace">Σλ_i = tr(H·Hᴴ) (moyenne)</td><td id="vr1">—</td><td>E = N_t·N_r</td></tr>
+        <tr><td data-i18n="v.slope">Pente haute-RSB</td><td id="vr2">—</td><td data-i18n="v.slopeth">min(N_t,N_r) bit/s/Hz par 3 dB</td></tr>
+        <tr><td data-i18n="v.siso2">Capacité SISO à 10 dB</td><td id="vr3">—</td><td>≈ 2,9 bit/s/Hz</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="warn" data-i18n-html="disclaimer"><b>Outil pédagogique —</b> capacité ergodique d'un canal de Rayleigh i.i.d. (corrélation Kronecker exponentielle), moyennée par Monte-Carlo. Modèle de canal idéalisé : pas de codage réel, d'estimation de canal, d'interférences ni de pertes de propagation. Donne les ordres de grandeur et la physique du multiplexage spatial.</div>
+</main>
+
+<footer><div class="wrap">
+  <span data-i18n-html="footer.lic">© 2026 Hakeim Talleb · EMtools · Code sous licence <a href="LICENSE">MIT</a></span>
+  <span><a href="antennes.html" data-i18n="footer.home">← Antennes</a></span>
+</div></footer>
+
+<script>
+function $(id){return document.getElementById(id);}
+function dpr(cv){const r=window.devicePixelRatio||1;const w=cv.clientWidth||parseFloat(cv.style.width)||cv.width;const h=parseFloat(cv.style.height)||cv.clientHeight||cv.height;cv.width=Math.round(w*r);cv.height=Math.round(h*r);const x=cv.getContext('2d');x.setTransform(r,0,0,r,0,0);return {x,w,h};}
+
+/* ---------- linear algebra ---------- */
+let _z2=null;
+function randn(){ // Box-Muller
+  if(_z2!==null){const z=_z2;_z2=null;return z;}
+  let u=0,v=0; while(u<1e-12)u=Math.random(); while(v<1e-12)v=Math.random();
+  const r=Math.sqrt(-2*Math.log(u)); _z2=r*Math.sin(2*Math.PI*v); return r*Math.cos(2*Math.PI*v);
+}
+// Jacobi eigenvalues of a real symmetric matrix → {ev:[],V:[][]}
+function jacobiEig(Ain){
+  const n=Ain.length; const A=Ain.map(r=>r.slice());
+  const V=Array.from({length:n},(_,i)=>Array.from({length:n},(_,j)=>i===j?1:0));
+  for(let sweep=0;sweep<80;sweep++){
+    let off=0; for(let p=0;p<n;p++)for(let q=p+1;q<n;q++)off+=A[p][q]*A[p][q];
+    if(off<1e-22)break;
+    for(let p=0;p<n;p++)for(let q=p+1;q<n;q++){
+      if(Math.abs(A[p][q])<1e-19)continue;
+      // Numerical-Recipes rotation: t=tanφ zeroes A[p][q] (J=[[c,s],[-s,c]], A'=JᵀAJ)
+      const theta=(A[q][q]-A[p][p])/(2*A[p][q]);
+      const sg=theta>=0?1:-1, t=sg/(Math.abs(theta)+Math.sqrt(theta*theta+1));
+      const c=1/Math.sqrt(t*t+1), s=t*c;
+      for(let k=0;k<n;k++){const akp=A[k][p],akq=A[k][q];A[k][p]=c*akp-s*akq;A[k][q]=s*akp+c*akq;}
+      for(let k=0;k<n;k++){const apk=A[p][k],aqk=A[q][k];A[p][k]=c*apk-s*aqk;A[q][k]=s*apk+c*aqk;}
+      for(let k=0;k<n;k++){const vkp=V[k][p],vkq=V[k][q];V[k][p]=c*vkp-s*vkq;V[k][q]=s*vkp+c*vkq;}
+    }
+  }
+  return {ev:A.map((r,i)=>r[i]),V};
+}
+// matrix sqrt of a real symmetric PSD matrix
+function sqrtmSym(R){
+  const n=R.length; if(n===0)return [];
+  const {ev,V}=jacobiEig(R);
+  const S=Array.from({length:n},()=>new Array(n).fill(0));
+  for(let i=0;i<n;i++)for(let j=0;j<n;j++){let s=0;for(let k=0;k<n;k++)s+=V[i][k]*Math.sqrt(Math.max(ev[k],0))*V[j][k];S[i][j]=s;}
+  return S;
+}
+// exponential correlation matrix R[i][j]=rho^|i-j|
+function expCorr(n,rho){const R=Array.from({length:n},()=>new Array(n).fill(0));
+  for(let i=0;i<n;i++)for(let j=0;j<n;j++)R[i][j]=Math.pow(rho,Math.abs(i-j));return R;}
+// real matmul A(p×q)·B(q×r)
+function mm(A,B){const p=A.length,q=B.length,r=B[0].length;const C=Array.from({length:p},()=>new Array(r).fill(0));
+  for(let i=0;i<p;i++)for(let k=0;k<q;k++){const a=A[i][k];if(a===0)continue;for(let j=0;j<r;j++)C[i][j]+=a*B[k][j];}return C;}
+
+/* ---------- MIMO Monte-Carlo ---------- */
+let SIM=null;            // cached per-trial scalars, independent of SNR
+function simulate(){
+  const Nt=parseInt($('nt').value), Nr=parseInt($('nr').value), rho=parseFloat($('rho').value);
+  const T=300, m=Math.min(Nt,Nr);
+  const St=rho>0?sqrtmSym(expCorr(Nt,rho)):null;
+  const Sr=rho>0?sqrtmSym(expCorr(Nr,rho)):null;
+  const eigSum=new Array(m).fill(0);     // mean eigenvalue spectrum (sorted desc)
+  const trials=[];                       // {eig:[...], siso, simo, miso}
+  for(let t=0;t<T;t++){
+    // iid complex Gaussian, unit variance per entry
+    let Hr=Array.from({length:Nr},()=>new Array(Nt)), Hi=Array.from({length:Nr},()=>new Array(Nt));
+    for(let i=0;i<Nr;i++)for(let j=0;j<Nt;j++){Hr[i][j]=randn()/Math.SQRT2;Hi[i][j]=randn()/Math.SQRT2;}
+    if(rho>0){ Hr=mm(mm(Sr,Hr),St); Hi=mm(mm(Sr,Hi),St); }
+    // Gram on the smaller side → m×m Hermitian (Gr + i Gi)
+    const useTx=Nt<=Nr;
+    const Gr=Array.from({length:m},()=>new Array(m).fill(0)), Gi=Array.from({length:m},()=>new Array(m).fill(0));
+    for(let a=0;a<m;a++)for(let b=0;b<m;b++){
+      let re=0,im=0;
+      if(useTx){ for(let r=0;r<Nr;r++){const xr=Hr[r][a],xi=Hi[r][a],yr=Hr[r][b],yi=Hi[r][b]; re+=xr*yr+xi*yi; im+=xr*yi-xi*yr;} }
+      else     { for(let c=0;c<Nt;c++){const xr=Hr[a][c],xi=Hi[a][c],yr=Hr[b][c],yi=Hi[b][c]; re+=xr*yr+xi*yi; im+=xi*yr-xr*yi;} }
+      Gr[a][b]=re; Gi[a][b]=im;
+    }
+    // real embedding [[Gr,-Gi],[Gi,Gr]] (2m×2m) — eigenvalues of G appear twice
+    const B=Array.from({length:2*m},()=>new Array(2*m).fill(0));
+    for(let a=0;a<m;a++)for(let b=0;b<m;b++){B[a][b]=Gr[a][b];B[a][b+m]=-Gi[a][b];B[a+m][b]=Gi[a][b];B[a+m][b+m]=Gr[a][b];}
+    const ev=jacobiEig(B).ev.slice().sort((p,q)=>q-p);
+    const eig=[]; for(let i=0;i<m;i++)eig.push(Math.max(ev[2*i],0));   // take every other (deduplicate)
+    for(let i=0;i<m;i++)eigSum[i]+=eig[i];
+    // reference sub-channels from the same realization
+    const siso=Hr[0][0]*Hr[0][0]+Hi[0][0]*Hi[0][0];
+    let simo=0; for(let r=0;r<Nr;r++)simo+=Hr[r][0]*Hr[r][0]+Hi[r][0]*Hi[r][0];   // 1×Nr MRC gain
+    let miso=0; for(let c=0;c<Nt;c++)miso+=Hr[0][c]*Hr[0][c]+Hi[0][c]*Hi[0][c];   // Nt×1
+    trials.push({eig,siso,simo,miso});
+  }
+  SIM={Nt,Nr,m,T,rho,eigMean:eigSum.map(s=>s/T),trials};
+  return SIM;
+}
+// water-filling over the eigenmodes, SAME total power budget as equal power (Σφ_i = Nt, equal ⇒ φ_i=1).
+// Per-mode capacity = log2(1 + φ_i·g_i) with g_i = (ρ/Nt)·λ_i, optimal φ_i = max(0, μ − 1/g_i).
+function waterfill(eig,snrLin,Nt){
+  const m=eig.length, g=eig.map(l=>(snrLin/Nt)*Math.max(l,0));
+  const a=g.map(gi=>gi>1e-12?1/gi:1e12), Ptot=Nt;
+  let lo=0,hi=Ptot+Math.max.apply(null,a)+1;
+  for(let it=0;it<80;it++){const mu=(lo+hi)/2;let s=0;for(let i=0;i<m;i++)s+=Math.max(0,mu-a[i]);if(s>Ptot)hi=mu;else lo=mu;}
+  const mu=(lo+hi)/2; let C=0;
+  for(let i=0;i<m;i++){const p=Math.max(0,mu-a[i]); if(p>0)C+=Math.log2(1+p*g[i]);}
+  return C;
+}
+function capMIMO(eig,snrLin,Nt,wf){
+  if(wf) return waterfill(eig,snrLin,Nt);
+  let C=0; for(let i=0;i<eig.length;i++)C+=Math.log2(1+(snrLin/Nt)*eig[i]); return C;
+}
+function ergodic(snrDb,which){
+  const snr=Math.pow(10,snrDb/10), wf=$('csit').value==='wf', Nt=SIM.Nt;
+  let s=0; for(const tr of SIM.trials){
+    if(which==='mimo') s+=capMIMO(tr.eig,snr,Nt,wf);
+    else if(which==='siso') s+=Math.log2(1+snr*tr.siso);
+    else if(which==='simo') s+=Math.log2(1+snr*tr.simo);
+    else if(which==='miso') s+=Math.log2(1+(snr/Nt)*tr.miso);
+  }
+  return s/SIM.T;
+}
+
+/* ---------- UI ---------- */
+function recompute(){
+  $('ntv').textContent=$('nt').value; $('nrv').textContent=$('nr').value;
+  $('snrv').textContent=$('snr').value+' dB';
+  $('rhov').textContent=parseFloat($('rho').value).toFixed(2);
+  simulate();
+  const snrDb=parseFloat($('snr').value);
+  const cap=ergodic(snrDb,'mimo'), siso=ergodic(snrDb,'siso');
+  $('m_cap').textContent=cap.toFixed(2);
+  $('m_siso').textContent=siso.toFixed(2);
+  $('m_gain').textContent=(cap/Math.max(siso,1e-6)).toFixed(2);
+  $('m_str').textContent=SIM.m;
+  const em=SIM.eigMean, cond=em[SIM.m-1]>1e-6?10*Math.log10(em[0]/em[SIM.m-1]):Infinity;
+  $('m_cond').textContent=SIM.m<2?'—':(isFinite(cond)?cond.toFixed(1):'∞');
+  $('corr-warn').classList.toggle('hide', !(SIM.rho>=0.7 && SIM.m>=2));
+  // validation
+  const trace=SIM.eigMean.reduce((a,b)=>a+b,0);
+  $('vr1').textContent=trace.toFixed(2)+'  (= '+(SIM.Nt*SIM.Nr)+' attendu)';
+  $('vr2').textContent=(ergodic(27,'mimo')-ergodic(24,'mimo')).toFixed(2)+' bit/s/Hz / 3 dB  (min='+SIM.m+')';
+  $('vr3').textContent=ergodic(10,'siso').toFixed(2)+' bit/s/Hz';
+  drawCap(); drawEig();
+}
+function preset(p){
+  const set=(nt,nr,rho)=>{$('nt').value=nt;$('nr').value=nr;$('rho').value=rho;};
+  if(p==='siso')set(1,1,0); else if(p==='22')set(2,2,0); else if(p==='44')set(4,4,0);
+  else if(p==='88')set(8,8,0); else if(p==='corr')set(4,4,0.85);
+  recompute();
+}
+
+function drawCap(){
+  const cv=$('cv_cap'); cv.style.height='380px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const pad=42,x0=pad,x1=w-12,y0=h-30,y1=16, sMin=-10,sMax=30;
+  // y-range from MIMO max
+  let ymax=2; for(let sd=sMin;sd<=sMax;sd+=2)ymax=Math.max(ymax,ergodic(sd,'mimo'));
+  ymax=Math.ceil(ymax/5)*5;
+  const sx=s=>x0+(s-sMin)/(sMax-sMin)*(x1-x0), sy=c=>y0-c/ymax*(y0-y1);
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='right';
+  for(let c=0;c<=ymax;c+=Math.max(5,Math.round(ymax/6/5)*5)){x.fillText(c,x0-4,sy(c)+3);x.strokeStyle='#f1f5f9';x.beginPath();x.moveTo(x0,sy(c));x.lineTo(x1,sy(c));x.stroke();}
+  x.textAlign='center';for(let s=sMin;s<=sMax;s+=10){x.fillText(s,sx(s),y0+14);}
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.fillText('RSB ρ (dB)',(x0+x1)/2,h-6);
+  x.save();x.translate(12,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText('bit/s/Hz',0,0);x.restore();
+  const curves=[['mimo','#0d9488',2.4],['simo','#2563eb',1.4],['miso','#d97706',1.4],['siso','#94a3b8',1.4]];
+  for(const [wkey,col,lw] of curves){
+    x.strokeStyle=col;x.lineWidth=lw;x.beginPath();let first=true;
+    for(let s=sMin;s<=sMax;s+=1){const c=ergodic(s,wkey);const X=sx(s),Y=sy(Math.min(c,ymax));first?x.moveTo(X,Y):x.lineTo(X,Y);first=false;}
+    x.stroke();
+  }
+  // marker at current SNR
+  const sd=parseFloat($('snr').value);
+  x.strokeStyle='#0f766e';x.setLineDash([3,3]);x.lineWidth=1;x.beginPath();x.moveTo(sx(sd),y1);x.lineTo(sx(sd),y0);x.stroke();x.setLineDash([]);
+  // legend
+  x.font='10px sans-serif';x.textAlign='left';
+  const lab=[['MIMO '+SIM.Nt+'×'+SIM.Nr,'#0d9488'],['SIMO 1×'+SIM.Nr,'#2563eb'],['MISO '+SIM.Nt+'×1','#d97706'],['SISO 1×1','#94a3b8']];
+  lab.forEach((l,i)=>{const yy=y1+6+i*14;x.fillStyle=l[1];x.fillRect(x0+8,yy-7,16,3);x.fillStyle='#475569';x.fillText(l[0],x0+28,yy-2);});
+}
+function drawEig(){
+  const cv=$('cv_eig'); cv.style.height='380px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const pad=42,x0=pad,x1=w-14,y0=h-30,y1=18;
+  const em=SIM.eigMean, m=SIM.m, snr=Math.pow(10,parseFloat($('snr').value)/10), Nt=SIM.Nt;
+  let ymax=1; for(const e of em)ymax=Math.max(ymax,e); ymax=Math.ceil(ymax);
+  const bw=(x1-x0)/m*0.62, gap=(x1-x0)/m;
+  const sy=v=>y0-v/ymax*(y0-y1);
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='right';
+  for(let g=0;g<=ymax;g+=Math.max(1,Math.round(ymax/6))){x.fillText(g,x0-4,sy(g)+3);x.strokeStyle='#f1f5f9';x.beginPath();x.moveTo(x0,sy(g));x.lineTo(x1,sy(g));x.stroke();}
+  // threshold: a mode contributes meaningfully if (snr/Nt)·λ ≳ 1
+  const thr=Nt/snr;
+  if(thr<=ymax){x.strokeStyle='#f59e0b';x.setLineDash([5,3]);x.lineWidth=1.2;x.beginPath();x.moveTo(x0,sy(thr));x.lineTo(x1,sy(thr));x.stroke();x.setLineDash([]);
+    x.fillStyle='#b45309';x.textAlign='left';x.fillText('seuil N_t/ρ',x0+6,sy(thr)-4);}
+  let active=0;
+  for(let i=0;i<m;i++){
+    const cx=x0+gap*(i+0.5), bx=cx-bw/2, by=sy(em[i]);
+    const on=em[i]>=thr; if(on)active++;
+    x.fillStyle=on?'#0d9488':'#cbd5e1'; x.fillRect(bx,by,bw,y0-by);
+    x.fillStyle='#475569';x.font='10px sans-serif';x.textAlign='center';
+    x.fillText('λ'+(i+1),cx,y0+14); x.fillText(em[i].toFixed(2),cx,by-4);
+  }
+  x.fillStyle='#0f766e';x.font='700 11px sans-serif';x.textAlign='center';
+  x.fillText((LANG==='fr'?'≈ '+active+' sous-canal(aux) actif(s) sur '+m:'≈ '+active+' active sub-channel(s) of '+m),(x0+x1)/2,h-6);
+}
+
+/* i18n */
+const I18N={
+ 'back.hub':{fr:"Antennes",en:"Antennas"},
+ 'title':{fr:"Antennes MIMO",en:"MIMO antennas"},
+ 'tag':{fr:"Multiple-Input Multiple-Output : matrice de canal, capacité de Shannon, multiplexage spatial et effet de la corrélation des antennes.",
+        en:"Multiple-Input Multiple-Output: channel matrix, Shannon capacity, spatial multiplexing and the effect of antenna correlation."},
+ 'intro':{fr:"<b>Principe —</b> avec N<sub>t</sub> antennes en émission et N<sub>r</sub> en réception, le canal est une <b>matrice H</b> (N<sub>r</sub>×N<sub>t</sub>). Dans un milieu riche en trajets multiples, H est bien conditionnée : on peut transmettre <b>min(N<sub>t</sub>, N<sub>r</sub>) flux indépendants</b> en parallèle sur la même fréquence (<b>multiplexage spatial</b>). La capacité vaut C = log₂ det( I + (ρ/N<sub>t</sub>)·H·Hᴴ ) = Σ log₂(1 + (ρ/N<sub>t</sub>)·λ<sub>i</sub>), où ρ est le RSB et les λ<sub>i</sub> sont les <b>valeurs propres de H·Hᴴ</b> (les « sous-canaux propres »). Le débit croît donc ≈ <b>linéairement avec min(N<sub>t</sub>, N<sub>r</sub>)</b> — sans antennes corrélées.",
+          en:"<b>Principle —</b> with N<sub>t</sub> transmit and N<sub>r</sub> receive antennas, the channel is a <b>matrix H</b> (N<sub>r</sub>×N<sub>t</sub>). In a rich-scattering environment H is well conditioned: one can send <b>min(N<sub>t</sub>, N<sub>r</sub>) independent streams</b> in parallel on the same frequency (<b>spatial multiplexing</b>). The capacity is C = log₂ det( I + (ρ/N<sub>t</sub>)·H·Hᴴ ) = Σ log₂(1 + (ρ/N<sub>t</sub>)·λ<sub>i</sub>), where ρ is the SNR and the λ<sub>i</sub> are the <b>eigenvalues of H·Hᴴ</b> (the “eigen sub-channels”). Throughput thus grows ≈ <b>linearly with min(N<sub>t</sub>, N<sub>r</sub>)</b> — provided the antennas are uncorrelated."},
+ 'cfg':{fr:"Configuration de la liaison",en:"Link configuration"},
+ 'nt':{fr:"Antennes émission N_t",en:"Transmit antennas N_t"},
+ 'nr':{fr:"Antennes réception N_r",en:"Receive antennas N_r"},
+ 'snr':{fr:"RSB ρ",en:"SNR ρ"},
+ 'rho':{fr:"Corrélation des antennes",en:"Antenna correlation"},
+ 'csit':{fr:"Allocation de puissance",en:"Power allocation"},
+ 'csit.eq':{fr:"Égale (sans CSI émetteur)",en:"Equal (no transmit CSI)"},
+ 'csit.wf':{fr:"Water-filling (CSI émetteur)",en:"Water-filling (transmit CSI)"},
+ 'p.siso':{fr:"SISO 1×1",en:"SISO 1×1"},'p.22':{fr:"2×2",en:"2×2"},'p.44':{fr:"4×4",en:"4×4"},
+ 'p.88':{fr:"8×8 (massif)",en:"8×8 (massive)"},'p.corr':{fr:"Antennes corrélées",en:"Correlated antennas"},
+ 'results':{fr:"Capacité & multiplexage",en:"Capacity & multiplexing"},
+ 'm.cap':{fr:"Capacité ergodique",en:"Ergodic capacity"},
+ 'm.siso':{fr:"Référence SISO 1×1",en:"SISO 1×1 reference"},
+ 'm.gain':{fr:"Gain vs SISO",en:"Gain vs SISO"},
+ 'm.streams':{fr:"Flux spatiaux min(N_t,N_r)",en:"Spatial streams min(N_t,N_r)"},
+ 'm.parallel':{fr:"parallèles",en:"parallel"},
+ 'm.cond':{fr:"Conditionnement λ_max/λ_min",en:"Conditioning λ_max/λ_min"},
+ 'viz':{fr:"Visualisation",en:"Visualisation"},
+ 'p.cap':{fr:"Capacité vs RSB",en:"Capacity vs SNR"},
+ 'p.cap.sub':{fr:"Pente du MIMO ≈ min(N_t,N_r) × celle du SISO.",en:"MIMO slope ≈ min(N_t,N_r) × the SISO slope."},
+ 'p.eig':{fr:"Valeurs propres de H·Hᴴ",en:"Eigenvalues of H·Hᴴ"},
+ 'p.eig.sub':{fr:"Chaque mode = un sous-canal. La corrélation en éteint.",en:"Each mode = one sub-channel. Correlation switches them off."},
+ 'corr.warn':{fr:"⚠ Forte corrélation des antennes (espacement trop faible ou peu de trajets multiples) : H devient mal conditionnée, une seule valeur propre domine — le canal retombe vers un débit de type SISO malgré les antennes multiples.",
+              en:"⚠ Strong antenna correlation (too-small spacing or poor multipath): H becomes ill-conditioned, a single eigenvalue dominates — the channel collapses back toward SISO-like throughput despite the multiple antennas."},
+ 'valid':{fr:"Validation (canal i.i.d. Rayleigh)",en:"Validation (i.i.d. Rayleigh channel)"},
+ 'v.case':{fr:"Cas",en:"Case"},'v.tool':{fr:"Cet outil",en:"This tool"},'v.ref':{fr:"Théorie",en:"Theory"},
+ 'v.trace':{fr:"Σλ_i = tr(H·Hᴴ) (moyenne)",en:"Σλ_i = tr(H·Hᴴ) (mean)"},
+ 'v.slope':{fr:"Pente haute-RSB",en:"High-SNR slope"},
+ 'v.slopeth':{fr:"min(N_t,N_r) bit/s/Hz par 3 dB",en:"min(N_t,N_r) bit/s/Hz per 3 dB"},
+ 'v.siso2':{fr:"Capacité SISO à 10 dB",en:"SISO capacity at 10 dB"},
+ 'disclaimer':{fr:"<b>Outil pédagogique —</b> capacité ergodique d'un canal de Rayleigh i.i.d. (corrélation Kronecker exponentielle), moyennée par Monte-Carlo. Modèle de canal idéalisé : pas de codage réel, d'estimation de canal, d'interférences ni de pertes de propagation. Donne les ordres de grandeur et la physique du multiplexage spatial.",
+               en:"<b>Educational tool —</b> ergodic capacity of an i.i.d. Rayleigh channel (exponential Kronecker correlation), Monte-Carlo averaged. Idealised channel model: no real coding, channel estimation, interference or path loss. Gives orders of magnitude and the physics of spatial multiplexing."},
+ 'footer.lic':{fr:'© 2026 Hakeim Talleb · EMtools · Code sous licence <a href="LICENSE">MIT</a>',en:'© 2026 Hakeim Talleb · EMtools · Code under the <a href="LICENSE">MIT</a> license'},
+ 'footer.home':{fr:"← Antennes",en:"← Antennas"},
+};
+let LANG=localStorage.getItem('emtools_lang')||'fr';
+function t(k){const e=I18N[k];return e?(e[LANG]||e.fr):k;}
+function applyLang(){
+  document.documentElement.lang=LANG;
+  document.querySelectorAll('[data-i18n]').forEach(el=>{const e=I18N[el.dataset.i18n];if(e)el.textContent=e[LANG]||e.fr;});
+  document.querySelectorAll('[data-i18n-html]').forEach(el=>{const e=I18N[el.dataset.i18nHtml];if(e)el.innerHTML=e[LANG]||e.fr;});
+  const b=$('lang-toggle');if(b)b.textContent=LANG==='fr'?'EN':'FR';
+}
+function toggleLang(){LANG=LANG==='fr'?'en':'fr';localStorage.setItem('emtools_lang',LANG);applyLang();recompute();}
+applyLang(); recompute();
+window.addEventListener('resize',()=>{drawCap();drawEig();});
+</script>
+</body>
+</html>
