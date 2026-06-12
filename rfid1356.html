@@ -52,6 +52,23 @@ footer a{color:var(--text2)}
 table.valid{width:100%;border-collapse:collapse;font-size:.84rem;margin-top:.4rem}
 table.valid th,table.valid td{border:1px solid var(--border);padding:.35rem .55rem;text-align:left}
 table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
+table.frames{width:100%;border-collapse:collapse;font-size:.82rem;margin:.6rem 0 .2rem}
+table.frames th,table.frames td{border:1px solid var(--border);padding:.4rem .55rem;text-align:left;vertical-align:top}
+table.frames th{background:var(--bg2);color:var(--navy);font-weight:700}
+table.frames td.dir{font-weight:800;white-space:nowrap;text-align:center;font-size:.92em}
+table.frames tr.dn td.dir{color:#2563eb}
+table.frames tr.up td.dir{color:#0d9488}
+table.frames tr.dn{background:#eff6ff}
+table.frames tr.up{background:#f0fdfa}
+table.frames code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.86em;background:rgba(15,23,42,.06);padding:1px 5px;border-radius:4px;white-space:nowrap}
+.nfc-grid{display:grid;grid-template-columns:1fr 1fr;gap:.9rem;margin:.4rem 0 .2rem}
+@media(max-width:680px){.nfc-grid{grid-template-columns:1fr}}
+.nfc-card{border:1px solid var(--border);border-radius:10px;padding:.7rem .85rem;font-size:.85rem}
+.nfc-card.rfid{background:#eff6ff;border-color:#bfdbfe}
+.nfc-card.nfc{background:#f0fdfa;border-color:#99e6dc}
+.nfc-card h5{font-size:.8rem;font-weight:800;margin-bottom:.25rem;color:var(--navy)}
+.nfc-card ul{margin:0;padding-left:1.05rem}
+.nfc-card li{margin:.12rem 0}
 </style>
 </head>
 <body>
@@ -125,6 +142,8 @@ table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
       <div class="metric"><div class="k" data-i18n="m.voc">F.é.m. induite (circuit ouvert)</div><div class="v" id="m_voc">—</div><div class="u">V</div></div>
       <div class="metric"><div class="k" data-i18n="m.vtag">Tension tag (résonance ≈ Q·e)</div><div class="v" id="m_vtag">—</div><div class="u">V</div></div>
       <div class="metric"><div class="k" data-i18n="m.cap">Capacité d'accord C₂ (L₂ tag)</div><div class="v" id="m_cap">—</div><div class="u">pF</div></div>
+      <div class="metric"><div class="k" data-i18n="m.zref">Impédance reflétée Z_ref</div><div class="v" id="m_zref">—</div><div class="u">Ω</div></div>
+      <div class="metric"><div class="k" data-i18n="m.mod">Profondeur de modulation</div><div class="v" id="m_mod">—</div><div class="u">%</div></div>
     </div>
   </div>
 
@@ -145,6 +164,29 @@ table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
   </div>
 
   <div class="warn" id="iso-note" data-i18n-html="iso.note"></div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="seq.t">Trame &amp; rétro-modulation — RFID vs NFC</div>
+    <div data-i18n-html="seq.intro"></div>
+    <div class="nfc-grid">
+      <div class="nfc-card rfid" data-i18n-html="seq.rfid"></div>
+      <div class="nfc-card nfc" data-i18n-html="seq.nfc"></div>
+    </div>
+    <div style="font-size:.86rem;font-weight:700;color:var(--navy);margin:.7rem 0 .1rem" data-i18n="seq.exh">Exemple — activation ISO 14443-A (Type A)</div>
+    <table class="frames">
+      <thead><tr><th data-i18n="seq.dir">Sens</th><th data-i18n="seq.fr">Trame</th><th data-i18n="seq.mean">Signification</th><th data-i18n="seq.mod">Modulation</th></tr></thead>
+      <tbody>
+        <tr class="dn"><td class="dir">PCD→PICC</td><td><code>REQA · 26</code></td><td data-i18n="seq.r1">Qui est là ?</td><td data-i18n="seq.m.ask">ASK 100 % · Miller</td></tr>
+        <tr class="up"><td class="dir">PICC→PCD</td><td><code>ATQA · 04 00</code></td><td data-i18n="seq.r2">Présent (UID court)</td><td data-i18n="seq.m.lm">rétro-mod. 847 kHz · Manchester</td></tr>
+        <tr class="dn"><td class="dir">PCD→PICC</td><td><code>ANTICOLLISION · 93 20</code></td><td data-i18n="seq.r3">Le lecteur demande l'UID</td><td data-i18n="seq.m.ask2">ASK 100 %</td></tr>
+        <tr class="up"><td class="dir">PICC→PCD</td><td><code>UID · 2A 69 8D 14 + BCC</code></td><td data-i18n="seq.r4">Numéro de série</td><td data-i18n="seq.m.lm2">rétro-modulation</td></tr>
+        <tr class="dn"><td class="dir">PCD→PICC</td><td><code>SELECT · 93 70 + UID + CRC</code></td><td data-i18n="seq.r5">Sélectionne ce tag</td><td data-i18n="seq.m.ask2">ASK 100 %</td></tr>
+        <tr class="up"><td class="dir">PICC→PCD</td><td><code>SAK · 08 + CRC</code></td><td data-i18n="seq.r6">Sélectionné (Mifare 1K)</td><td data-i18n="seq.m.lm2">rétro-modulation</td></tr>
+        <tr class="dn"><td class="dir">PCD→PICC</td><td><code>APDU · 00 A4 04 00 …</code></td><td data-i18n="seq.r7">Dialogue applicatif (ISO 7816-4)</td><td data-i18n="seq.m.ask2">ASK 100 %</td></tr>
+      </tbody>
+    </table>
+    <div class="warn" style="background:#fffbeb;border-color:#fde68a;color:#854d0e;margin-top:.7rem" data-i18n-html="seq.note"></div>
+  </div>
 
   <div class="panel" style="margin-top:1.4rem">
     <div class="ptitle" data-i18n="valid">Validation</div>
@@ -195,7 +237,15 @@ function compute(){
   // read range: largest z where H(z) ≥ HMIN
   const arg=Math.pow(N1*I1*a*a/(2*HMIN),2/3)-a*a;
   const range=arg>0?Math.sqrt(arg):0;               // m
-  CUR={a,N1,I1,b,N2,Q,z,H,B,M,L1,L2,k,C2,Voc,Vtag,range};
+  // ── load modulation / reflected impedance ──
+  const Q1=35;                                       // assumed reader-antenna quality factor
+  const Rtag=W0*L2/Q;                                // tag equivalent series resistance at resonance
+  const R1=W0*L1/Q1;                                 // reader-antenna resistance
+  const wM=W0*M;                                     // mutual reactance ωM
+  const Zref=wM*wM/Rtag;                             // reflected resistance (ωM)²/Z_tag
+  const ZrefMod=wM*wM/(2*Rtag);                      // modulation state: tag Q halved → Rtag doubled
+  const modDepth=(Zref-ZrefMod)/(R1+Zref);           // relative voltage change seen by the reader
+  CUR={a,N1,I1,b,N2,Q,z,H,B,M,L1,L2,k,C2,Voc,Vtag,range,Zref,modDepth};
   return CUR;
 }
 
@@ -226,6 +276,8 @@ function recompute(){
   $('m_voc').textContent=fmtSI(c.Voc);
   $('m_vtag').textContent=fmtSI(c.Vtag);
   $('m_cap').textContent=(c.C2*1e12).toFixed(0);
+  $('m_zref').textContent=fmtSI(c.Zref);
+  $('m_mod').textContent=(c.modDepth*100).toFixed(1);
   // ISO note
   let msg;
   if(c.H<HMIN) msg=t('iso.low');
@@ -331,6 +383,30 @@ const I18N={
  'm.voc':{fr:"F.é.m. induite (circuit ouvert)",en:"Induced emf (open circuit)"},
  'm.vtag':{fr:"Tension tag (résonance ≈ Q·e)",en:"Tag voltage (resonance ≈ Q·e)"},
  'm.cap':{fr:"Capacité d'accord C₂ (L₂ tag)",en:"Tuning capacitance C₂ (tag L₂)"},
+ 'm.zref':{fr:"Impédance reflétée Z_ref",en:"Reflected impedance Z_ref"},
+ 'm.mod':{fr:"Profondeur de modulation",en:"Load-modulation depth"},
+ 'seq.t':{fr:"Trame & rétro-modulation — RFID vs NFC",en:"Frame exchange & load modulation — RFID vs NFC"},
+ 'seq.intro':{fr:"<b>Même physique, protocoles différents —</b> RFID HF et NFC partagent le couplage inductif à 13,56 MHz et la rétro-modulation. La différence est dans la portée et les couches hautes :",
+              en:"<b>Same physics, different protocols —</b> HF RFID and NFC share the 13.56 MHz inductive coupling and load modulation. The difference is in range and the upper layers:"},
+ 'seq.rfid':{fr:"<h5>RFID HF</h5><ul><li>ISO 14443 (proximité ≈ 10 cm), ISO 15693 (voisinage ≈ 1 m)</li><li><b>Asymétrique</b> : lecteur actif → tag <b>toujours passif</b></li><li>S'arrête à l'anticollision + lecture/écriture mémoire</li><li>Le tag <b>ne génère jamais</b> de champ</li></ul>",
+             en:"<h5>HF RFID</h5><ul><li>ISO 14443 (proximity ≈ 10 cm), ISO 15693 (vicinity ≈ 1 m)</li><li><b>Asymmetric</b>: active reader → <b>always passive</b> tag</li><li>Stops at anticollision + memory read/write</li><li>The tag <b>never generates</b> a field</li></ul>"},
+ 'seq.nfc':{fr:"<h5>NFC</h5><ul><li>ISO 18092, <b>compatible 14443</b> + FeliCa ; portée &lt; ~10 cm</li><li>Ajoute l'<b>émulation de carte</b> et le <b>pair-à-pair actif</b></li><li>Couche données : NDEF / RTD / LLCP</li><li>En P2P actif : <b>plus de rétro-modulation</b> (champ alterné)</li></ul>",
+            en:"<h5>NFC</h5><ul><li>ISO 18092, <b>14443-compatible</b> + FeliCa; range &lt; ~10 cm</li><li>Adds <b>card emulation</b> and <b>active peer-to-peer</b></li><li>Data layer: NDEF / RTD / LLCP</li><li>In active P2P: <b>no load modulation</b> (alternating field)</li></ul>"},
+ 'seq.exh':{fr:"Exemple — activation ISO 14443-A (Type A)",en:"Example — ISO 14443-A activation (Type A)"},
+ 'seq.dir':{fr:"Sens",en:"Direction"},'seq.fr':{fr:"Trame",en:"Frame"},'seq.mean':{fr:"Signification",en:"Meaning"},'seq.mod':{fr:"Modulation",en:"Modulation"},
+ 'seq.r1':{fr:"Qui est là ?",en:"Who is there?"},
+ 'seq.r2':{fr:"Présent (UID court)",en:"Present (short UID)"},
+ 'seq.r3':{fr:"Le lecteur demande l'UID",en:"Reader requests the UID"},
+ 'seq.r4':{fr:"Numéro de série",en:"Serial number"},
+ 'seq.r5':{fr:"Sélectionne ce tag",en:"Selects this tag"},
+ 'seq.r6':{fr:"Sélectionné (Mifare 1K)",en:"Selected (Mifare 1K)"},
+ 'seq.r7':{fr:"Dialogue applicatif (ISO 7816-4)",en:"Application dialogue (ISO 7816-4)"},
+ 'seq.m.ask':{fr:"ASK 100 % · Miller",en:"100 % ASK · Miller"},
+ 'seq.m.ask2':{fr:"ASK 100 %",en:"100 % ASK"},
+ 'seq.m.lm':{fr:"rétro-mod. 847 kHz · Manchester",en:"load mod. 847 kHz · Manchester"},
+ 'seq.m.lm2':{fr:"rétro-modulation",en:"load modulation"},
+ 'seq.note':{fr:"<b>Rétro-modulation (load modulation) —</b> le tag répond <b>sans émettre</b> : il commute une charge aux bornes de sa bobine, ce qui fait varier l'<b>impédance reflétée</b> Z_ref = (ωM)²/Z_tag vue par le lecteur. Celui-ci détecte cette variation comme des <b>bandes latérales à 13,56 MHz ± 847,5 kHz</b>. Les métriques ci-dessus donnent Z_ref et la profondeur de modulation correspondante <i>(hypothèse : la modulation divise par 2 le Q du tag ; antenne lecteur Q ≈ 35)</i>.",
+             en:"<b>Load modulation —</b> the tag replies <b>without transmitting</b>: it switches a load across its coil, varying the <b>reflected impedance</b> Z_ref = (ωM)²/Z_tag seen by the reader, which detects it as <b>sidebands at 13.56 MHz ± 847.5 kHz</b>. The metrics above give Z_ref and the corresponding modulation depth <i>(assumption: modulation halves the tag Q; reader antenna Q ≈ 35)</i>."},
  'viz':{fr:"Visualisation",en:"Visualisation"},
  'p.field':{fr:"Champ H(z) vs distance",en:"H(z) field vs distance"},
  'p.field.sub':{fr:"Décroissance en 1/z³ ; bande opérationnelle ISO 14443.",en:"1/z³ decay; ISO 14443 operating band."},
