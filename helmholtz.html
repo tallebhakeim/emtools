@@ -114,6 +114,14 @@ table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
 
   <div class="panel">
     <div class="ptitle" data-i18n="viz">Allure du champ</div>
+    <div style="margin-bottom:.9rem">
+      <label style="font-size:.82rem;font-weight:600;color:var(--text2);margin-right:.5rem" data-i18n="unit.l">Unité du champ tracé</label>
+      <select id="unit" onchange="recompute()" style="font:inherit;font-size:.9rem;padding:.35rem .55rem;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--text)">
+        <option value="mt" data-i18n="unit.b">B — induction (T / mT / µT)</option>
+        <option value="am" data-i18n="unit.am">H — champ (A/m)</option>
+        <option value="oe" data-i18n="unit.oe">H — champ (Oe)</option>
+      </select>
+    </div>
     <div class="plots">
       <div class="plotbox">
         <h4 data-i18n="p.ax">Champ sur l'axe B(z)</h4>
@@ -126,6 +134,12 @@ table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
         <canvas id="cv_map" width="440" height="360"></canvas>
       </div>
     </div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="viz3d">Vue 3D — bobines &amp; lignes de champ</div>
+    <canvas id="cv_3d" width="900" height="440" style="cursor:grab;touch-action:none"></canvas>
+    <div class="sub" style="font-size:.76rem;color:var(--text2);margin-top:.4rem" data-i18n="viz3d.sub">Glisse pour tourner. Les deux bobines (anneaux) et les lignes de champ (révolution autour de l'axe) : presque rectilignes au centre (région uniforme), refermées à l'extérieur.</div>
   </div>
 
   <div class="panel">
@@ -245,8 +259,27 @@ function compute(){
   const Xc0=w0*L;                                    // = 1/(w0 C) at f0
   const VrmsC=I*Xc0, VpeakC=Math.SQRT2*VrmsC;
   const Vallow=Vr/mg, Nseries=Math.max(1,Math.ceil(VpeakC/Vallow)), Ceach=Nseries*Ccomp;
-  CUR={R,I,N,dR,d,NI,f0,w0,Aw,Vr,mg,B0,Bone,H0,zu,cfg,HcPerTurn,Ntarget,Rcoil,L,Ccomp,Xc0,VrmsC,VpeakC,Vallow,Nseries,Ceach};
+  const flines=fieldLines(R,NI,d);                   // meridional field lines for the 3D view
+  CUR={R,I,N,dR,d,NI,f0,w0,Aw,Vr,mg,B0,Bone,H0,zu,cfg,HcPerTurn,Ntarget,Rcoil,L,Ccomp,Xc0,VrmsC,VpeakC,Vallow,Nseries,Ceach,flines};
   return CUR;
+}
+// streamline integration of B in the (r,z) meridional plane → closed field-line polylines
+function fieldLines(R,NI,d){
+  const ds=R/26, maxN=900, zlim=2.4*R+d, rlim=2.4*R, lines=[];
+  function trace(r0,z0){
+    const pts=[]; let r=r0,z=z0;
+    for(let i=0;i<maxN;i++){
+      const A=loopB(R,NI,r,z-d/2), B=loopB(R,NI,r,z+d/2);
+      let Bz=A.Bz+B.Bz, Br=A.Br+B.Br; const m=Math.hypot(Bz,Br)||1e-30; Bz/=m; Br/=m;
+      r+=Br*ds; z+=Bz*ds; pts.push([r,z]);
+      if(Math.abs(z)>zlim||Math.abs(r)>rlim) break;
+      if(i>40 && Math.hypot(r-r0,z-z0)<ds*0.9) break;   // closed loop
+    }
+    return pts;
+  }
+  [0.28,0.55,0.82,1.06,1.3].forEach(fr=>{ const r0=fr*R;
+    lines.push(trace(r0,0)); lines.push(trace(-r0,0)); });
+  return lines;
 }
 
 function fmtB(T){ const a=Math.abs(T); if(a<1e-3) return (T*1e6).toFixed(a<1e-5?2:1); return (T*1e3).toFixed(3); }
@@ -279,7 +312,7 @@ function recompute(){
   $('vr1').textContent=fmtB(c.Bone)+(Math.abs(c.Bone)<1e-3?' µT':' mT')+'  (= '+fmtB(MU0*c.NI/(2*c.R))+')';
   $('vr2').textContent=fmtB(axTwo(c.R,c.NI,c.R,0))+(Math.abs(axTwo(c.R,c.NI,c.R,0))<1e-3?' µT':' mT')+'  (= '+fmtB(Math.pow(4/5,1.5)*MU0*c.NI/c.R)+')';
   $('vr3').textContent=(c.Ccomp*1e9).toFixed(2)+' nF  (Im≈0)';
-  drawAxial(c); drawMap(c); drawImZ(c); drawVc(c);
+  drawAxial(c); drawMap(c); draw3D(c); drawImZ(c); drawVc(c);
 }
 function preset(p){
   if(p==='one'){$('dR').value=2.5;}        // far apart → each bell is one coil's field
@@ -305,14 +338,19 @@ function drawAxial(c){
     ymax=Math.max(ymax,t2,o1);}
   ymax*=1.12;
   const sx=z=>x0+(z-zL)/(zR-zL)*(x1-x0), sy=B=>y0-B/ymax*(y0-y1);
-  // axes
+  // axes + field unit (B mT/µT, H A/m, or H Oe)
   x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
-  const uB=ymax<1e-3?1e6:1e3, uL=ymax<1e-3?'µT':'mT';
+  const U=$('unit')?$('unit').value:'mt';
+  let uB,uL;
+  if(U==='am'){uB=1/MU0;uL='A/m';} else if(U==='oe'){uB=1/(MU0*OE);uL='Oe';}
+  else if(ymax<1e-3){uB=1e6;uL='µT';} else {uB=1e3;uL='mT';}
+  const md=ymax*uB, dec=md<2?3:md<20?2:md<200?1:0;
   x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='right';
-  for(let f=0;f<=1.001;f+=0.25){const B=ymax*f;x.fillText((B*uB).toFixed(ymax*uB<10?2:0),x0-4,sy(B)+3);x.strokeStyle='#f1f5f9';x.beginPath();x.moveTo(x0,sy(B));x.lineTo(x1,sy(B));x.stroke();}
+  for(let f=0;f<=1.001;f+=0.25){const B=ymax*f;x.fillText((B*uB).toFixed(dec),x0-4,sy(B)+3);x.strokeStyle='#f1f5f9';x.beginPath();x.moveTo(x0,sy(B));x.lineTo(x1,sy(B));x.stroke();}
   x.textAlign='center';for(let zc=-Math.floor(zMax*100/10)*10;zc<=zMax*100;zc+=10){const z=zc/100;if(z>=zL&&z<=zR)x.fillText(zc,sx(z),y0+14);}
-  x.fillStyle='#64748b';x.font='11px sans-serif';x.fillText('position sur l\'axe z (cm)',(x0+x1)/2,h-6);
-  x.save();x.translate(12,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText('B ('+uL+')',0,0);x.restore();
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.fillText((LANG==='fr'?'position sur l\'axe z (cm)':'position on axis z (cm)'),(x0+x1)/2,h-6);
+  const yl=(U==='mt'?'B':'H')+' ('+uL+')';
+  x.save();x.translate(12,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText(yl,0,0);x.restore();
   // coil positions
   [-c.d/2,c.d/2].forEach(zc=>{x.strokeStyle='#94a3b8';x.setLineDash([3,3]);x.lineWidth=1;x.beginPath();x.moveTo(sx(zc),y1);x.lineTo(sx(zc),y0);x.stroke();x.setLineDash([]);});
   // individual coil contributions (faint)
@@ -332,37 +370,109 @@ function drawAxial(c){
   if(!_onlyOne){x.strokeStyle='#0d9488';x.lineWidth=2.6;x.beginPath();x.moveTo(x1-150,y1+20);x.lineTo(x1-132,y1+20);x.stroke();
     x.fillStyle='#475569';x.fillText(LANG==='fr'?'2 bobines':'2 coils',x1-128,y1+23);}
 }
-function devColor(dev){ // |B/B0-1| → colour bands
-  const a=Math.abs(dev);
-  if(a<0.005)return '#047857'; if(a<0.01)return '#10b981'; if(a<0.02)return '#6ee7b7';
-  if(a<0.05)return '#fde047'; if(a<0.1)return '#fb923c'; if(a<0.2)return '#ef4444'; return '#7f1d1d';
+// smooth deviation colormap (|B/B0−1|): green (uniform) → yellow → red
+function devColor(dev){
+  const d=Math.min(Math.abs(dev),0.25);
+  const stops=[[0,[6,95,70]],[0.003,[16,150,105]],[0.01,[110,231,183]],[0.02,[209,250,229]],[0.05,[254,240,138]],[0.1,[251,146,60]],[0.25,[153,27,27]]];
+  for(let i=1;i<stops.length;i++){ if(d<=stops[i][0]){ const t=(d-stops[i-1][0])/(stops[i][0]-stops[i-1][0]);
+    const a=stops[i-1][1],b=stops[i][1]; return 'rgb('+Math.round(a[0]+(b[0]-a[0])*t)+','+Math.round(a[1]+(b[1]-a[1])*t)+','+Math.round(a[2]+(b[2]-a[2])*t)+')'; } }
+  return 'rgb(153,27,27)';
+}
+// marching-squares iso-contour of grid D (rows NY+1 × cols NX+1) at `level`
+function contour(x,D,NX,NY,level,gx,gy){
+  x.beginPath();
+  for(let j=0;j<NY;j++)for(let i=0;i<NX;i++){
+    const cc=[[i,j],[i+1,j],[i+1,j+1],[i,j+1]], v=cc.map(([a,b])=>D[b][a]), p=[];
+    for(let e=0;e<4;e++){const a=v[e],b=v[(e+1)%4];
+      if((a-level)*(b-level)<0){const t=(level-a)/(b-a),[ax,ay]=cc[e],[bx,by]=cc[(e+1)%4];
+        p.push([gx(ax+(bx-ax)*t),gy(ay+(by-ay)*t)]);}}
+    if(p.length===2){x.moveTo(p[0][0],p[0][1]);x.lineTo(p[1][0],p[1][1]);}
+    else if(p.length===4){x.moveTo(p[0][0],p[0][1]);x.lineTo(p[1][0],p[1][1]);x.moveTo(p[2][0],p[2][1]);x.lineTo(p[3][0],p[3][1]);}
+  }
+  x.stroke();
 }
 function drawMap(c){
   const cv=$('cv_map'); cv.style.height='360px'; const {x,w,h}=dpr(cv);
   x.clearRect(0,0,w,h);
-  const pad=40,x0=pad,x1=w-14,y0=h-30,y1=14;
-  const zMax=Math.max(1.3*c.R,c.d*0.6+0.6*c.R), rMax=1.05*c.R;
+  const x0=42,x1=w-14,y0=h-30,y1=30;
+  const zMax=Math.max(1.3*c.R,c.d*0.6+0.65*c.R), rMax=1.08*c.R, B0=Math.abs(c.B0);
   const sx=z=>x0+(z+zMax)/(2*zMax)*(x1-x0), sy=r=>(y0+y1)/2 - r/rMax*((y0-y1)/2);
-  const B0=c.B0;
-  // grid of cells
-  const NX=66, NY=44, cw=(x1-x0)/NX, ch=(y0-y1)/NY;
-  for(let i=0;i<NX;i++)for(let jj=0;jj<NY;jj++){
-    const z=-zMax+2*zMax*(i+0.5)/NX, r=-rMax+2*rMax*(jj+0.5)/NY;
-    const A=loopB(c.R,c.NI,r,z-c.d/2), Bc=loopB(c.R,c.NI,r,z+c.d/2);
-    const Bz=A.Bz+Bc.Bz, Br=A.Br+Bc.Br, Bm=Math.sqrt(Bz*Bz+Br*Br);
-    x.fillStyle=devColor(Bm/Math.abs(B0)-1);
-    x.fillRect(x0+i*cw, y1+jj*ch, cw+1, ch+1);
-  }
-  // coils (two short bars at z=±d/2, radial extent ±R)
-  [-c.d/2,c.d/2].forEach(zc=>{x.strokeStyle='#1e293b';x.lineWidth=3;x.beginPath();x.moveTo(sx(zc),sy(c.R));x.lineTo(sx(zc),sy(0.12*c.R));x.moveTo(sx(zc),sy(-0.12*c.R));x.lineTo(sx(zc),sy(-c.R));x.stroke();});
-  // axes labels
-  x.fillStyle='#475569';x.font='10px sans-serif';x.textAlign='center';
-  x.fillText('z (axe) →',(x0+x1)/2,h-6);
-  x.save();x.translate(12,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText('r (radial)',0,0);x.restore();
-  // legend bands
-  const labs=[['<0.5%','#047857'],['<1%','#10b981'],['<2%','#6ee7b7'],['<5%','#fde047'],['>5%','#fb923c']];
+  // deviation grid on nodes
+  const NX=80, NY=52, D=[];
+  for(let jj=0;jj<=NY;jj++){D.push([]); const r=-rMax+2*rMax*jj/NY;
+    for(let i=0;i<=NX;i++){const z=-zMax+2*zMax*i/NX;
+      const A=loopB(c.R,c.NI,r,z-c.d/2), Bc=loopB(c.R,c.NI,r,z+c.d/2);
+      const Bz=A.Bz+Bc.Bz, Br=A.Br+Bc.Br; D[jj].push(Math.abs(Math.hypot(Bz,Br)/B0-1));}}
+  // smooth fill (cell = average of 4 nodes)
+  const cw=(x1-x0)/NX, ch=(y0-y1)/NY;
+  for(let jj=0;jj<NY;jj++)for(let i=0;i<NX;i++){
+    const dv=(D[jj][i]+D[jj][i+1]+D[jj+1][i]+D[jj+1][i+1])/4;
+    x.fillStyle=devColor(dv); x.fillRect(x0+i*cw, y1+jj*ch, cw+1.2, ch+1.2);}
+  // grid index → screen
+  const gx=gi=>x0+gi*cw, gy=gj=>y1+gj*ch;
+  // contour lines at 1% (bold) and 5% (light)
+  x.strokeStyle='rgba(255,255,255,.55)';x.lineWidth=1;contour(x,D,NX,NY,0.05,gx,gy);
+  x.strokeStyle='#0f3b30';x.lineWidth=1.8;contour(x,D,NX,NY,0.01,gx,gy);
+  // labels on the contours
+  x.fillStyle='#0f3b30';x.font='700 10px sans-serif';x.textAlign='center';
+  if(c.zu>0&&c.zu<zMax)x.fillText('1 %',sx(c.zu)+2,sy(0)-4);
+  // border + centre cross
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.strokeRect(x0,y1,x1-x0,y0-y1);
+  x.strokeStyle='rgba(15,59,48,.5)';x.lineWidth=1;x.setLineDash([2,3]);x.beginPath();x.moveTo(sx(0),y1);x.lineTo(sx(0),y0);x.moveTo(x0,sy(0));x.lineTo(x1,sy(0));x.stroke();x.setLineDash([]);
+  // coils: thick rings (edge-on) at z=±d/2 + wire dots at r=±R
+  [-c.d/2,c.d/2].forEach(zc=>{
+    x.strokeStyle='#1e293b';x.lineWidth=3;x.lineCap='round';x.beginPath();
+    x.moveTo(sx(zc),sy(c.R));x.lineTo(sx(zc),sy(0.1*c.R));x.moveTo(sx(zc),sy(-0.1*c.R));x.lineTo(sx(zc),sy(-c.R));x.stroke();x.lineCap='butt';
+    x.fillStyle='#b45309';[c.R,-c.R].forEach(rr=>{x.beginPath();x.arc(sx(zc),sy(rr),3.5,0,7);x.fill();});});
+  // axis ticks (cm)
+  x.fillStyle='#64748b';x.font='9px sans-serif';x.textAlign='center';
+  for(let zc=-Math.floor(zMax*100/5)*5;zc<=zMax*100;zc+=5){const z=zc/100;if(z>-zMax&&z<zMax)x.fillText(zc,sx(z),y0+12);}
+  x.textAlign='right';for(let rc=-Math.floor(rMax*100/5)*5;rc<=rMax*100;rc+=5){const r=rc/100;if(r>-rMax&&r<rMax)x.fillText(rc,x0-3,sy(r)+3);}
+  x.fillStyle='#475569';x.font='10px sans-serif';x.textAlign='center';x.fillText((LANG==='fr'?'axe z (cm) →':'axis z (cm) →'),(x0+x1)/2,h-6);
+  x.save();x.translate(13,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText('r (cm)',0,0);x.restore();
+  // legend (top): contour meaning + colorbar bands
   x.textAlign='left';x.font='9px sans-serif';
-  labs.forEach((l,i)=>{x.fillStyle=l[1];x.fillRect(x0+4+i*58,y1+4,12,9);x.fillStyle='#1e293b';x.fillText(l[0],x0+18+i*58,y1+12);});
+  const labs=[['<0,5 %',[6,95,70]],['1 %',[16,150,105]],['2 %',[110,231,183]],['5 %',[254,240,138]],['>10 %',[251,146,60]]];
+  labs.forEach((l,i)=>{x.fillStyle='rgb('+l[1].join(',')+')';x.fillRect(x0+i*64,8,12,9);x.fillStyle='#334155';x.fillText(l[0],x0+14+i*64,16);});
+}
+
+/* ---------- 3D view : coils + field lines (revolved around the axis) ---------- */
+let _az=0.7, _el=0.42;
+function draw3D(c){
+  const cv=$('cv_3d'); if(!cv)return; cv.style.height='440px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const cx=w/2, cy=h/2+10, sc=Math.min(w,h)/(3.4*c.R+c.d);
+  const ca=Math.cos(_az),sa=Math.sin(_az),ce=Math.cos(_el),se=Math.sin(_el);
+  // project [x,y,z] (z = coil axis) → screen + depth
+  function P(px,py,pz){ let X=px*ca-py*sa, Y=px*sa+py*ca, Z=pz; const Y2=Y*ce-Z*se, Z2=Y*se+Z*ce;
+    return {sx:cx+X*sc, sy:cy-Z2*sc, d:Y2}; }
+  // collect drawable polylines with mean depth for painter's sort
+  const items=[];
+  // axis
+  { const a=P(0,0,-1.6*c.R-c.d/2), b=P(0,0,1.6*c.R+c.d/2); items.push({d:0,type:'axis',a,b}); }
+  // field lines, revolved at a few azimuths
+  const PHI=[0,Math.PI/3,2*Math.PI/3];
+  PHI.forEach(phi=>{const cp=Math.cos(phi),sp=Math.sin(phi);
+    c.flines.forEach(line=>{ if(line.length<3)return; const pr=[]; let dsum=0;
+      for(const [r,z] of line){const p=P(r*cp,r*sp,z); pr.push(p); dsum+=p.d;}
+      items.push({d:dsum/pr.length,type:'line',pts:pr}); });});
+  // coils (two rings radius R at z=±d/2)
+  [-c.d/2,c.d/2].forEach(zc=>{ const pr=[]; let dsum=0;
+    for(let k=0;k<=64;k++){const th=2*Math.PI*k/64;const p=P(c.R*Math.cos(th),c.R*Math.sin(th),zc);pr.push(p);dsum+=p.d;}
+    items.push({d:dsum/pr.length+1e6,type:'coil',pts:pr}); });   // coils drawn last (on top)
+  items.sort((p,q)=>p.d-q.d);
+  for(const it of items){
+    if(it.type==='axis'){x.strokeStyle='#cbd5e1';x.lineWidth=1;x.setLineDash([4,4]);x.beginPath();x.moveTo(it.a.sx,it.a.sy);x.lineTo(it.b.sx,it.b.sy);x.stroke();x.setLineDash([]);}
+    else if(it.type==='line'){x.strokeStyle='rgba(13,148,136,.55)';x.lineWidth=1.3;x.beginPath();it.pts.forEach((p,i)=>i?x.lineTo(p.sx,p.sy):x.moveTo(p.sx,p.sy));x.stroke();}
+    else{x.strokeStyle='#1e293b';x.lineWidth=3;x.beginPath();it.pts.forEach((p,i)=>i?x.lineTo(p.sx,p.sy):x.moveTo(p.sx,p.sy));x.closePath();x.stroke();}
+  }
+  // central uniform sphere hint (the homogeneous region)
+  const c0=P(0,0,0); x.fillStyle='rgba(16,185,129,.18)';x.beginPath();x.arc(c0.sx,c0.sy,Math.max(6,c.zu*sc),0,7);x.fill();
+  // labels
+  x.fillStyle='#475569';x.font='11px sans-serif';x.textAlign='left';
+  x.fillText((LANG==='fr'?'axe z':'z axis'),P(0,0,1.6*c.R+c.d/2).sx+4,P(0,0,1.6*c.R+c.d/2).sy);
+  x.fillStyle='#0f766e';x.fillText((LANG==='fr'?'lignes de champ':'field lines'),14,20);
+  x.fillStyle='#1e293b';x.fillText((LANG==='fr'?'2 bobines (d/R='+c.dR.toFixed(2)+')':'2 coils (d/R='+c.dR.toFixed(2)+')'),14,36);
 }
 
 /* ---------- electrical plots (around f0) ---------- */
@@ -433,7 +543,14 @@ const I18N={
  'p.ax':{fr:"Champ sur l'axe B(z)",en:"On-axis field B(z)"},
  'p.ax.sub':{fr:"Une bobine (pointillé) vs deux bobines (plein) ; plateau si d = R.",en:"One coil (dashed) vs two coils (solid); plateau when d = R."},
  'p.map':{fr:"Carte d'uniformité (plan axial)",en:"Uniformity map (axial plane)"},
- 'p.map.sub':{fr:"Écart au champ central ; vert = très homogène.",en:"Deviation from centre field; green = very uniform."},
+ 'p.map.sub':{fr:"Écart au champ central (lignes : 1 % et 5 %) ; vert = très homogène.",en:"Deviation from centre field (contours: 1 % and 5 %); green = very uniform."},
+ 'unit.l':{fr:"Unité du champ tracé",en:"Plotted field unit"},
+ 'unit.b':{fr:"B — induction (T / mT / µT)",en:"B — flux density (T / mT / µT)"},
+ 'unit.am':{fr:"H — champ (A/m)",en:"H — field (A/m)"},
+ 'unit.oe':{fr:"H — champ (Oe)",en:"H — field (Oe)"},
+ 'viz3d':{fr:"Vue 3D — bobines & lignes de champ",en:"3D view — coils & field lines"},
+ 'viz3d.sub':{fr:"Glisse pour tourner. Les deux bobines (anneaux) et les lignes de champ (révolution autour de l'axe) : presque rectilignes au centre (région uniforme), refermées à l'extérieur.",
+              en:"Drag to rotate. The two coils (rings) and the field lines (revolved around the axis): nearly straight at the centre (uniform region), closing back outside."},
  'elec':{fr:"Dimensionnement & compensation réactive",en:"Sizing & reactive compensation"},
  'elec.intro':{fr:"<b>Côté électrique —</b> à la fréquence de travail f₀, la bobine est inductive (Z = R<sub>coil</sub> + jω₀L). On ajoute un <b>condensateur en série</b> pour annuler la réactance : <b>C = 1/(ω₀²L)</b>. À courant imposé, la tension aux bornes de C atteint <b>V = I·ω₀L</b> (surtension), d'où le besoin éventuel de plusieurs condos en série. (Reprend la démarche du code MATLAB.)",
                en:"<b>Electrical side —</b> at the working frequency f₀ the coil is inductive (Z = R<sub>coil</sub> + jω₀L). A <b>series capacitor</b> cancels the reactance: <b>C = 1/(ω₀²L)</b>. At imposed current the voltage across C reaches <b>V = I·ω₀L</b> (resonant rise), hence possibly several capacitors in series. (Follows the MATLAB workflow.)"},
@@ -472,7 +589,13 @@ function applyLang(){
 }
 function toggleLang(){LANG=LANG==='fr'?'en':'fr';localStorage.setItem('emtools_lang',LANG);applyLang();recompute();}
 applyLang(); recompute();
-window.addEventListener('resize',()=>{const c=CUR||compute();drawAxial(c);drawMap(c);drawImZ(c);drawVc(c);});
+window.addEventListener('resize',()=>{const c=CUR||compute();drawAxial(c);drawMap(c);draw3D(c);drawImZ(c);drawVc(c);});
+// 3D rotation by pointer drag
+(function(){const cv=$('cv_3d'); if(!cv)return; let drag=false,px=0,py=0;
+  cv.addEventListener('pointerdown',e=>{drag=true;px=e.clientX;py=e.clientY;cv.style.cursor='grabbing';cv.setPointerCapture(e.pointerId);});
+  cv.addEventListener('pointermove',e=>{if(!drag||!CUR)return;_az+=(e.clientX-px)*0.01;_el-=(e.clientY-py)*0.01;_el=Math.max(-1.45,Math.min(1.45,_el));px=e.clientX;py=e.clientY;draw3D(CUR);});
+  const up=()=>{drag=false;cv.style.cursor='grab';}; cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
+})();
 </script>
 </body>
 </html>
