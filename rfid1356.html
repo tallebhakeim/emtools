@@ -305,6 +305,7 @@ table.frames code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8
     <div id="sens-out" style="font-size:.9rem;margin:.9rem 0 .2rem"></div>
     <canvas id="cv_sensor" width="900" height="210"></canvas>
     <div class="sub" style="font-size:.76rem;color:var(--text2);margin-top:.4rem" data-i18n-html="sens.sub"></div>
+    <div id="sens-dec" style="font-size:.88rem;margin-top:.9rem;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:.7rem .9rem"></div>
   </div>
 
   <div class="panel" style="margin-top:1.4rem">
@@ -409,6 +410,10 @@ function compute(){
   const sCrc=crcA(sensData), sensCrc=[sCrc&0xFF,(sCrc>>8)&0xFF]; // CRC_A, transmitted LSB first
   const v16=(sensData[0]<<8)|sensData[1], sensBits16=[];
   for(let i=15;i>=0;i--) sensBits16.push((v16>>i)&1);  // 16 payload bits, MSB first
+  // reader-side decode: code → physical value, with the quantisation step and error
+  const sensStep=(Pmax-Pmin)/maxc;                     // 1 LSB = resolution
+  const sensRec=Pmin+code*sensStep;                    // reconstructed value
+  const sensQerr=Math.abs(sensRec-Phpa);               // quantisation error for this reading
   // ── SAR in tissue (implanted tag) : eddy currents from the reader's B field ──
   const ti=TISSUE[$('sar-tissue').value]||TISSUE.muscle, sig=ti.s, rhoT=ti.rho;
   const rT=parseFloat($('sar-r').value)/100;         // exposed-tissue / eddy-loop radius (m)
@@ -419,7 +424,7 @@ function compute(){
   const Hmax=Math.sqrt(8*rhoT*SARlim/sig)/(W0*MU0*rT);// max H before reaching the SAR limit (A/m)
   CUR={a,N1,I1,b,N2,Q,z,shape,A2,angDeg,cosA,H,B,Mgeo,M,L1,L2,k,C2,Voc,Vtag,Vtag0,VCLAMP,Vchip,XL,I2,range,Zref,modDepth,
        rs,Rp,Rchip,rtot,Qload,Vtank,Vtank0,Phpa,nbit,code,maxc,sensData,sensCrc,sensBits16,Pmin,Pmax,
-       sensType,sensU,sensDec,sig,rhoT,rT,Eind,SAR,SARlim,Hmax};
+       sensType,sensU,sensDec,sensStep,sensRec,sensQerr,sig,rhoT,rT,Eind,SAR,SARlim,Hmax};
   return CUR;
 }
 
@@ -504,6 +509,12 @@ function recompute(){
     .replace('{hexcode}','0x'+(((c.sensData[0]<<8)|c.sensData[1]).toString(16).toUpperCase().padStart(4,'0')))
     .replace('{bin}',bin).replace('{d0}',hex2(c.sensData[0])).replace('{d1}',hex2(c.sensData[1]))
     .replace('{crc0}',hex2(c.sensCrc[0])).replace('{crc1}',hex2(c.sensCrc[1]));
+  // reader-side decode
+  const fv=(v,st)=>v.toFixed(st<0.1?3:st<1?2:st<10?1:0);
+  $('sens-dec').innerHTML=t('sens.decode')
+    .replace(/{code}/g,c.code).replace(/{max}/g,c.maxc).replace(/{n}/g,c.nbit)
+    .replace(/{unit}/g,c.sensU).replace(/{Pmin}/g,c.Pmin).replace(/{Pmax}/g,c.Pmax)
+    .replace('{rec}',fv(c.sensRec,c.sensStep)).replace('{step}',fv(c.sensStep,c.sensStep)).replace('{qerr}',fv(c.sensQerr,c.sensStep));
   drawSchema(c); drawFront(c); drawField(c); drawRes(c); drawSignal(c); drawAngle(c); drawSensor(c);
 }
 function preset(p){
@@ -817,6 +828,8 @@ const I18N={
                en:"{name} <b>{val} {unit}</b> → {n}-bit ADC code = <b>{code}</b> / {max} = <b>{hexcode}</b> = <code>{bin}</code><br>Response frame (PICC→PCD): <b>SOF</b> | data <code>{d0} {d1}</code> | CRC_A <code>{crc0} {crc1}</code> | <b>EOF</b>"},
  'sens.sub':{fr:"En haut : les 2 octets en <b>niveaux logiques NRZ</b> (1 = niveau haut, 0 = niveau bas, reliés par les transitions). En bas : le codage <b>Manchester</b> de ces bits sur la sous-porteuse 847,5 kHz (1 = salve en 1ʳᵉ moitié de bit, 0 = en 2ᵉ moitié) — le motif réellement rétro-modulé que le lecteur démodule pour relire la mesure.",
              en:"Top: the 2 bytes as <b>NRZ logic levels</b> (1 = high, 0 = low, joined by transitions). Bottom: the <b>Manchester</b> coding of those bits on the 847.5 kHz subcarrier (1 = burst in the first half-bit, 0 = in the second) — the actually load-modulated pattern the reader demodulates to read the measurement back."},
+ 'sens.decode':{fr:"<b>↩ Côté lecteur (décodage)</b> — après démodulation, le code <b>{code}</b> est reconverti en grandeur physique : V = {Pmin} + (code / {max}) × ({Pmax} − {Pmin}) = <b>{rec} {unit}</b>.<br>Résolution (1 LSB) = ({Pmax} − {Pmin}) / (2<sup>{n}</sup> − 1) = <b>{step} {unit}</b> · erreur de quantification ici = <b>{qerr} {unit}</b> (≤ ½ LSB). Plus de bits → pas plus fin → mesure plus précise.",
+                en:"<b>↩ Reader side (decoding)</b> — after demodulation, the code <b>{code}</b> is converted back to a physical value: V = {Pmin} + (code / {max}) × ({Pmax} − {Pmin}) = <b>{rec} {unit}</b>.<br>Resolution (1 LSB) = ({Pmax} − {Pmin}) / (2<sup>{n}</sup> − 1) = <b>{step} {unit}</b> · quantisation error here = <b>{qerr} {unit}</b> (≤ ½ LSB). More bits → finer step → more precise reading."},
  'sch.t':{fr:"Schéma de la liaison",en:"Link schematic"},
  'sch.side':{fr:"Vue de côté — alignement",en:"Side view — alignment"},
  'sch.frontt':{fr:"Vue de face — géométrie des bobines",en:"Front view — coil geometry"},
