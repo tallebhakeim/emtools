@@ -162,6 +162,7 @@ table.frames code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8
       <div class="metric"><div class="k" data-i18n="m.voc">F.é.m. induite (circuit ouvert)</div><div class="v" id="m_voc">—</div><div class="u">V</div></div>
       <div class="metric"><div class="k" data-i18n="m.vtag">Tension crête à vide (Q·e)</div><div class="v" id="m_vtag">—</div><div class="u">V</div></div>
       <div class="metric"><div class="k" data-i18n="m.vchip">Tension puce (écrêtée)</div><div class="v" id="m_vchip">—</div><div class="u">V</div></div>
+      <div class="metric"><div class="k" data-i18n="m.i2">Courant boucle tag I₂ (à vide)</div><div class="v" id="m_i2">—</div><div class="u">A</div></div>
       <div class="metric"><div class="k" data-i18n="m.cap">Capacité d'accord C₂ (L₂ tag)</div><div class="v" id="m_cap">—</div><div class="u">pF</div></div>
       <div class="metric"><div class="k" data-i18n="m.zref">Impédance reflétée Z_ref</div><div class="v" id="m_zref">—</div><div class="u">Ω</div></div>
       <div class="metric"><div class="k" data-i18n="m.mod">Profondeur de modulation</div><div class="v" id="m_mod">—</div><div class="u">%</div></div>
@@ -317,6 +318,8 @@ function compute(){
   // ── load modulation / reflected impedance ──
   const Q1=35;                                       // assumed reader-antenna quality factor
   const Rtag=W0*L2/Q;                                // tag equivalent series resistance at resonance
+  const XL=W0*L2;                                    // tag coil reactance ωL2 (= X_C at resonance)
+  const I2=Voc/Rtag;                                 // tag loop current at resonance = e/R2 (unloaded)
   const R1=W0*L1/Q1;                                 // reader-antenna resistance
   const wM=W0*M;                                     // effective mutual reactance ωM
   const Zref=wM*wM/Rtag;                             // reflected resistance (ωM)²/Z_tag
@@ -330,7 +333,7 @@ function compute(){
   const SAR=sig*Math.pow(W0*Bpk*rT,2)/(8*rhoT);      // σ(ωB r)²/(8ρ) — peak local SAR (W/kg)
   const SARlim=$('sar-pop').value==='worker'?10:2;   // ICNIRP 2020 local 10 g limit
   const Hmax=Math.sqrt(8*rhoT*SARlim/sig)/(W0*MU0*rT);// max H before reaching the SAR limit (A/m)
-  CUR={a,N1,I1,b,N2,Q,z,shape,A2,angDeg,cosA,H,B,Mgeo,M,L1,L2,k,C2,Voc,Vtag,Vtag0,VCLAMP,Vchip,range,Zref,modDepth,
+  CUR={a,N1,I1,b,N2,Q,z,shape,A2,angDeg,cosA,H,B,Mgeo,M,L1,L2,k,C2,Voc,Vtag,Vtag0,VCLAMP,Vchip,XL,I2,range,Zref,modDepth,
        sig,rhoT,rT,Eind,SAR,SARlim,Hmax};
   return CUR;
 }
@@ -364,6 +367,7 @@ function recompute(){
   $('m_voc').textContent=fmtSI(c.Voc);
   $('m_vtag').textContent=fmtSI(c.Vtag);
   $('m_vchip').textContent=fmtSI(c.Vchip);
+  $('m_i2').textContent=fmtSI(c.I2);
   $('m_cap').textContent=(c.C2*1e12).toFixed(0);
   $('m_zref').textContent=fmtSI(c.Zref);
   $('m_mod').textContent=(c.modDepth*100).toFixed(1);
@@ -639,9 +643,10 @@ const I18N={
  'm.k':{fr:"Coefficient de couplage k",en:"Coupling coefficient k"},
  'm.voc':{fr:"F.é.m. induite (circuit ouvert)",en:"Induced emf (open circuit)"},
  'm.vtag':{fr:"Tension crête à vide (théorique)",en:"Open-circuit peak (theoretical)"},
- 'v.note':{fr:"⚠️ La <b>tension crête à vide</b> (Q·e) est <b>théorique</b> : à fort couplage elle atteint des dizaines de volts, mais la puce ne la voit <b>jamais</b> — son <b>limiteur l'écrête</b> à sa tension d'alimentation (~5 V, en dissipant l'excédent) et le courant qu'elle tire <b>effondre le Q en charge</b>. La valeur physiquement pertinente est la <b>« tension puce »</b>.",
-            en:"⚠️ The <b>open-circuit peak</b> (Q·e) is <b>theoretical</b>: under strong coupling it reaches tens of volts, but the chip <b>never</b> sees it — its <b>limiter clamps it</b> to the supply voltage (~5 V, dissipating the excess) and the current it draws <b>collapses the loaded Q</b>. The physically meaningful value is the <b>“chip voltage”</b>."},
+ 'v.note':{fr:"⚠️ La <b>tension crête à vide</b> (Q·e) est <b>théorique</b>. À la résonance, X_L et X_C s'annulent : la maille ne voit que sa faible résistance R₂ = ωL₂/Q, donc la f.é.m. e y fait circuler un courant <b>I₂ = e/R₂</b> non négligeable (voir métrique), et la tension aux bornes du condensateur vaut <b>V = X_C·I₂ = Q·e</b> (surtension de résonance). Mais la puce ne voit jamais ce pic : son <b>limiteur l'écrête</b> (~5 V, dissipant l'excédent) et le courant qu'elle tire <b>effondre le Q en charge</b> (donc I₂ et V). La valeur physiquement pertinente est la <b>« tension puce »</b>.",
+            en:"⚠️ The <b>open-circuit peak</b> (Q·e) is <b>theoretical</b>. At resonance X_L and X_C cancel: the loop only sees its small resistance R₂ = ωL₂/Q, so the emf e drives a non-negligible current <b>I₂ = e/R₂</b> (see metric), and the voltage across the capacitor is <b>V = X_C·I₂ = Q·e</b> (resonant rise). But the chip never sees this peak: its <b>limiter clamps it</b> (~5 V, dissipating the excess) and the current it draws <b>collapses the loaded Q</b> (hence I₂ and V). The physically meaningful value is the <b>“chip voltage”</b>."},
  'm.vchip':{fr:"Tension puce (écrêtée)",en:"Chip voltage (clamped)"},
+ 'm.i2':{fr:"Courant boucle tag I₂ (à vide)",en:"Tag loop current I₂ (unloaded)"},
  'sch.t':{fr:"Schéma de la liaison",en:"Link schematic"},
  'sch.side':{fr:"Vue de côté — alignement",en:"Side view — alignment"},
  'sch.frontt':{fr:"Vue de face — géométrie des bobines",en:"Front view — coil geometry"},
