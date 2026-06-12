@@ -184,6 +184,28 @@ table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
   </div>
 
   <div class="panel">
+    <div class="ptitle" data-i18n="eco.t">Rentabilité &amp; impact environnemental</div>
+    <div data-i18n-html="eco.intro"></div>
+    <div class="controls" style="margin-top:.9rem">
+      <div class="ctrl"><label><span data-i18n="eco.cost">Coût d'installation</span> · <span id="eco-costv" class="val">1.5 €/Wc</span></label><input id="eco-cost" type="range" min="0.6" max="3" step="0.05" value="1.5" oninput="recompute()"></div>
+      <div class="ctrl"><label><span data-i18n="eco.price">Prix de l'électricité</span> · <span id="eco-pricev" class="val">0.20 €/kWh</span></label><input id="eco-price" type="range" min="0.05" max="0.5" step="0.01" value="0.20" oninput="recompute()"></div>
+      <div class="ctrl"><label><span data-i18n="eco.co2">Intensité carbone du réseau</span> · <span id="eco-co2v" class="val">60 g/kWh</span></label><input id="eco-co2" type="range" min="10" max="800" step="10" value="60" oninput="recompute()"></div>
+      <div class="ctrl"><label><span data-i18n="eco.emb">Énergie grise (fabrication)</span> · <span id="eco-embv" class="val">1.6 kWh/Wc</span></label><input id="eco-emb" type="range" min="0.8" max="4" step="0.1" value="1.6" oninput="recompute()"></div>
+      <div class="ctrl"><label><span data-i18n="eco.life">Durée de vie</span> · <span id="eco-lifev" class="val">25 ans</span></label><input id="eco-life" type="range" min="15" max="35" step="1" value="25" oninput="recompute()"></div>
+    </div>
+    <div class="metrics" style="margin-top:1rem">
+      <div class="metric hl"><div class="k" data-i18n="eco.payback">Temps de retour financier</div><div class="v" id="eco-pb">—</div><div class="u">ans</div></div>
+      <div class="metric"><div class="k" data-i18n="eco.total">Coût total</div><div class="v" id="eco-tot">—</div><div class="u">€</div></div>
+      <div class="metric"><div class="k" data-i18n="eco.save">Économie / an</div><div class="v" id="eco-save">—</div><div class="u">€/an</div></div>
+      <div class="metric"><div class="k" data-i18n="eco.lcoe">Coût de l'énergie (LCOE)</div><div class="v" id="eco-lcoe">—</div><div class="u">€/kWh</div></div>
+      <div class="metric"><div class="k" data-i18n="eco.epbt">Retour énergétique (EPBT)</div><div class="v ok" id="eco-epbt">—</div><div class="u">ans</div></div>
+      <div class="metric"><div class="k" data-i18n="eco.carbon">CO₂ évité / an</div><div class="v ok" id="eco-cav">—</div><div class="u">kg/an</div></div>
+    </div>
+    <canvas id="cv_cash" width="900" height="300" style="margin-top:1rem"></canvas>
+    <div class="sub" style="font-size:.74rem;color:var(--text2);margin-top:.3rem" data-i18n="eco.sub">Trésorerie cumulée : négative au départ (l'investissement), elle croît avec les économies et croise zéro au temps de retour ; le solde final = gain net sur la durée de vie.</div>
+  </div>
+
+  <div class="panel">
     <div class="ptitle" data-i18n="valid">Validation &amp; repères</div>
     <table class="valid">
       <thead><tr><th data-i18n="v.case">Cas</th><th data-i18n="v.tool">Cet outil</th><th data-i18n="v.ref">Repère</th></tr></thead>
@@ -290,6 +312,19 @@ function recompute(){
   const lat=parseFloat($('lat').value), day=parseInt($('season').value);
   const pshCalc=daySunHours(lat,day);   // kWh/m²/day of GHI ≡ PSH
   $('m_pshc').textContent=pshCalc.toFixed(1);
+  // economics & environment
+  $('eco-costv').textContent=parseFloat($('eco-cost').value).toFixed(2)+' €/Wc';$('eco-pricev').textContent=parseFloat($('eco-price').value).toFixed(2)+' €/kWh';
+  $('eco-co2v').textContent=$('eco-co2').value+' g/kWh';$('eco-embv').textContent=parseFloat($('eco-emb').value).toFixed(1)+' kWh/Wc';$('eco-lifev').textContent=$('eco-life').value+' ans';
+  const cWc=parseFloat($('eco-cost').value), price=parseFloat($('eco-price').value), co2=parseFloat($('eco-co2').value), emb=parseFloat($('eco-emb').value), life=parseInt($('eco-life').value);
+  const cost=Pc*cWc, save=eyear*price, payback=save>0?cost/save:Infinity;
+  const lcoe=eyear*life>0?cost/(eyear*life):0, epbt=eyear>0?Pc*emb/eyear:Infinity, cav=eyear*co2/1000;
+  $('eco-tot').textContent=cost>=1000?(cost/1000).toFixed(2)+'k':cost.toFixed(0);
+  $('eco-save').textContent=save.toFixed(0);
+  $('eco-pb').textContent=isFinite(payback)?payback.toFixed(1):'∞';
+  $('eco-lcoe').textContent=lcoe.toFixed(3);
+  $('eco-epbt').textContent=isFinite(epbt)?epbt.toFixed(1):'∞';
+  $('eco-cav').textContent=cav>=1000?(cav/1000).toFixed(2)+'t':cav.toFixed(0);
+  ECO={cost,save,life,payback};
   // validation
   $('vr1').textContent='V_oc='+cell.Voc.toFixed(3)+' V · FF='+(cell.FF*100).toFixed(0)+'%';
   $('vr2').textContent='V_oc(60°C)/V_oc(25°C) = '+(cellIV(1000,60,p).Voc/cellIV(1000,25,p).Voc*100).toFixed(0)+'% ('+((cellIV(1000,60,p).Voc/cellIV(1000,25,p).Voc-1)/35*100).toFixed(2)+'%/°C)';
@@ -303,7 +338,35 @@ function recompute(){
   $('sh-nmax').textContent=sh.locals.length;
   const loss=Pfull>0?Math.max(0,(1-sh.gP/Pfull)*100):0; $('sh-loss').textContent=loss.toFixed(0);
   CUR={G,T,p,cell,Ns,Np,lvl,scV,scI,Voc,Isc,Vmp,Imp,Pmp,sh,Pc,pr,lat,day};
-  drawIV(); drawFam(); drawShade(); drawDay();
+  drawIV(); drawFam(); drawShade(); drawDay(); drawCash();
+}
+let ECO=null;
+function drawCash(){
+  const e=ECO; if(!e)return; const cv=$('cv_cash'); cv.style.height='300px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const pad=52,x0=pad,x1=w-14,y0=h-30,y1=18, yrs=e.life;
+  const final=-e.cost+e.save*yrs, vmin=-e.cost*1.1, vmax=Math.max(final*1.1,e.cost*0.2);
+  const sx=t=>x0+t/yrs*(x1-x0), sy=v=>y0-(v-vmin)/(vmax-vmin)*(y0-y1);
+  // zero line
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,sy(0));x.lineTo(x1,sy(0));x.stroke();
+  x.strokeStyle='#cbd5e1';x.beginPath();x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='right';
+  for(let k=0;k<=4;k++){const v=vmin+(vmax-vmin)*k/4;x.fillText(Math.abs(v)>=1000?(v/1000).toFixed(1)+'k':v.toFixed(0),x0-4,sy(v)+3);}
+  x.textAlign='center';for(let yy=0;yy<=yrs;yy+=5)x.fillText(yy,sx(yy),y0+13);
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.fillText(LANG==='fr'?'années':'years',(x0+x1)/2,h-6);
+  x.save();x.translate(13,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText(LANG==='fr'?'trésorerie cumulée (€)':'cumulative cash (€)',0,0);x.restore();
+  // shade negative (red) / positive (green) areas under the line
+  x.fillStyle='rgba(239,68,68,.08)';x.fillRect(x0,sy(0),x1-x0,y0-sy(0));
+  x.fillStyle='rgba(16,185,129,.08)';x.fillRect(x0,y1,x1-x0,sy(0)-y1);
+  // cumulative line
+  x.strokeStyle='#0d9488';x.lineWidth=2.6;x.beginPath();
+  for(let t=0;t<=yrs;t+=0.25){const v=-e.cost+e.save*t;const X=sx(t),Y=sy(v);t?x.lineTo(X,Y):x.moveTo(X,Y);}
+  x.stroke();
+  // payback marker (zero crossing)
+  if(isFinite(e.payback)&&e.payback<=yrs){x.strokeStyle='#d97706';x.setLineDash([3,3]);x.lineWidth=1.2;x.beginPath();x.moveTo(sx(e.payback),y1);x.lineTo(sx(e.payback),y0);x.stroke();x.setLineDash([]);
+    x.fillStyle='#d97706';x.beginPath();x.arc(sx(e.payback),sy(0),4,0,7);x.fill();x.font='700 10px sans-serif';x.textAlign='left';x.fillText((LANG==='fr'?'retour ':'payback ')+e.payback.toFixed(1)+' '+(LANG==='fr'?'ans':'yr'),sx(e.payback)+5,sy(0)-6);}
+  // final gain label
+  x.fillStyle='#15803d';x.font='700 11px sans-serif';x.textAlign='right';x.fillText((LANG==='fr'?'gain à '+yrs+' ans : ':'gain at '+yrs+' yr: ')+(final>=1000?(final/1000).toFixed(1)+'k€':final.toFixed(0)+'€'),x1-4,sy(final)-6);
 }
 // solar elevation (rad) at latitude lat(°), day of year, solar hour
 function solarElev(lat,day,hour){
@@ -445,6 +508,12 @@ const I18N={
  'se.sum':{fr:"Été (solstice)",en:"Summer (solstice)"},'se.eq':{fr:"Équinoxe",en:"Equinox"},'se.win':{fr:"Hiver (solstice)",en:"Winter (solstice)"},
  'day.psh':{fr:"PSH calculé (lat/saison)",en:"Computed PSH (lat/season)"},
  'day.sub':{fr:"Puissance produite heure par heure ; l'aire sous la courbe = énergie du jour. Été/équinoxe/hiver superposés (saison choisie en gras). PSH ≈ aire ÷ puissance crête.",en:"Hour-by-hour output power; area under the curve = daily energy. Summer/equinox/winter overlaid (selected season in bold). PSH ≈ area ÷ peak power."},
+ 'eco.t':{fr:"Rentabilité & impact environnemental",en:"Profitability & environmental impact"},
+ 'eco.intro':{fr:"<b>La réalité d'un système —</b> au-delà des kWh, on regarde le <b>temps de retour financier</b> (investissement ÷ économies annuelles), le <b>coût de l'énergie produite (LCOE)</b>, le <b>temps de retour énergétique (EPBT)</b> = énergie de fabrication ÷ énergie produite par an (typiquement 1–2 ans pour le PV), et le <b>CO₂ évité</b> selon l'intensité carbone du réseau remplacé.",
+              en:"<b>The reality of a system —</b> beyond kWh, look at the <b>financial payback</b> (investment ÷ annual savings), the <b>levelised cost of energy (LCOE)</b>, the <b>energy payback time (EPBT)</b> = manufacturing energy ÷ yearly output (typically 1–2 years for PV), and the <b>CO₂ avoided</b> based on the carbon intensity of the displaced grid."},
+ 'eco.cost':{fr:"Coût d'installation",en:"Installation cost"},'eco.price':{fr:"Prix de l'électricité",en:"Electricity price"},'eco.co2':{fr:"Intensité carbone du réseau",en:"Grid carbon intensity"},'eco.emb':{fr:"Énergie grise (fabrication)",en:"Embodied energy (manufacturing)"},'eco.life':{fr:"Durée de vie",en:"Lifetime"},
+ 'eco.payback':{fr:"Temps de retour financier",en:"Financial payback"},'eco.total':{fr:"Coût total",en:"Total cost"},'eco.save':{fr:"Économie / an",en:"Savings / year"},'eco.lcoe':{fr:"Coût de l'énergie (LCOE)",en:"Cost of energy (LCOE)"},'eco.epbt':{fr:"Retour énergétique (EPBT)",en:"Energy payback (EPBT)"},'eco.carbon':{fr:"CO₂ évité / an",en:"CO₂ avoided / year"},
+ 'eco.sub':{fr:"Trésorerie cumulée : négative au départ (l'investissement), elle croît avec les économies et croise zéro au temps de retour ; le solde final = gain net sur la durée de vie.",en:"Cumulative cash flow: negative at first (the investment), it grows with savings and crosses zero at payback; the final balance = net gain over the lifetime."},
  'm.pcrete':{fr:"Puissance crête installée",en:"Installed peak power"},'m.surf':{fr:"Surface de panneaux",en:"Panel area"},'m.eday':{fr:"Énergie / jour",en:"Energy / day"},'m.eyear':{fr:"Énergie / an",en:"Energy / year"},
  'valid':{fr:"Validation & repères",en:"Validation & benchmarks"},
  'v.case':{fr:"Cas",en:"Case"},'v.tool':{fr:"Cet outil",en:"This tool"},'v.ref':{fr:"Repère",en:"Benchmark"},
@@ -466,7 +535,7 @@ function applyLang(){
 }
 function toggleLang(){LANG=LANG==='fr'?'en':'fr';localStorage.setItem('emtools_lang',LANG);applyLang();recompute();}
 applyLang(); recompute();
-window.addEventListener('resize',()=>{if(CUR){drawIV();drawFam();drawShade();drawDay();}});
+window.addEventListener('resize',()=>{if(CUR){drawIV();drawFam();drawShade();drawDay();drawCash();}});
 </script>
 </body>
 </html>
