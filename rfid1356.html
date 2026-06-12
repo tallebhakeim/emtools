@@ -166,6 +166,7 @@ table.frames code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8
       <div class="metric"><div class="k" data-i18n="m.zref">Impédance reflétée Z_ref</div><div class="v" id="m_zref">—</div><div class="u">Ω</div></div>
       <div class="metric"><div class="k" data-i18n="m.mod">Profondeur de modulation</div><div class="v" id="m_mod">—</div><div class="u">%</div></div>
     </div>
+    <div class="sub" style="font-size:.76rem;color:var(--text2);margin-top:.7rem" data-i18n-html="v.note"></div>
   </div>
 
   <div class="panel">
@@ -563,39 +564,48 @@ function drawSignal(c){
   trace(212,46,'Tag → lecteur · load mod. '+(c.modDepth*100).toFixed(0)+' % @ 847,5 kHz','#0d9488',lmEnv);
   x.fillStyle='#94a3b8';x.font='9px sans-serif';x.textAlign='right';x.fillText('temps →',x1,h-4);
 }
-// recoverable tag voltage vs misalignment angle: V(α) = V₀·cos α
+// tag voltage vs misalignment angle: chip sees min(V₀·cos α, V_clamp); the raw peak is theoretical
 function drawAngle(c){
   const cv=$('cv_angle'); cv.style.height='300px'; const {x,w,h}=dpr(cv);
   x.clearRect(0,0,w,h);
-  const pad=44,x0=pad,x1=w-14,y0=h-28,y1=16;
-  const V0=c.Vtag0, yTop=Math.max(V0,1e-6)*1.08;
-  const sx=a=>x0+a/90*(x1-x0), sy=v=>y0-v/yTop*(y0-y1);
+  const fr=LANG==='fr', pad=44,x0=pad,x1=w-14,y0=h-28,y1=24;
+  const V0=c.Vtag0, vc=c.VCLAMP;
+  // focus the scale on the operating range; the raw peak may go off-scale (annotated)
+  const capped=V0>vc*3.2, yTop=capped? vc*3.2 : Math.max(V0*1.08, vc*1.2);
+  const sx=a=>x0+a/90*(x1-x0), sy=v=>y0-Math.min(v,yTop)/yTop*(y0-y1);
   x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
   x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='right';
   for(let f=0;f<=1.001;f+=0.25){const v=yTop*f;x.fillText(fmtSI(v),x0-4,sy(v)+3);x.strokeStyle='#f1f5f9';x.beginPath();x.moveTo(x0,sy(v));x.lineTo(x1,sy(v));x.stroke();}
   x.textAlign='center';for(let a=0;a<=90;a+=15){x.fillText(a+'°',sx(a),y0+14);}
   x.fillStyle='#64748b';x.font='11px sans-serif';x.fillText('angle α (°)',(x0+x1)/2,h-5);
-  x.save();x.translate(12,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText('tension tag (V)',0,0);x.restore();
-  // chip regulation (clamp) line — above it the limiter shunts the excess
-  const vc=c.VCLAMP;
-  if(vc<yTop){
-    x.fillStyle='rgba(13,148,136,.07)';x.fillRect(x0,y1,x1-x0,sy(vc)-y1);
+  x.save();x.translate(12,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText(fr?'tension (V)':'voltage (V)',0,0);x.restore();
+  // clamp band + line
+  if(vc<yTop){x.fillStyle='rgba(13,148,136,.09)';x.fillRect(x0,sy(vc),x1-x0,y0-sy(vc));
     x.strokeStyle='#0d9488';x.setLineDash([5,3]);x.lineWidth=1.2;x.beginPath();x.moveTo(x0,sy(vc));x.lineTo(x1,sy(vc));x.stroke();x.setLineDash([]);
-    x.fillStyle='#0f766e';x.font='10px sans-serif';x.textAlign='left';x.fillText('écrêtage puce ≈ '+vc+' V (zone alimentée)',x0+6,sy(vc)+13);
-  }
-  // cos curve (unloaded resonant peak V₀·cos α)
-  x.strokeStyle='#7c3aed';x.lineWidth=2.2;x.beginPath();
-  for(let i=0;i<=180;i++){const a=90*i/180;const v=V0*Math.cos(a*Math.PI/180);const X=sx(a),Y=sy(Math.max(v,0));i?x.lineTo(X,Y):x.moveTo(X,Y);}
+    x.fillStyle='#0f766e';x.font='10px sans-serif';x.textAlign='left';x.fillText((fr?'écrêtage puce ≈ ':'chip clamp ≈ ')+vc+' V',x0+6,sy(vc)-5);}
+  // raw unloaded peak V₀·cos α — theoretical, faint dashed, clipped at yTop
+  x.strokeStyle='#c4b5fd';x.lineWidth=1.6;x.setLineDash([4,3]);x.beginPath();
+  for(let i=0;i<=180;i++){const a=90*i/180,v=V0*Math.cos(a*Math.PI/180),X=sx(a),Y=sy(v);i?x.lineTo(X,Y):x.moveTo(X,Y);}
+  x.stroke();x.setLineDash([]);
+  // chip voltage = min(V₀·cos α, V_clamp) — the realistic operating voltage, bold
+  x.strokeStyle='#0d9488';x.lineWidth=2.8;x.beginPath();
+  for(let i=0;i<=180;i++){const a=90*i/180,v=Math.min(V0*Math.cos(a*Math.PI/180),vc),X=sx(a),Y=sy(Math.max(v,0));i?x.lineTo(X,Y):x.moveTo(X,Y);}
   x.stroke();
-  // angle where the unloaded peak drops below the clamp → tag starts losing power
-  if(V0>vc){const acrit=Math.acos(vc/V0)*180/Math.PI;x.strokeStyle='#94a3b8';x.setLineDash([2,3]);x.lineWidth=1;x.beginPath();x.moveTo(sx(acrit),sy(vc));x.lineTo(sx(acrit),y0);x.stroke();x.setLineDash([]);
-    x.fillStyle='#64748b';x.font='9px sans-serif';x.textAlign='center';x.fillText('α≈'+acrit.toFixed(0)+'°',sx(acrit),y0-3);}
-  // current angle marker
-  const ax=sx(c.angDeg), ay=sy(c.Vtag);
-  x.strokeStyle='#d97706';x.setLineDash([3,3]);x.lineWidth=1.2;x.beginPath();x.moveTo(ax,y0);x.lineTo(ax,ay);x.lineTo(x0,ay);x.stroke();x.setLineDash([]);
+  // drop-off angle: where the unloaded peak falls below the clamp → tag leaves regulation
+  if(V0>vc){const acrit=Math.acos(vc/V0)*180/Math.PI;
+    x.strokeStyle='#94a3b8';x.setLineDash([2,3]);x.lineWidth=1;x.beginPath();x.moveTo(sx(acrit),sy(vc));x.lineTo(sx(acrit),y0);x.stroke();x.setLineDash([]);
+    x.fillStyle='#64748b';x.font='9px sans-serif';x.textAlign='center';x.fillText((fr?'décrochage α≈':'drop-off α≈')+acrit.toFixed(0)+'°',sx(acrit),y0-4);}
+  // current angle marker on the chip curve
+  const ax=sx(c.angDeg), ay=sy(Math.min(c.Vtag,vc));
+  x.strokeStyle='#d97706';x.setLineDash([3,3]);x.lineWidth=1.2;x.beginPath();x.moveTo(ax,y0);x.lineTo(ax,ay);x.stroke();x.setLineDash([]);
   x.fillStyle='#d97706';x.beginPath();x.arc(ax,ay,4,0,7);x.fill();
-  x.fillStyle='#b45309';x.font='10px sans-serif';x.textAlign='left';
-  x.fillText('α='+c.angDeg+'° → '+fmtSI(c.Vtag,'V')+' ('+(c.cosA*100).toFixed(0)+' %)',Math.min(ax+8,x1-120),Math.max(ay-8,y1+10));
+  // off-scale note + legend
+  x.textAlign='left';x.font='10px sans-serif';
+  if(capped){x.fillStyle='#7c3aed';x.fillText((fr?'crête à vide α=0 : ':'open-circ. peak α=0: ')+fmtSI(V0,'V')+(fr?' (hors échelle)':' (off scale)'),x0+6,y1-9);}
+  x.strokeStyle='#0d9488';x.lineWidth=2.8;x.beginPath();x.moveTo(x1-150,y1-13);x.lineTo(x1-132,y1-13);x.stroke();
+  x.fillStyle='#475569';x.fillText(fr?'tension puce':'chip voltage',x1-128,y1-10);
+  x.strokeStyle='#c4b5fd';x.lineWidth=1.6;x.setLineDash([4,3]);x.beginPath();x.moveTo(x1-150,y1+1);x.lineTo(x1-132,y1+1);x.stroke();x.setLineDash([]);
+  x.fillStyle='#475569';x.fillText(fr?'crête à vide':'open-circ. peak',x1-128,y1+4);
 }
 
 /* i18n */
@@ -628,7 +638,9 @@ const I18N={
  'm.m':{fr:"Inductance mutuelle M",en:"Mutual inductance M"},
  'm.k':{fr:"Coefficient de couplage k",en:"Coupling coefficient k"},
  'm.voc':{fr:"F.é.m. induite (circuit ouvert)",en:"Induced emf (open circuit)"},
- 'm.vtag':{fr:"Tension crête à vide (Q·e)",en:"Open-circuit peak voltage (Q·e)"},
+ 'm.vtag':{fr:"Tension crête à vide (théorique)",en:"Open-circuit peak (theoretical)"},
+ 'v.note':{fr:"⚠️ La <b>tension crête à vide</b> (Q·e) est <b>théorique</b> : à fort couplage elle atteint des dizaines de volts, mais la puce ne la voit <b>jamais</b> — son <b>limiteur l'écrête</b> à sa tension d'alimentation (~5 V, en dissipant l'excédent) et le courant qu'elle tire <b>effondre le Q en charge</b>. La valeur physiquement pertinente est la <b>« tension puce »</b>.",
+            en:"⚠️ The <b>open-circuit peak</b> (Q·e) is <b>theoretical</b>: under strong coupling it reaches tens of volts, but the chip <b>never</b> sees it — its <b>limiter clamps it</b> to the supply voltage (~5 V, dissipating the excess) and the current it draws <b>collapses the loaded Q</b>. The physically meaningful value is the <b>“chip voltage”</b>."},
  'm.vchip':{fr:"Tension puce (écrêtée)",en:"Chip voltage (clamped)"},
  'sch.t':{fr:"Schéma de la liaison",en:"Link schematic"},
  'sch.side':{fr:"Vue de côté — alignement",en:"Side view — alignment"},
@@ -668,7 +680,7 @@ const I18N={
  'p.sig':{fr:"Signal temporel — rétro-modulation",en:"Time-domain signal — load modulation"},
  'p.sig.sub':{fr:"Descente ASK 100 % ; remontée par sous-porteuse 847,5 kHz.",en:"Downlink 100 % ASK; uplink via 847.5 kHz subcarrier."},
  'p.ang':{fr:"Tension récupérable vs angle α",en:"Recoverable voltage vs angle α"},
- 'p.ang.sub':{fr:"Couplage de flux ∝ cos α ; « angle mort » à 90°.",en:"Flux coupling ∝ cos α; “dead angle” at 90°."},
+ 'p.ang.sub':{fr:"Tension puce (écrêtée) en gras ; crête à vide en pointillé. Décrochage quand cos α fait passer le pic sous l'écrêtage.",en:"Chip voltage (clamped) in bold; open-circuit peak dashed. Drop-off when cos α brings the peak below the clamp."},
  'sar.t':{fr:"DAS dans les tissus — tag implanté",en:"SAR in tissue — implanted tag"},
  'sar.intro':{fr:"<b>RFID biomédical —</b> pour alimenter un tag <b>implanté</b>, le champ doit rester assez fort à l'intérieur du corps (≥ 1,5 A/m au tag) ; mais ce même champ magnétique induit des <b>courants de Foucault</b> dans les tissus conducteurs (E ∝ ω·B·r), donc un <b>échauffement (DAS)</b>. C'est tout l'enjeu : trouver le niveau de champ qui alimente la puce <i>sans</i> dépasser la limite de DAS. Modèle : cylindre homogène, E induit = ω·B·r/2 au rayon r, DAS = σ(ωBr)²/(8ρ).",
               en:"<b>Biomedical RFID —</b> to power an <b>implanted</b> tag, the field must stay strong enough inside the body (≥ 1.5 A/m at the tag); but that same magnetic field induces <b>eddy currents</b> in conductive tissue (E ∝ ω·B·r), hence <b>heating (SAR)</b>. That is the whole tension: find the field level that powers the chip <i>without</i> exceeding the SAR limit. Model: homogeneous cylinder, induced E = ω·B·r/2 at radius r, SAR = σ(ωBr)²/(8ρ)."},
