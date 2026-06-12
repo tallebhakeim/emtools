@@ -276,11 +276,21 @@ table.frames code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8
   </div>
 
   <div class="panel">
-    <div class="ptitle" data-i18n="sens.t">Exemple : capteur de pression → trame</div>
+    <div class="ptitle" data-i18n="sens.t">Exemple : capteur → trame</div>
     <div data-i18n-html="sens.intro"></div>
     <div class="controls" style="margin-top:.9rem">
       <div class="ctrl">
-        <label><span data-i18n="sens.p">Pression mesurée</span> · <span id="sens-pv" class="val">1013 hPa</span></label>
+        <label data-i18n="sens.type">Type de capteur</label>
+        <select id="sens-type" onchange="setSensor()">
+          <option value="press" data-i18n="sens.press">Pression</option>
+          <option value="temp" data-i18n="sens.temp">Température</option>
+          <option value="gluc" data-i18n="sens.gluc">Glycémie</option>
+          <option value="hum" data-i18n="sens.hum">Humidité</option>
+          <option value="hr" data-i18n="sens.hr">Fréquence cardiaque</option>
+        </select>
+      </div>
+      <div class="ctrl">
+        <label><span data-i18n="sens.val">Valeur mesurée</span> · <span id="sens-pv" class="val">1013 hPa</span></label>
         <input id="sens-p" type="range" min="300" max="1200" step="1" value="1013" oninput="recompute()">
       </div>
       <div class="ctrl">
@@ -323,6 +333,20 @@ function dpr(cv){const r=window.devicePixelRatio||1;const w=cv.clientWidth||pars
 function hex2(b){return b.toString(16).toUpperCase().padStart(2,'0');}
 // ISO/IEC 14443-A CRC (CRC_A), init 0x6363, transmitted LSB then MSB
 function crcA(bytes){let crc=0x6363;for(const byte of bytes){let ch=(byte^(crc&0xFF))&0xFF;ch=(ch^(ch<<4))&0xFF;crc=((crc>>8)^(ch<<8)^(ch<<3)^(ch>>4))&0xFFFF;}return crc;}
+// sensor presets: unit, range [min,max], default value, slider step, displayed decimals
+const SENSORS={
+  press:{u:'hPa',  min:300, max:1200, def:1013, step:1,   dec:0},
+  temp: {u:'°C',   min:20,  max:45,   def:37,   step:0.1, dec:1},
+  gluc: {u:'mg/dL',min:40,  max:400,  def:100,  step:1,   dec:0},
+  hum:  {u:'%RH',  min:0,   max:100,  def:50,   step:1,   dec:0},
+  hr:   {u:'bpm',  min:30,  max:220,  def:72,   step:1,   dec:0}
+};
+// when the sensor type changes, reconfigure the value slider to its range/default
+function setSensor(){
+  const s=SENSORS[$('sens-type').value]||SENSORS.press, sl=$('sens-p');
+  sl.min=s.min; sl.max=s.max; sl.step=s.step; sl.value=s.def;
+  recompute();
+}
 
 const MU0=4*Math.PI*1e-7, F0=13.56e6, W0=2*Math.PI*F0;
 const HMIN=1.5, HMAX=7.5;          // ISO 14443 operating field band (A/m)
@@ -375,8 +399,9 @@ function compute(){
   const Zref=wM*wM/rs;                               // reflected resistance (ωM)²/Z_tag
   const ZrefMod=wM*wM/(2*rs);                        // modulation state: tag Q halved → r_s doubled
   const modDepth=(Zref-ZrefMod)/(R1+Zref);           // relative voltage change seen by the reader
-  // ── sensor → frame : digitise a pressure reading and pack it into a 2-byte payload ──
-  const Pmin=300, Pmax=1200;                          // sensor range (hPa)
+  // ── sensor → frame : digitise the reading and pack it into a 2-byte payload ──
+  const sensType=$('sens-type').value, ST=SENSORS[sensType]||SENSORS.press;
+  const Pmin=ST.min, Pmax=ST.max, sensU=ST.u, sensDec=ST.dec; // sensor range / unit / decimals
   const Phpa=parseFloat($('sens-p').value), nbit=parseInt($('sens-bits').value);
   const maxc=(1<<nbit)-1;
   const code=Math.max(0,Math.min(maxc,Math.round((Phpa-Pmin)/(Pmax-Pmin)*maxc)));
@@ -394,7 +419,7 @@ function compute(){
   const Hmax=Math.sqrt(8*rhoT*SARlim/sig)/(W0*MU0*rT);// max H before reaching the SAR limit (A/m)
   CUR={a,N1,I1,b,N2,Q,z,shape,A2,angDeg,cosA,H,B,Mgeo,M,L1,L2,k,C2,Voc,Vtag,Vtag0,VCLAMP,Vchip,XL,I2,range,Zref,modDepth,
        rs,Rp,Rchip,rtot,Qload,Vtank,Vtank0,Phpa,nbit,code,maxc,sensData,sensCrc,sensBits16,Pmin,Pmax,
-       sig,rhoT,rT,Eind,SAR,SARlim,Hmax};
+       sensType,sensU,sensDec,sig,rhoT,rT,Eind,SAR,SARlim,Hmax};
   return CUR;
 }
 
@@ -417,8 +442,8 @@ function recompute(){
   $('angv').textContent=$('ang').value+'°';
   $('sar-rv').textContent=parseFloat($('sar-r').value).toFixed(1)+' cm';
   $('rchipv').textContent=parseFloat($('rchip').value).toFixed(1)+' kΩ';
-  $('sens-pv').textContent=$('sens-p').value+' hPa';
   const c=compute();
+  $('sens-pv').textContent=c.Phpa.toFixed(c.sensDec)+' '+c.sensU;
   const hEl=$('m_h');
   hEl.textContent=fmtSI(c.H);
   hEl.className='v '+(c.H>=HMIN&&c.H<=HMAX?'ok':'bad');
@@ -474,7 +499,8 @@ function recompute(){
   // sensor → frame text
   const bin=c.sensBits16.join('').replace(/(.{4})/g,'$1 ').trim();
   $('sens-out').innerHTML=t('sens.line')
-    .replace('{P}',c.Phpa).replace('{n}',c.nbit).replace('{code}',c.code).replace('{max}',c.maxc)
+    .replace('{name}',t('sens.'+c.sensType)).replace('{val}',c.Phpa.toFixed(c.sensDec)).replace('{unit}',c.sensU)
+    .replace('{n}',c.nbit).replace('{code}',c.code).replace('{max}',c.maxc)
     .replace('{hexcode}','0x'+(((c.sensData[0]<<8)|c.sensData[1]).toString(16).toUpperCase().padStart(4,'0')))
     .replace('{bin}',bin).replace('{d0}',hex2(c.sensData[0])).replace('{d1}',hex2(c.sensData[1]))
     .replace('{crc0}',hex2(c.sensCrc[0])).replace('{crc1}',hex2(c.sensCrc[1]));
@@ -776,15 +802,21 @@ const I18N={
             en:"⚠️ <b>Loaded tank voltage {vt} V</b>: loaded Q = <b>{ql}</b> (vs {qu} unloaded). Just above the minimum supply — low margin (move the tag closer, lighten the load R_chip, or increase coupling)."},
  'res.under':{fr:"⛔ <b>Tension tank chargée {vt} V &lt; {vc} V</b> : le Q chargé ({ql}) est trop bas — la puce n'atteint pas sa tension d'alimentation, le tag ne démarre pas. Augmente R_chip (charge plus légère), le couplage ou le nombre de spires.",
               en:"⛔ <b>Loaded tank voltage {vt} V &lt; {vc} V</b>: the loaded Q ({ql}) is too low — the chip never reaches its supply voltage, the tag won't start. Increase R_chip (lighter load), the coupling or the turns."},
- 'sens.t':{fr:"Exemple : capteur de pression → trame",en:"Example: pressure sensor → frame"},
- 'sens.intro':{fr:"<b>Chaîne capteur —</b> le tag alimenté numérise sa mesure puis la renvoie par rétro-modulation : <b>capteur de pression</b> → <b>ADC</b> (n bits) → valeur binaire → <b>trame</b> (octets + CRC) → <b>codage Manchester</b> sur la sous-porteuse 847,5 kHz → <b>modulation de charge</b>. Le lecteur démodule les bandes latérales et reconstitue la valeur. (Ex. tags capteurs : pression de pneu, implants de pression intra-oculaire/crânienne, patchs NFC.)",
-               en:"<b>Sensor chain —</b> the powered tag digitises its reading then sends it back by load modulation: <b>pressure sensor</b> → <b>ADC</b> (n bits) → binary value → <b>frame</b> (bytes + CRC) → <b>Manchester coding</b> on the 847.5 kHz subcarrier → <b>load modulation</b>. The reader demodulates the sidebands and recovers the value. (e.g. sensor tags: tyre pressure, intraocular/intracranial pressure implants, NFC patches.)"},
- 'sens.p':{fr:"Pression mesurée",en:"Measured pressure"},
+ 'sens.t':{fr:"Exemple : capteur → trame",en:"Example: sensor → frame"},
+ 'sens.intro':{fr:"<b>Chaîne capteur —</b> le tag alimenté numérise sa mesure puis la renvoie par rétro-modulation : <b>capteur</b> → <b>ADC</b> (n bits) → valeur binaire → <b>trame</b> (octets + CRC) → <b>codage Manchester</b> sur la sous-porteuse 847,5 kHz → <b>modulation de charge</b>. Le lecteur démodule les bandes latérales et reconstitue la valeur. Choisis la grandeur ci-dessous. (Ex. réels : pression de pneu, implants de pression intra-oculaire/crânienne, température, <b>glycémie — Freestyle Libre, capteur NFC ISO 15693</b>.)",
+               en:"<b>Sensor chain —</b> the powered tag digitises its reading then sends it back by load modulation: <b>sensor</b> → <b>ADC</b> (n bits) → binary value → <b>frame</b> (bytes + CRC) → <b>Manchester coding</b> on the 847.5 kHz subcarrier → <b>load modulation</b>. The reader demodulates the sidebands and recovers the value. Pick the quantity below. (Real examples: tyre pressure, intraocular/intracranial pressure implants, temperature, <b>glucose — Freestyle Libre, an NFC ISO 15693 sensor</b>.)"},
+ 'sens.type':{fr:"Type de capteur",en:"Sensor type"},
+ 'sens.val':{fr:"Valeur mesurée",en:"Measured value"},
+ 'sens.press':{fr:"Pression",en:"Pressure"},
+ 'sens.temp':{fr:"Température",en:"Temperature"},
+ 'sens.gluc':{fr:"Glycémie",en:"Glucose"},
+ 'sens.hum':{fr:"Humidité",en:"Humidity"},
+ 'sens.hr':{fr:"Fréquence cardiaque",en:"Heart rate"},
  'sens.bits':{fr:"Résolution ADC",en:"ADC resolution"},
- 'sens.line':{fr:"Pression <b>P = {P} hPa</b> → code ADC {n} bits = <b>{code}</b> / {max} = <b>{hexcode}</b> = <code>{bin}</code><br>Trame réponse (PICC→PCD) : <b>SOF</b> | données <code>{d0} {d1}</code> | CRC_A <code>{crc0} {crc1}</code> | <b>EOF</b>",
-               en:"Pressure <b>P = {P} hPa</b> → {n}-bit ADC code = <b>{code}</b> / {max} = <b>{hexcode}</b> = <code>{bin}</code><br>Response frame (PICC→PCD): <b>SOF</b> | data <code>{d0} {d1}</code> | CRC_A <code>{crc0} {crc1}</code> | <b>EOF</b>"},
- 'sens.sub':{fr:"En haut : les 2 octets en <b>niveaux logiques NRZ</b> (1 = niveau haut, 0 = niveau bas, reliés par les transitions). En bas : le codage <b>Manchester</b> de ces bits sur la sous-porteuse 847,5 kHz (1 = salve en 1ʳᵉ moitié de bit, 0 = en 2ᵉ moitié) — le motif réellement rétro-modulé que le lecteur démodule pour relire la pression.",
-             en:"Top: the 2 bytes as <b>NRZ logic levels</b> (1 = high, 0 = low, joined by transitions). Bottom: the <b>Manchester</b> coding of those bits on the 847.5 kHz subcarrier (1 = burst in the first half-bit, 0 = in the second) — the actually load-modulated pattern the reader demodulates to read the pressure back."},
+ 'sens.line':{fr:"{name} <b>{val} {unit}</b> → code ADC {n} bits = <b>{code}</b> / {max} = <b>{hexcode}</b> = <code>{bin}</code><br>Trame réponse (PICC→PCD) : <b>SOF</b> | données <code>{d0} {d1}</code> | CRC_A <code>{crc0} {crc1}</code> | <b>EOF</b>",
+               en:"{name} <b>{val} {unit}</b> → {n}-bit ADC code = <b>{code}</b> / {max} = <b>{hexcode}</b> = <code>{bin}</code><br>Response frame (PICC→PCD): <b>SOF</b> | data <code>{d0} {d1}</code> | CRC_A <code>{crc0} {crc1}</code> | <b>EOF</b>"},
+ 'sens.sub':{fr:"En haut : les 2 octets en <b>niveaux logiques NRZ</b> (1 = niveau haut, 0 = niveau bas, reliés par les transitions). En bas : le codage <b>Manchester</b> de ces bits sur la sous-porteuse 847,5 kHz (1 = salve en 1ʳᵉ moitié de bit, 0 = en 2ᵉ moitié) — le motif réellement rétro-modulé que le lecteur démodule pour relire la mesure.",
+             en:"Top: the 2 bytes as <b>NRZ logic levels</b> (1 = high, 0 = low, joined by transitions). Bottom: the <b>Manchester</b> coding of those bits on the 847.5 kHz subcarrier (1 = burst in the first half-bit, 0 = in the second) — the actually load-modulated pattern the reader demodulates to read the measurement back."},
  'sch.t':{fr:"Schéma de la liaison",en:"Link schematic"},
  'sch.side':{fr:"Vue de côté — alignement",en:"Side view — alignment"},
  'sch.frontt':{fr:"Vue de face — géométrie des bobines",en:"Front view — coil geometry"},
