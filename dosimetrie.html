@@ -697,6 +697,19 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
   <div class="info" id="lim-note" style="font-size:12px"></div>
   <div class="info" data-i18n-html="lim.gores" style="font-size:11.5px;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe">👉 La <b>vérification de conformité</b> de ton calcul (verdict ✅/⛔) est désormais dans l'onglet <b>Résultats</b>.</div>
 
+  <div class="stitle0" data-i18n="ref.t">Restrictions de base → niveaux de référence (le gabarit ICNIRP)</div>
+  <div class="info" data-i18n-html="ref.expl"></div>
+  <div style="display:flex;gap:10px;align-items:center;margin:.5rem 0;flex-wrap:wrap">
+    <div class="field" style="min-width:190px"><label data-i18n="ref.qty">Niveau de référence tracé</label>
+      <select id="ref-qty" onchange="drawGabarit()">
+        <option value="E" data-i18n="ref.qE">Champ E (V/m)</option>
+        <option value="S" data-i18n="ref.qS">Densité de puissance (W/m²)</option>
+      </select></div>
+    <div style="font-size:11px;color:#64748b" data-i18n="ref.leg">— 1998 (trait plein) vs 2020 (pointillé) · public (teal) &amp; travailleurs (orange)</div>
+  </div>
+  <canvas id="ref-plot" width="640" height="340" style="width:100%;height:340px;border:1px solid #e2e8f0;border-radius:10px;background:#fff"></canvas>
+  <div class="info" data-i18n-html="ref.note"></div>
+
   <div class="stitle0" data-i18n="lim.t4">Dispositif implanté</div>
   <div class="info" style="background:#fff7ed;color:#9a3412;border:1px solid #fed7aa" data-i18n-html="lim.implant"><b>Ce que cet outil peut estimer :</b> le DAS et l'échauffement dans le <b>tissu de fond</b> (sans implant). <b>Ce qu'il ne capte pas :</b> près d'un <b>implant métallique</b>, le champ se concentre et crée un <b>point chaud local</b> (effet de pointe/antenne) que le modèle planaire (TMM) ne modélise pas. Pour une étude santé d'un dispositif implanté, les cadres de référence sont : <b>ISO/TS 10974</b> (sécurité en IRM des implants actifs), <b>ISO 14117</b> (CEM des implants cardiaques) et la <b>directive 2013/35/UE</b> (protection des travailleurs, dont porteurs d'implants).</div>
 </div>
@@ -799,6 +812,14 @@ const I18N={
   'lim.applim':{fr:'Limite applicable',en:'Applicable limit'},
   'lim.noresult2':{fr:'Lance un calcul (onglet « Source EM ») : le verdict s’affichera ici.',en:'Run a calculation (“EM source” tab): the verdict will appear here.'},
   'lim.gores':{fr:'👉 La <b>vérification de conformité</b> de ton calcul (verdict ✅/⛔) est désormais dans l’onglet <b>Résultats</b>.',en:'👉 The <b>compliance check</b> of your calculation (✅/⛔ verdict) is now in the <b>Results</b> tab.'},
+  'ref.t':{fr:'Restrictions de base → niveaux de référence (le gabarit ICNIRP)',en:'Basic restrictions → reference levels (the ICNIRP template)'},
+  'ref.expl':{fr:'<b>Deux niveaux, une seule logique —</b> la <b>restriction de base</b> porte sur une grandeur <b>interne</b> directement liée à l’effet sanitaire : champ E interne / densité de courant en BF (stimulation nerveuse), <b>DAS</b> en RF (échauffement), densité de puissance absorbée &gt; 6 GHz. Elle protège mais <b>n’est pas mesurable in vivo</b>. Le <b>niveau de référence</b> est une grandeur <b>mesurable dans le champ non perturbé</b> (E, H, B, densité de puissance incidente S), construite par <b>dosimétrie</b> pour que <b>respecter le niveau de référence garantisse de respecter la restriction de base</b> (cas le plus défavorable). On modélise le <b>couplage</b> champ externe ↔ grandeur interne sur un fantôme du corps — p. ex. <b>DAS = K(f)·S<sub>inc</sub></b> — puis on <b>inverse</b> : <b>S<sub>réf</sub>(f) = DAS<sub>limite</sub> / K(f)</b>, avec marges de sécurité, lissé en un <b>gabarit</b> par morceaux.',
+              en:'<b>Two levels, one logic —</b> the <b>basic restriction</b> applies to an <b>internal</b> quantity directly tied to the health effect: internal E-field / current density at LF (nerve stimulation), <b>SAR</b> at RF (heating), absorbed power density &gt; 6 GHz. It protects but <b>is not measurable in vivo</b>. The <b>reference level</b> is a quantity <b>measurable in the unperturbed field</b> (E, H, B, incident power density S), built by <b>dosimetry</b> so that <b>complying with the reference level guarantees complying with the basic restriction</b> (worst case). One models the <b>coupling</b> external field ↔ internal quantity on a body phantom — e.g. <b>SAR = K(f)·S<sub>inc</sub></b> — then <b>inverts</b>: <b>S<sub>ref</sub>(f) = SAR<sub>limit</sub> / K(f)</b>, with safety margins, smoothed into a piecewise <b>template</b>.'},
+  'ref.qty':{fr:'Niveau de référence tracé',en:'Plotted reference level'},
+  'ref.qE':{fr:'Champ E (V/m)',en:'E field (V/m)'},'ref.qS':{fr:'Densité de puissance (W/m²)',en:'Power density (W/m²)'},
+  'ref.leg':{fr:'— 1998 (trait plein) vs 2020 (pointillé) · public (teal) & travailleurs (orange)',en:'— 1998 (solid) vs 2020 (dashed) · public (teal) & occupational (orange)'},
+  'ref.note':{fr:'<b>Le creux à la résonance —</b> l’efficacité d’absorption K(f) est <b>maximale à la résonance du corps</b> : quand la plus grande dimension du corps ≈ λ/2 (adulte ~ 30–80 MHz), le corps se comporte comme une <b>antenne résonante</b> et absorbe le plus → le niveau de référence <b>plonge à son minimum</b> (≈ 28 V/m ou 2 W/m² public, 30–400 MHz). Loin de la résonance (BF : corps ≪ λ ; HF : absorption de surface), le couplage est faible → niveaux plus élevés admis. <b>1998 → 2020 :</b> en BF la restriction de base passe de la <b>densité de courant J</b> au <b>champ E interne</b> (mieux corrélé au seuil de stimulation) ; au-delà de <b>6 GHz</b>, du <b>DAS</b> à la <b>densité de puissance absorbée</b> (W/m²) ; les niveaux sont recalculés avec des fantômes anatomiques et les <b>temps et surfaces de moyennage</b> précisés. La forme générale (creux de résonance) est conservée ; en-dessous de ~10 MHz c’est la <b>stimulation (BF)</b> qui devient limitante.',
+              en:'<b>The resonance dip —</b> the absorption efficiency K(f) is <b>maximal at the body resonance</b>: when the body’s largest dimension ≈ λ/2 (adult ~ 30–80 MHz), the body acts like a <b>resonant antenna</b> and absorbs the most → the reference level <b>dips to its minimum</b> (≈ 28 V/m or 2 W/m² public, 30–400 MHz). Away from resonance (LF: body ≪ λ; HF: surface absorption), coupling is weak → higher levels allowed. <b>1998 → 2020:</b> at LF the basic restriction changes from <b>current density J</b> to <b>internal E-field</b> (better correlated to the stimulation threshold); above <b>6 GHz</b>, from <b>SAR</b> to <b>absorbed power density</b> (W/m²); levels are recomputed with anatomical phantoms and the <b>averaging times and areas</b> refined. The overall shape (resonance dip) is preserved; below ~10 MHz it is <b>stimulation (LF)</b> that becomes limiting.'},
   'lim.wb':{fr:'corps entier',en:'whole body'},
   'lim.note.local':{fr:'DAS <b>local</b> : pic spatial dans le volume de moyennage indiqué. Vise à limiter un <b>point chaud</b> de température.',en:'<b>Local</b> SAR: spatial peak within the stated averaging volume. Limits a temperature <b>hot spot</b>.'},
   'lim.note.wb':{fr:'DAS <b>corps entier</b> : moyenne sur toute la masse corporelle. Vise à limiter l’<b>échauffement global</b> (≈ 1 °C cœur du corps).',en:'<b>Whole-body</b> SAR: average over the entire body mass. Limits <b>global heating</b> (≈ 1 °C body core).'},
@@ -1339,7 +1360,7 @@ function onNearType(){
   renderSchema();
 }
 
-function onFreqChange(){updateNearDisplay();onFfMode();renderSchema();}
+function onFreqChange(){updateNearDisplay();onFfMode();renderSchema();try{drawGabarit();}catch(e){}}
 
 // ── Calcul ────────────────────────────────────────────────────────────────────
 function compute(){
@@ -1529,6 +1550,68 @@ function updateLimit(){
     g('lim-k3').textContent=t('lim.mtime');g('lim-time').textContent=v[2];
     g('lim-note').innerHTML=t(r==='wb'?'lim.note.wb':'lim.note.local');
   }
+  ['ref.expl','ref.note'].forEach(k=>{const el=document.querySelector('[data-i18n-html="'+k+'"]');if(el)el.innerHTML=t(k);});
+  drawGabarit();
+}
+// ── ICNIRP reference levels vs frequency (the "gabarit") ──
+// E-field reference level (V/m). f in Hz. year=1998|2020, pop='public'|'worker'. null → not defined.
+function ErefV(f,year,pop){
+  const M=f/1e6;
+  if(year===2020){ // resonance + heating region only (below ~30 MHz the LF/stimulation restriction governs)
+    if(M<30) return null;
+    if(pop==='worker'){ if(M<=400)return 61.4; if(M<=2000)return 3*Math.sqrt(M); return 137; }
+    if(M<=400)return 27.7; if(M<=2000)return 1.375*Math.sqrt(M); return 61;
+  }
+  if(pop==='worker'){ if(M<1)return 610; if(M<=10)return 610/M; if(M<=400)return 61; if(M<=2000)return 3*Math.sqrt(M); return 137; }
+  if(M<1)return 87; if(M<=10)return 87/Math.sqrt(M); if(M<=400)return 28; if(M<=2000)return 1.375*Math.sqrt(M); return 61;
+}
+// Equivalent plane-wave power density reference level (W/m²); only ≥10 MHz (far field).
+function SrefW(f,year,pop){
+  const M=f/1e6; if(M<(year===2020?30:10)) return null;
+  if(pop==='worker'){ if(M<=400)return 10; if(M<=2000)return M/40; return 50; }
+  if(M<=400)return 2; if(M<=2000)return M/200; return 10;
+}
+function drawGabarit(){
+  const cv=document.getElementById('ref-plot'); if(!cv||cv.offsetParent===null)return;
+  const qty=(document.getElementById('ref-qty')||{}).value||'E';
+  const fr=LANG==='fr', rr=window.devicePixelRatio||1, W=cv.clientWidth||640, H=340;
+  cv.width=Math.round(W*rr); cv.height=Math.round(H*rr);
+  const x=cv.getContext('2d'); x.setTransform(rr,0,0,rr,0,0); x.clearRect(0,0,W,H);
+  const x0=50,x1=W-14,y0=H-30,y1=26, fL=1e6,fR=3e11;
+  const yL=qty==='E'?10:0.1, yH=qty==='E'?800:200;
+  const lx=f=>x0+(Math.log10(f)-Math.log10(fL))/(Math.log10(fR)-Math.log10(fL))*(x1-x0);
+  const ly=v=>y0-(Math.log10(v)-Math.log10(yL))/(Math.log10(yH)-Math.log10(yL))*(y0-y1);
+  // resonance band 30–400 MHz (where the reference level dips — body resonance)
+  x.fillStyle='rgba(13,148,136,.07)';x.fillRect(lx(30e6),y1,lx(400e6)-lx(30e6),y0-y1);
+  // LF zone < 10 MHz
+  x.fillStyle='rgba(217,119,6,.06)';x.fillRect(x0,y1,lx(10e6)-x0,y0-y1);
+  // grid (decades)
+  x.strokeStyle='#eef2f7';x.lineWidth=1;x.fillStyle='#94a3b8';x.font='9px sans-serif';
+  for(let e=6;e<=11;e++){const X=lx(Math.pow(10,e));x.beginPath();x.moveTo(X,y1);x.lineTo(X,y0);x.stroke();x.textAlign='center';
+    const lab=e>=9?(Math.pow(10,e-9))+' GHz':(Math.pow(10,e-6))+' MHz';x.fillText(lab,X,y0+12);}
+  for(let e=Math.log10(yL);e<=Math.log10(yH)+1e-9;e++){const v=Math.pow(10,e);const Y=ly(v);x.strokeStyle='#eef2f7';x.beginPath();x.moveTo(x0,Y);x.lineTo(x1,Y);x.stroke();x.textAlign='right';x.fillStyle='#94a3b8';x.fillText(v<1?v.toFixed(1):v.toFixed(0),x0-4,Y+3);}
+  // axes
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  x.fillStyle='#475569';x.font='10px sans-serif';x.textAlign='center';x.fillText(fr?'fréquence':'frequency',(x0+x1)/2,H-4);
+  x.save();x.translate(12,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText(qty==='E'?(fr?'niveau de réf. E (V/m)':'E ref. level (V/m)'):(fr?'niveau de réf. S (W/m²)':'S ref. level (W/m²)'),0,0);x.restore();
+  // band labels
+  x.fillStyle='#0f766e';x.font='9px sans-serif';x.textAlign='center';x.fillText(fr?'résonance du corps':'body resonance',(lx(30e6)+lx(400e6))/2,y1+10);
+  x.fillStyle='#b45309';x.fillText(fr?'← BF: stimulation':'← LF: stimulation',(x0+lx(10e6))/2,y1+10);
+  // curves
+  const fn=qty==='E'?ErefV:SrefW;
+  function curve(year,pop,col,dash){x.strokeStyle=col;x.setLineDash(dash);x.lineWidth=2;x.beginPath();let on=false;
+    for(let i=0;i<=320;i++){const f=Math.pow(10,Math.log10(fL)+(Math.log10(fR)-Math.log10(fL))*i/320);const v=fn(f,year,pop);if(v==null){on=false;continue;}const X=lx(f),Y=ly(Math.min(Math.max(v,yL),yH));on?x.lineTo(X,Y):x.moveTo(X,Y);on=true;}
+    x.stroke();x.setLineDash([]);}
+  curve(1998,'worker','#d97706',[]); curve(1998,'public','#0d9488',[]);
+  curve(2020,'worker','#b45309',[5,3]); curve(2020,'public','#0f766e',[5,3]);
+  // working-frequency marker
+  const f0=parseFloat((document.getElementById('freq')||{}).value)||2.45e9;
+  if(f0>=fL&&f0<=fR){x.strokeStyle='#1e40af';x.setLineDash([2,3]);x.lineWidth=1.3;x.beginPath();x.moveTo(lx(f0),y1);x.lineTo(lx(f0),y0);x.stroke();x.setLineDash([]);
+    x.fillStyle='#1e40af';x.font='9px sans-serif';x.textAlign='left';x.fillText(fr?'f calcul':'work. f',lx(f0)+3,y1+18);}
+  // legend
+  x.font='9px sans-serif';x.textAlign='left';
+  [[fr?'1998 public':'1998 public','#0d9488',false],[fr?'1998 travailleurs':'1998 occup.','#d97706',false],[fr?'2020 public':'2020 public','#0f766e',true]].forEach((l,i)=>{
+    const yy=y1+2+i*12;x.strokeStyle=l[1];x.setLineDash(l[2]?[5,3]:[]);x.lineWidth=2;x.beginPath();x.moveTo(x1-128,yy);x.lineTo(x1-110,yy);x.stroke();x.setLineDash([]);x.fillStyle='#475569';x.fillText(l[0],x1-106,yy+3);});
 }
 // Compliance verdict (in "Résultats" tab): computed 10 g SAR vs the selected scenario limit
 function updateConf(){
