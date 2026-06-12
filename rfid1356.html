@@ -123,6 +123,10 @@ table.frames code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8
         <label><span data-i18n="z">Distance tag z</span> · <span id="zv" class="val">2.0 cm</span></label>
         <input id="z" type="range" min="0" max="20" step="0.2" value="2" oninput="recompute()">
       </div>
+      <div class="ctrl">
+        <label><span data-i18n="ang">Angle tag/lecteur α</span> · <span id="angv" class="val">0°</span></label>
+        <input id="ang" type="range" min="0" max="90" step="1" value="0" oninput="recompute()">
+      </div>
     </div>
     <div class="row-btns">
       <button class="pbtn" onclick="preset('card')" data-i18n="p.card">Carte sans contact</button>
@@ -161,9 +165,55 @@ table.frames code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8
         <canvas id="cv_res" width="440" height="380"></canvas>
       </div>
     </div>
+    <div class="plots" style="margin-top:1.2rem">
+      <div class="plotbox">
+        <h4 data-i18n="p.sig">Signal temporel — rétro-modulation</h4>
+        <div class="sub" data-i18n="p.sig.sub">Descente ASK 100 % ; remontée par sous-porteuse 847,5 kHz.</div>
+        <canvas id="cv_signal" width="440" height="300"></canvas>
+      </div>
+      <div class="plotbox">
+        <h4 data-i18n="p.ang">Tension récupérable vs angle α</h4>
+        <div class="sub" data-i18n="p.ang.sub">Couplage de flux ∝ cos α ; « angle mort » à 90°.</div>
+        <canvas id="cv_angle" width="440" height="300"></canvas>
+      </div>
+    </div>
   </div>
 
   <div class="warn" id="iso-note" data-i18n-html="iso.note"></div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="sar.t">DAS dans les tissus — tag implanté</div>
+    <div data-i18n-html="sar.intro"></div>
+    <div class="controls" style="margin-top:.9rem">
+      <div class="ctrl">
+        <label data-i18n="sar.tissue">Tissu exposé</label>
+        <select id="sar-tissue" onchange="recompute()">
+          <option value="muscle" data-i18n="sar.muscle">Muscle (σ≈0,62 S/m)</option>
+          <option value="skin" data-i18n="sar.skin">Peau humide (σ≈0,22 S/m)</option>
+          <option value="avg" data-i18n="sar.avg">Tissu moyen (σ≈0,40 S/m)</option>
+          <option value="fat" data-i18n="sar.fat">Graisse (σ≈0,03 S/m)</option>
+        </select>
+      </div>
+      <div class="ctrl">
+        <label><span data-i18n="sar.r">Rayon tissu exposé r</span> · <span id="sar-rv" class="val">5.0 cm</span></label>
+        <input id="sar-r" type="range" min="1" max="15" step="0.5" value="5" oninput="recompute()">
+      </div>
+      <div class="ctrl">
+        <label data-i18n="sar.pop">Population</label>
+        <select id="sar-pop" onchange="recompute()">
+          <option value="public" data-i18n="sar.public">Public (2 W/kg local)</option>
+          <option value="worker" data-i18n="sar.worker">Travailleurs (10 W/kg)</option>
+        </select>
+      </div>
+    </div>
+    <div class="metrics" style="margin-top:1rem">
+      <div class="metric"><div class="k" data-i18n="sar.eind">Champ E induit (efficace)</div><div class="v" id="m_eind">—</div><div class="u">V/m</div></div>
+      <div class="metric hl"><div class="k" data-i18n="sar.das">DAS local estimé</div><div class="v" id="m_das">—</div><div class="u">W/kg</div></div>
+      <div class="metric"><div class="k" data-i18n="sar.hmax">H max admissible (DAS)</div><div class="v" id="m_hmax">—</div><div class="u">A/m</div></div>
+      <div class="metric"><div class="k" data-i18n="sar.margin">Marge vs limite</div><div class="v" id="m_smargin">—</div><div class="u">×</div></div>
+    </div>
+    <div class="warn" id="sar-note" style="margin-top:.7rem"></div>
+  </div>
 
   <div class="panel">
     <div class="ptitle" data-i18n="seq.t">Trame &amp; rétro-modulation — RFID vs NFC</div>
@@ -222,18 +272,22 @@ function Mut(N1,N2,a,b,z){ return MU0*Math.PI*N1*N2*a*a*b*b/(2*Math.pow(a*a+z*z,
 // self-inductance of a circular loop (thin wire, single layer): L = µ0·N²·r·(ln(8r/ρw)-2), ρw wire radius
 function Lself(N,r){ const rw=0.3e-3; return MU0*N*N*r*(Math.log(8*r/rw)-2); }
 
+const TISSUE={muscle:{s:0.62,rho:1090},skin:{s:0.22,rho:1109},avg:{s:0.40,rho:1030},fat:{s:0.03,rho:911}};
 let CUR=null;
 function compute(){
   const a=parseFloat($('a').value)/100, N1=parseInt($('n1').value), I1=parseFloat($('i1').value);
   const b=parseFloat($('b').value)/100, N2=parseInt($('n2').value), Q=parseFloat($('q').value);
   const z=parseFloat($('z').value)/100;
-  const H=Hax(N1,I1,a,z), B=MU0*H*1e6;             // B in µT
-  const M=Mut(N1,N2,a,b,z);                          // H
+  const angDeg=parseFloat($('ang').value), cosA=Math.cos(angDeg*Math.PI/180);
+  const H=Hax(N1,I1,a,z), B=MU0*H*1e6;             // B in µT (reader field — independent of tag angle)
+  const Mgeo=Mut(N1,N2,a,b,z);                       // coaxial mutual inductance (H)
+  const M=Mgeo*cosA;                                 // effective mutual: flux linkage ∝ cos α
   const L1=Lself(N1,a), L2=Lself(N2,b);
   const k=M/Math.sqrt(L1*L2);
   const C2=1/(W0*W0*L2);                             // tuning cap for 13.56 MHz (F)
-  const Voc=W0*M*I1;                                 // open-circuit emf (V)
+  const Voc=W0*M*I1;                                 // open-circuit emf (V), reduced by cos α
   const Vtag=Q*Voc;                                  // resonant amplification
+  const Vtag0=Q*W0*Mgeo*I1;                          // recoverable voltage at α=0 (for the angle plot)
   // read range: largest z where H(z) ≥ HMIN
   const arg=Math.pow(N1*I1*a*a/(2*HMIN),2/3)-a*a;
   const range=arg>0?Math.sqrt(arg):0;               // m
@@ -241,11 +295,20 @@ function compute(){
   const Q1=35;                                       // assumed reader-antenna quality factor
   const Rtag=W0*L2/Q;                                // tag equivalent series resistance at resonance
   const R1=W0*L1/Q1;                                 // reader-antenna resistance
-  const wM=W0*M;                                     // mutual reactance ωM
+  const wM=W0*M;                                     // effective mutual reactance ωM
   const Zref=wM*wM/Rtag;                             // reflected resistance (ωM)²/Z_tag
   const ZrefMod=wM*wM/(2*Rtag);                      // modulation state: tag Q halved → Rtag doubled
   const modDepth=(Zref-ZrefMod)/(R1+Zref);           // relative voltage change seen by the reader
-  CUR={a,N1,I1,b,N2,Q,z,H,B,M,L1,L2,k,C2,Voc,Vtag,range,Zref,modDepth};
+  // ── SAR in tissue (implanted tag) : eddy currents from the reader's B field ──
+  const ti=TISSUE[$('sar-tissue').value]||TISSUE.muscle, sig=ti.s, rhoT=ti.rho;
+  const rT=parseFloat($('sar-r').value)/100;         // exposed-tissue / eddy-loop radius (m)
+  const Bpk=MU0*H;                                   // peak B at the tag (T)
+  const Eind=W0*Bpk*rT/(2*Math.SQRT2);               // induced E, rms at radius r (V/m)
+  const SAR=sig*Math.pow(W0*Bpk*rT,2)/(8*rhoT);      // σ(ωB r)²/(8ρ) — peak local SAR (W/kg)
+  const SARlim=$('sar-pop').value==='worker'?10:2;   // ICNIRP 2020 local 10 g limit
+  const Hmax=Math.sqrt(8*rhoT*SARlim/sig)/(W0*MU0*rT);// max H before reaching the SAR limit (A/m)
+  CUR={a,N1,I1,b,N2,Q,z,angDeg,cosA,H,B,Mgeo,M,L1,L2,k,C2,Voc,Vtag,Vtag0,range,Zref,modDepth,
+       sig,rhoT,rT,Eind,SAR,SARlim,Hmax};
   return CUR;
 }
 
@@ -265,6 +328,8 @@ function recompute(){
   $('n2v').textContent=$('n2').value;
   $('qv').textContent=$('q').value;
   $('zv').textContent=parseFloat($('z').value).toFixed(1)+' cm';
+  $('angv').textContent=$('ang').value+'°';
+  $('sar-rv').textContent=parseFloat($('sar-r').value).toFixed(1)+' cm';
   const c=compute();
   const hEl=$('m_h');
   hEl.textContent=fmtSI(c.H);
@@ -288,10 +353,23 @@ function recompute(){
   $('iso-note').style.background = c.H>=HMIN&&c.H<=HMAX?'#ecfdf5':'#fff7ed';
   $('iso-note').style.borderColor = c.H>=HMIN&&c.H<=HMAX?'#a7f3d0':'#fed7aa';
   $('iso-note').style.color = c.H>=HMIN&&c.H<=HMAX?'#065f46':'#9a3412';
+  // SAR (implant) metrics + verdict
+  $('m_eind').textContent=fmtSI(c.Eind);
+  const dasEl=$('m_das'); dasEl.textContent=fmtSI(c.SAR);
+  dasEl.className='v '+(c.SAR<=c.SARlim?'ok':'bad');
+  $('m_hmax').textContent=fmtSI(c.Hmax);
+  const ratio=c.SAR/c.SARlim;
+  $('m_smargin').textContent=ratio<=1?('×'+(1/ratio).toFixed(1)):('×'+ratio.toFixed(1));
+  let sn;
+  if(c.SAR<=c.SARlim) sn=t('sar.ok'); else sn=t('sar.over');
+  $('sar-note').innerHTML=sn.replace('{das}',fmtSI(c.SAR)).replace('{lim}',c.SARlim).replace('{hmax}',fmtSI(c.Hmax)).replace('{h}',fmtSI(c.H));
+  $('sar-note').style.background=c.SAR<=c.SARlim?'#ecfdf5':'#fef2f2';
+  $('sar-note').style.borderColor=c.SAR<=c.SARlim?'#a7f3d0':'#fecaca';
+  $('sar-note').style.color=c.SAR<=c.SARlim?'#065f46':'#991b1b';
   // validation
   $('vr1').textContent=fmtSI(Hax(c.N1,c.I1,c.a,0),'A/m')+'  (= '+fmtSI(c.N1*c.I1/(2*c.a),'A/m')+')';
   $('vr2').textContent=(1/(2*Math.PI*Math.sqrt(c.L2*c.C2))/1e6).toFixed(2)+' MHz';
-  drawField(c); drawRes(c);
+  drawField(c); drawRes(c); drawSignal(c); drawAngle(c);
 }
 function preset(p){
   if(p==='card'){$('a').value=3;$('n1').value=1;$('i1').value=0.5;$('b').value=2.2;$('n2').value=4;$('q').value=20;$('z').value=2;}
@@ -354,6 +432,61 @@ function drawRes(c){
   x.strokeStyle='#86efac';x.setLineDash([3,3]);x.lineWidth=1;x.beginPath();x.moveTo(x0,sy(half));x.lineTo(x1,sy(half));x.stroke();x.setLineDash([]);
   x.fillStyle='#16a34a';x.font='9px sans-serif';x.textAlign='right';x.fillText('−3 dB → BP ≈ f₀/Q = '+(F0/Q/1e3).toFixed(0)+' kHz',x1-4,sy(half)-3);
 }
+// time-domain envelope of the carrier: ASK 100 % downlink then load-modulated uplink
+function drawSignal(c){
+  const cv=$('cv_signal'); cv.style.height='300px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const x0=14,x1=w-12;
+  const Ndraw=2200;                                  // carrier samples across the window
+  const cyc=44;                                      // carrier cycles shown over full width
+  const subDiv=16;                                   // subcarrier = carrier/16 = 847.5 kHz
+  const m=Math.max(0.05,Math.min(0.6,c.modDepth));   // visible ripple ∝ load-modulation depth
+  // two stacked traces
+  function trace(yc,amp,label,col,env){
+    x.fillStyle='#475569';x.font='11px sans-serif';x.textAlign='left';x.fillText(label,x0,yc-amp-8);
+    x.strokeStyle='#e2e8f0';x.lineWidth=1;x.beginPath();x.moveTo(x0,yc);x.lineTo(x1,yc);x.stroke();
+    x.strokeStyle=col;x.lineWidth=1;x.beginPath();
+    for(let i=0;i<=Ndraw;i++){const u=i/Ndraw;const e=env(u);const s=Math.sin(2*Math.PI*cyc*u);
+      const X=x0+u*(x1-x0), Y=yc-e*amp*s; i?x.lineTo(X,Y):x.moveTo(X,Y);}
+    x.stroke();
+    // envelope outline
+    x.strokeStyle=col;x.globalAlpha=.35;x.lineWidth=1;x.beginPath();
+    for(let i=0;i<=Ndraw;i++){const u=i/Ndraw;const X=x0+u*(x1-x0),Y=yc-env(u)*amp;i?x.lineTo(X,Y):x.moveTo(X,Y);}x.stroke();
+    x.beginPath();for(let i=0;i<=Ndraw;i++){const u=i/Ndraw;const X=x0+u*(x1-x0),Y=yc+env(u)*amp;i?x.lineTo(X,Y):x.moveTo(X,Y);}x.stroke();
+    x.globalAlpha=1;
+  }
+  // downlink ASK 100 % : carrier ON, two short pauses (Miller-like) → bit 0/gaps
+  const askEnv=u=>{ const g=(u>0.30&&u<0.345)||(u>0.62&&u<0.665); return g?0:1; };
+  trace(78,46,'Lecteur → tag · ASK 100 % (Miller)','#2563eb',askEnv);
+  // uplink : carrier full, small subcarrier ripple keyed by Manchester data
+  const lmEnv=u=>{ const onData=u>0.12&&u<0.88; if(!onData)return 1; const sub=Math.sign(Math.sin(2*Math.PI*cyc/subDiv*u)); return 1+0.5*m*sub; };
+  trace(212,46,'Tag → lecteur · load mod. '+(c.modDepth*100).toFixed(0)+' % @ 847,5 kHz','#0d9488',lmEnv);
+  x.fillStyle='#94a3b8';x.font='9px sans-serif';x.textAlign='right';x.fillText('temps →',x1,h-4);
+}
+// recoverable tag voltage vs misalignment angle: V(α) = V₀·cos α
+function drawAngle(c){
+  const cv=$('cv_angle'); cv.style.height='300px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const pad=44,x0=pad,x1=w-14,y0=h-28,y1=16;
+  const V0=c.Vtag0, yTop=Math.max(V0,1e-6)*1.08;
+  const sx=a=>x0+a/90*(x1-x0), sy=v=>y0-v/yTop*(y0-y1);
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='right';
+  for(let f=0;f<=1.001;f+=0.25){const v=yTop*f;x.fillText(fmtSI(v),x0-4,sy(v)+3);x.strokeStyle='#f1f5f9';x.beginPath();x.moveTo(x0,sy(v));x.lineTo(x1,sy(v));x.stroke();}
+  x.textAlign='center';for(let a=0;a<=90;a+=15){x.fillText(a+'°',sx(a),y0+14);}
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.fillText('angle α (°)',(x0+x1)/2,h-5);
+  x.save();x.translate(12,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText('tension tag (V)',0,0);x.restore();
+  // cos curve
+  x.strokeStyle='#7c3aed';x.lineWidth=2.2;x.beginPath();
+  for(let i=0;i<=180;i++){const a=90*i/180;const v=V0*Math.cos(a*Math.PI/180);const X=sx(a),Y=sy(Math.max(v,0));i?x.lineTo(X,Y):x.moveTo(X,Y);}
+  x.stroke();
+  // current angle marker
+  const ax=sx(c.angDeg), ay=sy(c.Vtag);
+  x.strokeStyle='#d97706';x.setLineDash([3,3]);x.lineWidth=1.2;x.beginPath();x.moveTo(ax,y0);x.lineTo(ax,ay);x.lineTo(x0,ay);x.stroke();x.setLineDash([]);
+  x.fillStyle='#d97706';x.beginPath();x.arc(ax,ay,4,0,7);x.fill();
+  x.fillStyle='#b45309';x.font='10px sans-serif';x.textAlign='left';
+  x.fillText('α='+c.angDeg+'° → '+fmtSI(c.Vtag,'V')+' ('+(c.cosA*100).toFixed(0)+' %)',Math.min(ax+8,x1-120),Math.max(ay-8,y1+10));
+}
 
 /* i18n */
 const I18N={
@@ -371,6 +504,7 @@ const I18N={
  'n2':{fr:"Spires tag N₂",en:"Tag turns N₂"},
  'q':{fr:"Facteur de qualité Q du tag",en:"Tag quality factor Q"},
  'z':{fr:"Distance tag z",en:"Tag distance z"},
+ 'ang':{fr:"Angle tag/lecteur α",en:"Tag/reader angle α"},
  'p.card':{fr:"Carte sans contact",en:"Contactless card"},
  'p.phone':{fr:"NFC smartphone",en:"Smartphone NFC"},
  'p.gate':{fr:"Grande antenne (portique)",en:"Large antenna (gate)"},
@@ -412,6 +546,30 @@ const I18N={
  'p.field.sub':{fr:"Décroissance en 1/z³ ; bande opérationnelle ISO 14443.",en:"1/z³ decay; ISO 14443 operating band."},
  'p.res':{fr:"Réponse résonante du tag",en:"Tag resonant response"},
  'p.res.sub':{fr:"Accord sur 13,56 MHz ; largeur de bande ≈ f₀/Q.",en:"Tuned to 13.56 MHz; bandwidth ≈ f₀/Q."},
+ 'p.sig':{fr:"Signal temporel — rétro-modulation",en:"Time-domain signal — load modulation"},
+ 'p.sig.sub':{fr:"Descente ASK 100 % ; remontée par sous-porteuse 847,5 kHz.",en:"Downlink 100 % ASK; uplink via 847.5 kHz subcarrier."},
+ 'p.ang':{fr:"Tension récupérable vs angle α",en:"Recoverable voltage vs angle α"},
+ 'p.ang.sub':{fr:"Couplage de flux ∝ cos α ; « angle mort » à 90°.",en:"Flux coupling ∝ cos α; “dead angle” at 90°."},
+ 'sar.t':{fr:"DAS dans les tissus — tag implanté",en:"SAR in tissue — implanted tag"},
+ 'sar.intro':{fr:"<b>RFID biomédical —</b> pour alimenter un tag <b>implanté</b>, le champ doit rester assez fort à l'intérieur du corps (≥ 1,5 A/m au tag) ; mais ce même champ magnétique induit des <b>courants de Foucault</b> dans les tissus conducteurs (E ∝ ω·B·r), donc un <b>échauffement (DAS)</b>. C'est tout l'enjeu : trouver le niveau de champ qui alimente la puce <i>sans</i> dépasser la limite de DAS. Modèle : cylindre homogène, E induit = ω·B·r/2 au rayon r, DAS = σ(ωBr)²/(8ρ).",
+              en:"<b>Biomedical RFID —</b> to power an <b>implanted</b> tag, the field must stay strong enough inside the body (≥ 1.5 A/m at the tag); but that same magnetic field induces <b>eddy currents</b> in conductive tissue (E ∝ ω·B·r), hence <b>heating (SAR)</b>. That is the whole tension: find the field level that powers the chip <i>without</i> exceeding the SAR limit. Model: homogeneous cylinder, induced E = ω·B·r/2 at radius r, SAR = σ(ωBr)²/(8ρ)."},
+ 'sar.tissue':{fr:"Tissu exposé",en:"Exposed tissue"},
+ 'sar.muscle':{fr:"Muscle (σ≈0,62 S/m)",en:"Muscle (σ≈0.62 S/m)"},
+ 'sar.skin':{fr:"Peau humide (σ≈0,22 S/m)",en:"Wet skin (σ≈0.22 S/m)"},
+ 'sar.avg':{fr:"Tissu moyen (σ≈0,40 S/m)",en:"Average tissue (σ≈0.40 S/m)"},
+ 'sar.fat':{fr:"Graisse (σ≈0,03 S/m)",en:"Fat (σ≈0.03 S/m)"},
+ 'sar.r':{fr:"Rayon tissu exposé r",en:"Exposed-tissue radius r"},
+ 'sar.pop':{fr:"Population",en:"Population"},
+ 'sar.public':{fr:"Public (2 W/kg local)",en:"General public (2 W/kg local)"},
+ 'sar.worker':{fr:"Travailleurs (10 W/kg)",en:"Occupational (10 W/kg)"},
+ 'sar.eind':{fr:"Champ E induit (efficace)",en:"Induced E field (rms)"},
+ 'sar.das':{fr:"DAS local estimé",en:"Estimated local SAR"},
+ 'sar.hmax':{fr:"H max admissible (DAS)",en:"Max allowable H (SAR)"},
+ 'sar.margin':{fr:"Marge vs limite",en:"Margin vs limit"},
+ 'sar.ok':{fr:"✅ <b>DAS {das} W/kg ≤ {lim} W/kg</b> : à ce niveau de champ, l'échauffement reste sous la limite. Le champ pourrait monter jusqu'à <b>{hmax} A/m</b> avant d'atteindre la limite (H actuel au tag : {h} A/m).",
+           en:"✅ <b>SAR {das} W/kg ≤ {lim} W/kg</b>: at this field level the heating stays under the limit. The field could rise up to <b>{hmax} A/m</b> before reaching the limit (current H at tag: {h} A/m)."},
+ 'sar.over':{fr:"⛔ <b>DAS {das} W/kg &gt; {lim} W/kg</b> : ce niveau de champ dépasse la limite de DAS. Pour rester conforme il faut H ≤ <b>{hmax} A/m</b> — au risque de ne plus alimenter l'implant. C'est le compromis champ ↔ DAS du RFID implanté.",
+             en:"⛔ <b>SAR {das} W/kg &gt; {lim} W/kg</b>: this field level exceeds the SAR limit. To stay compliant H must be ≤ <b>{hmax} A/m</b> — at the risk of no longer powering the implant. This is the field ↔ SAR trade-off of implanted RFID."},
  'iso.ok':{fr:"✅ <b>Champ dans la plage ISO 14443</b> ({H} A/m) : le tag est correctement alimenté. Portée estimée ≈ <b>{r} cm</b>.",
            en:"✅ <b>Field within the ISO 14443 band</b> ({H} A/m): the tag is properly powered. Estimated range ≈ <b>{r} cm</b>."},
  'iso.low':{fr:"⚠ <b>Champ trop faible</b> ({H} A/m &lt; 1,5 A/m) : le tag n'est plus alimenté à cette distance. Portée max ≈ <b>{r} cm</b> — rapproche le tag, augmente I₁, N₁ ou le rayon a.",
@@ -424,8 +582,8 @@ const I18N={
  'v.f0':{fr:"Fréquence d'accord",en:"Tuning frequency"},
  'v.falloff':{fr:"Décroissance lointaine",en:"Far falloff"},
  'v.falloffok':{fr:"∝ 1/z³ (vérifié)",en:"∝ 1/z³ (verified)"},
- 'disclaimer':{fr:"<b>Outil pédagogique —</b> couplage inductif sur l'axe de deux boucles coaxiales (champ supposé uniforme sur le tag, M ≈ µ₀·π·N₁·N₂·a²·b² / [2(a²+z²)^{3/2}]). Inductances propres estimées (boucle mince). Sans tenir compte du désaccord, des pertes du substrat, de la charge réelle de la puce ni du décalage latéral. Donne les ordres de grandeur et la physique du couplage HF.",
-               en:"<b>Educational tool —</b> on-axis inductive coupling of two coaxial loops (field assumed uniform over the tag, M ≈ µ₀·π·N₁·N₂·a²·b² / [2(a²+z²)^{3/2}]). Self-inductances estimated (thin loop). Ignores detuning, substrate losses, the actual chip load and lateral offset. Gives orders of magnitude and the physics of HF coupling."},
+ 'disclaimer':{fr:"<b>Outil pédagogique —</b> couplage inductif sur l'axe de deux boucles coaxiales (champ supposé uniforme sur le tag, M ≈ µ₀·π·N₁·N₂·a²·b² / [2(a²+z²)^{3/2}], désalignement modélisé par cos α). Inductances propres estimées (boucle mince). Le <b>DAS</b> suit un modèle de courants de Foucault dans un cylindre homogène (DAS = σ(ωBr)²/8ρ, pic local au rayon r) : majorant simple, à ne pas confondre avec une évaluation réglementaire (FDTD/voxels). Sans désaccord, pertes du substrat ni charge réelle de la puce. Donne les ordres de grandeur et la physique du couplage HF.",
+               en:"<b>Educational tool —</b> on-axis inductive coupling of two coaxial loops (field assumed uniform over the tag, M ≈ µ₀·π·N₁·N₂·a²·b² / [2(a²+z²)^{3/2}], misalignment modelled as cos α). Self-inductances estimated (thin loop). <b>SAR</b> follows a homogeneous-cylinder eddy-current model (SAR = σ(ωBr)²/8ρ, local peak at radius r): a simple upper bound, not a regulatory assessment (FDTD/voxel). No detuning, substrate losses or actual chip load. Gives orders of magnitude and the physics of HF coupling."},
  'footer.lic':{fr:'© 2026 Hakeim Talleb · EMtools · Code sous licence <a href="LICENSE">MIT</a>',en:'© 2026 Hakeim Talleb · EMtools · Code under the <a href="LICENSE">MIT</a> license'},
  'footer.home':{fr:"← Tous les outils EMtools",en:"← All EMtools tools"},
 };
@@ -439,7 +597,7 @@ function applyLang(){
 }
 function toggleLang(){LANG=LANG==='fr'?'en':'fr';localStorage.setItem('emtools_lang',LANG);applyLang();recompute();}
 applyLang(); recompute();
-window.addEventListener('resize',()=>{const c=CUR||compute();drawField(c);drawRes(c);});
+window.addEventListener('resize',()=>{const c=CUR||compute();drawField(c);drawRes(c);drawSignal(c);drawAngle(c);});
 </script>
 </body>
 </html>
