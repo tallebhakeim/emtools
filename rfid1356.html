@@ -108,8 +108,15 @@ table.frames code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8
         <input id="i1" type="range" min="0.1" max="3" step="0.05" value="0.5" oninput="recompute()">
       </div>
       <div class="ctrl">
-        <label><span data-i18n="b">Rayon boucle tag b</span> · <span id="bv" class="val">2.0 cm</span></label>
+        <label><span data-i18n="b">Taille tag b (rayon / demi-côté)</span> · <span id="bv" class="val">2.0 cm</span></label>
         <input id="b" type="range" min="0.5" max="8" step="0.25" value="2" oninput="recompute()">
+      </div>
+      <div class="ctrl">
+        <label data-i18n="shape">Forme du tag</label>
+        <select id="tag-shape" onchange="recompute()">
+          <option value="circle" data-i18n="shape.circ">Boucle circulaire</option>
+          <option value="square" data-i18n="shape.sq">Spirale carrée</option>
+        </select>
       </div>
       <div class="ctrl">
         <label><span data-i18n="n2">Spires tag N₂</span> · <span id="n2v" class="val">4</span></label>
@@ -137,8 +144,11 @@ table.frames code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8
 
   <div class="panel">
     <div class="ptitle" data-i18n="sch.t">Schéma de la liaison</div>
-    <canvas id="cv_schema" width="900" height="240"></canvas>
-    <div class="sub" style="font-size:.76rem;color:var(--text2);margin-top:.4rem" data-i18n="sch.sub">Vue de côté : boucles vues par la tranche. Compte les traits = spires (N₁, N₂) ; longueur = diamètre (a, b) ; l'inclinaison du tag = angle α (couplage ∝ cos α, nul à 90°).</div>
+    <div style="font-size:.8rem;font-weight:700;color:var(--navy);margin-bottom:.3rem" data-i18n="sch.side">Vue de côté — alignement</div>
+    <canvas id="cv_schema" width="900" height="320"></canvas>
+    <div style="font-size:.8rem;font-weight:700;color:var(--navy);margin:1rem 0 .3rem" data-i18n="sch.frontt">Vue de face — géométrie des bobines</div>
+    <canvas id="cv_front" width="900" height="260"></canvas>
+    <div class="sub" style="font-size:.76rem;color:var(--text2);margin-top:.4rem" data-i18n="sch.sub">Vue de côté : boucles vues par la tranche, inclinaison du tag = angle α (couplage ∝ cos α, nul à 90°). Vue de face : empilement des spires (compte les anneaux = N₁, N₂) ; a = rayon du lecteur, b = rayon (cercle) ou demi-côté (carré) du tag.</div>
   </div>
 
   <div class="panel">
@@ -274,8 +284,10 @@ const HMIN=1.5, HMAX=7.5;          // ISO 14443 operating field band (A/m)
 
 // on-axis H of a circular loop (A/m): a,z in metres
 function Hax(N1,I1,a,z){ return N1*I1*a*a/(2*Math.pow(a*a+z*z,1.5)); }
-// mutual inductance of two coaxial loops, tag small vs field (H): M = µ0·π·N1·N2·a²·b² / [2(a²+z²)^{3/2}]
-function Mut(N1,N2,a,b,z){ return MU0*Math.PI*N1*N2*a*a*b*b/(2*Math.pow(a*a+z*z,1.5)); }
+// tag area: circular loop (π b²) or square spiral of side 2b (4 b²)
+function tagArea(b,shape){ return shape==='square'? 4*b*b : Math.PI*b*b; }
+// mutual inductance of two coaxial loops: M = µ0·N1·N2·a²·A_tag / [2(a²+z²)^{3/2}] (uniform field over the tag)
+function Mut(N1,N2,a,A2,z){ return MU0*N1*N2*a*a*A2/(2*Math.pow(a*a+z*z,1.5)); }
 // self-inductance of a circular loop (thin wire, single layer): L = µ0·N²·r·(ln(8r/ρw)-2), ρw wire radius
 function Lself(N,r){ const rw=0.3e-3; return MU0*N*N*r*(Math.log(8*r/rw)-2); }
 
@@ -285,9 +297,10 @@ function compute(){
   const a=parseFloat($('a').value)/100, N1=parseInt($('n1').value), I1=parseFloat($('i1').value);
   const b=parseFloat($('b').value)/100, N2=parseInt($('n2').value), Q=parseFloat($('q').value);
   const z=parseFloat($('z').value)/100;
+  const shape=$('tag-shape').value, A2=tagArea(b,shape);
   const angDeg=parseFloat($('ang').value), cosA=Math.cos(angDeg*Math.PI/180);
   const H=Hax(N1,I1,a,z), B=MU0*H*1e6;             // B in µT (reader field — independent of tag angle)
-  const Mgeo=Mut(N1,N2,a,b,z);                       // coaxial mutual inductance (H)
+  const Mgeo=Mut(N1,N2,a,A2,z);                      // coaxial mutual inductance (H)
   const M=Mgeo*cosA;                                 // effective mutual: flux linkage ∝ cos α
   const L1=Lself(N1,a), L2=Lself(N2,b);
   const k=M/Math.sqrt(L1*L2);
@@ -316,7 +329,7 @@ function compute(){
   const SAR=sig*Math.pow(W0*Bpk*rT,2)/(8*rhoT);      // σ(ωB r)²/(8ρ) — peak local SAR (W/kg)
   const SARlim=$('sar-pop').value==='worker'?10:2;   // ICNIRP 2020 local 10 g limit
   const Hmax=Math.sqrt(8*rhoT*SARlim/sig)/(W0*MU0*rT);// max H before reaching the SAR limit (A/m)
-  CUR={a,N1,I1,b,N2,Q,z,angDeg,cosA,H,B,Mgeo,M,L1,L2,k,C2,Voc,Vtag,Vtag0,VCLAMP,Vchip,range,Zref,modDepth,
+  CUR={a,N1,I1,b,N2,Q,z,shape,A2,angDeg,cosA,H,B,Mgeo,M,L1,L2,k,C2,Voc,Vtag,Vtag0,VCLAMP,Vchip,range,Zref,modDepth,
        sig,rhoT,rT,Eind,SAR,SARlim,Hmax};
   return CUR;
 }
@@ -379,7 +392,7 @@ function recompute(){
   // validation
   $('vr1').textContent=fmtSI(Hax(c.N1,c.I1,c.a,0),'A/m')+'  (= '+fmtSI(c.N1*c.I1/(2*c.a),'A/m')+')';
   $('vr2').textContent=(1/(2*Math.PI*Math.sqrt(c.L2*c.C2))/1e6).toFixed(2)+' MHz';
-  drawSchema(c); drawField(c); drawRes(c); drawSignal(c); drawAngle(c);
+  drawSchema(c); drawFront(c); drawField(c); drawRes(c); drawSignal(c); drawAngle(c);
 }
 function preset(p){
   if(p==='card'){$('a').value=3;$('n1').value=1;$('i1').value=0.5;$('b').value=2.2;$('n2').value=4;$('q').value=20;$('z').value=2;}
@@ -450,12 +463,12 @@ function arrow(x,x1,y1,x2,y2,col){
 }
 // side-view schematic of the link: reader & tag coils (turns visible), spacing z and tilt α
 function drawSchema(c){
-  const cv=$('cv_schema'); cv.style.height='240px'; const {x,w,h}=dpr(cv);
+  const cv=$('cv_schema'); cv.style.height='320px'; const {x,w,h}=dpr(cv);
   x.clearRect(0,0,w,h);
-  const mid=h*0.48, xR=120, xTmax=w-150, zMax=0.20;
-  const xT=xR+Math.max(96,Math.min(c.z/zMax,1)*(xTmax-xR));   // min visual gap (schematic, not to scale)
-  const pxPerM=(h*0.30)/0.15;                          // 0.15 m → 0.30·h px (half-height)
-  const aPx=Math.max(13,c.a*pxPerM), bPx=Math.max(9,c.b*pxPerM);
+  const mid=h*0.46, xR=150, xTmax=w-170, zMax=0.20;
+  const xT=xR+Math.max(120,Math.min(c.z/zMax,1)*(xTmax-xR));  // min visual gap (schematic, not to scale)
+  const pxPerM=(h*0.34)/0.06, cap=h*0.40;              // 6 cm → 0.34·h px (half-height), capped
+  const aPx=Math.min(cap,Math.max(20,c.a*pxPerM)), bPx=Math.min(cap,Math.max(14,c.b*pxPerM));
   const N1=c.N1, N2=c.N2, al=c.angDeg*Math.PI/180;
   // axis
   x.strokeStyle='#cbd5e1';x.setLineDash([6,4]);x.lineWidth=1;x.beginPath();x.moveTo(xR-34,mid);x.lineTo(xTmax+46,mid);x.stroke();x.setLineDash([]);
@@ -486,9 +499,38 @@ function drawSchema(c){
   x.fillStyle='#64748b';x.font='12px sans-serif';x.textAlign='center';x.fillText('z = '+(c.z*100).toFixed(1)+' cm',(xR+xT)/2,yd-5);
   // labels
   x.fillStyle='#1e293b';x.font='700 12px sans-serif';
-  x.fillText('Lecteur',xR,mid-aPx-22); x.fillText('Tag',xT,mid-Math.max(bPx,18)-22);
+  x.fillText(LANG==='fr'?'Lecteur':'Reader',xR,mid-aPx-22); x.fillText('Tag',xT,mid-Math.max(bPx,18)-22);
   x.fillStyle='#1d4ed8';x.font='11px sans-serif';x.fillText('N₁='+N1+' · a='+(c.a*100).toFixed(1)+'cm',xR,mid-aPx-8);
   x.fillStyle='#0d9488';x.fillText('N₂='+N2+' · b='+(c.b*100).toFixed(1)+'cm',xT,mid-Math.max(bPx,18)-8);
+}
+// front view of both coils: concentric turns (rings / squares), with the a, b dimensions
+function drawFront(c){
+  const cv=$('cv_front'); cv.style.height='260px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const cyR=h*0.50, cxL=w*0.27, cxR=w*0.72;
+  const Rm=Math.max(c.a,c.b), sc=(h*0.34)/Math.max(Rm,1e-3);   // px per metre, common to both coils
+  const aR=Math.min(h*0.36,Math.max(22,c.a*sc)), bR=Math.min(h*0.36,Math.max(16,c.b*sc));
+  // reader — concentric circles (N1 turns)
+  function rings(cx,n,Rout,col,sq){
+    x.strokeStyle=col;x.lineWidth=2;
+    for(let i=0;i<n;i++){const r=Rout*(1-i/Math.max(n,1)*0.72);
+      if(sq){x.strokeRect(cx-r,cyR-r,2*r,2*r);} else {x.beginPath();x.arc(cx,cyR,r,0,7);x.stroke();}}
+    x.fillStyle=col;x.beginPath();x.arc(cx,cyR,2,0,7);x.fill();   // centre
+  }
+  rings(cxL,c.N1,aR,'#1d4ed8',false);
+  rings(cxR,c.N2,bR,'#0d9488',c.shape==='square');
+  // dimension arrows (centre → edge)
+  function dim(cx,Rout,col,lab){
+    arrow(x,cx,cyR,cx+Rout,cyR,col);
+    x.fillStyle=col;x.font='11px sans-serif';x.textAlign='center';x.fillText(lab,cx+Rout/2,cyR-6);
+  }
+  dim(cxL,aR,'#1d4ed8','a='+(c.a*100).toFixed(1)+'cm');
+  dim(cxR,bR,'#0d9488',(c.shape==='square'?'b(½côté)=':'b=')+(c.b*100).toFixed(1)+'cm');
+  // titles
+  x.fillStyle='#1e293b';x.font='700 12px sans-serif';x.textAlign='center';
+  const sq=c.shape==='square';
+  x.fillText((LANG==='fr'?'Lecteur':'Reader')+' · N₁='+c.N1,cxL,h-14);
+  x.fillText('Tag '+(LANG==='fr'?(sq?'(spirale carrée)':'(circulaire)'):(sq?'(square spiral)':'(circular)'))+' · N₂='+c.N2,cxR,h-14);
 }
 // time-domain envelope of the carrier: ASK 100 % downlink then load-modulated uplink
 function drawSignal(c){
@@ -568,7 +610,10 @@ const I18N={
  'a':{fr:"Rayon boucle lecteur a",en:"Reader loop radius a"},
  'n1':{fr:"Spires lecteur N₁",en:"Reader turns N₁"},
  'i1':{fr:"Courant lecteur I₁",en:"Reader current I₁"},
- 'b':{fr:"Rayon boucle tag b",en:"Tag loop radius b"},
+ 'b':{fr:"Taille tag b (rayon / demi-côté)",en:"Tag size b (radius / half-side)"},
+ 'shape':{fr:"Forme du tag",en:"Tag shape"},
+ 'shape.circ':{fr:"Boucle circulaire",en:"Circular loop"},
+ 'shape.sq':{fr:"Spirale carrée",en:"Square spiral"},
  'n2':{fr:"Spires tag N₂",en:"Tag turns N₂"},
  'q':{fr:"Facteur de qualité Q du tag",en:"Tag quality factor Q"},
  'z':{fr:"Distance tag z",en:"Tag distance z"},
@@ -586,8 +631,10 @@ const I18N={
  'm.vtag':{fr:"Tension crête à vide (Q·e)",en:"Open-circuit peak voltage (Q·e)"},
  'm.vchip':{fr:"Tension puce (écrêtée)",en:"Chip voltage (clamped)"},
  'sch.t':{fr:"Schéma de la liaison",en:"Link schematic"},
- 'sch.sub':{fr:"Vue de côté : boucles vues par la tranche. Compte les traits = spires (N₁, N₂) ; longueur = diamètre (a, b) ; l'inclinaison du tag = angle α (couplage ∝ cos α, nul à 90°).",
-            en:"Side view: loops seen edge-on. Count the strokes = turns (N₁, N₂); length = diameter (a, b); the tag tilt = angle α (coupling ∝ cos α, zero at 90°)."},
+ 'sch.side':{fr:"Vue de côté — alignement",en:"Side view — alignment"},
+ 'sch.frontt':{fr:"Vue de face — géométrie des bobines",en:"Front view — coil geometry"},
+ 'sch.sub':{fr:"Vue de côté : boucles vues par la tranche, inclinaison du tag = angle α (couplage ∝ cos α, nul à 90°). Vue de face : empilement des spires (compte les anneaux = N₁, N₂) ; a = rayon du lecteur, b = rayon (cercle) ou demi-côté (carré) du tag.",
+            en:"Side view: loops seen edge-on, tag tilt = angle α (coupling ∝ cos α, zero at 90°). Front view: stacked turns (count the rings = N₁, N₂); a = reader radius, b = radius (circle) or half-side (square) of the tag."},
  'm.cap':{fr:"Capacité d'accord C₂ (L₂ tag)",en:"Tuning capacitance C₂ (tag L₂)"},
  'm.zref':{fr:"Impédance reflétée Z_ref",en:"Reflected impedance Z_ref"},
  'm.mod':{fr:"Profondeur de modulation",en:"Load-modulation depth"},
@@ -669,7 +716,7 @@ function applyLang(){
 }
 function toggleLang(){LANG=LANG==='fr'?'en':'fr';localStorage.setItem('emtools_lang',LANG);applyLang();recompute();}
 applyLang(); recompute();
-window.addEventListener('resize',()=>{const c=CUR||compute();drawSchema(c);drawField(c);drawRes(c);drawSignal(c);drawAngle(c);});
+window.addEventListener('resize',()=>{const c=CUR||compute();drawSchema(c);drawFront(c);drawField(c);drawRes(c);drawSignal(c);drawAngle(c);});
 </script>
 </body>
 </html>
