@@ -164,6 +164,23 @@ table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
       <div class="metric"><div class="k" data-i18n="m.eday">Énergie / jour</div><div class="v" id="m_eday">—</div><div class="u">kWh/j</div></div>
       <div class="metric"><div class="k" data-i18n="m.eyear">Énergie / an</div><div class="v" id="m_eyear">—</div><div class="u">kWh/an</div></div>
     </div>
+
+    <div style="font-size:.84rem;font-weight:700;color:var(--navy);margin:1.2rem 0 .4rem" data-i18n="day.t">Profil de production sur une journée (ciel clair)</div>
+    <div data-i18n-html="day.intro" style="font-size:.84rem;margin-bottom:.7rem"></div>
+    <div class="controls">
+      <div class="ctrl"><label><span data-i18n="lat">Latitude</span> · <span id="latv" class="val">45° N</span></label><input id="lat" type="range" min="0" max="65" step="1" value="45" oninput="recompute()"></div>
+      <div class="ctrl">
+        <label data-i18n="season">Saison (jour de l'année)</label>
+        <select id="season" onchange="recompute()">
+          <option value="172" data-i18n="se.sum">Été (solstice)</option>
+          <option value="80" selected data-i18n="se.eq">Équinoxe</option>
+          <option value="355" data-i18n="se.win">Hiver (solstice)</option>
+        </select>
+      </div>
+      <div class="metric" style="align-self:end"><div class="k" data-i18n="day.psh">PSH calculé (lat/saison)</div><div class="v" id="m_pshc">—</div><div class="u">h/j</div></div>
+    </div>
+    <canvas id="cv_day" width="900" height="300" style="margin-top:.8rem"></canvas>
+    <div class="sub" style="font-size:.74rem;color:var(--text2);margin-top:.3rem" data-i18n="day.sub">Puissance produite heure par heure ; l'aire sous la courbe = énergie du jour. Été/équinoxe/hiver superposés (saison choisie en gras). PSH ≈ aire ÷ puissance crête.</div>
   </div>
 
   <div class="panel">
@@ -268,6 +285,11 @@ function recompute(){
   $('m_surf').textContent=surf.toFixed(1);
   $('m_eday').textContent=eday.toFixed(1);
   $('m_eyear').textContent=eyear>=1000?(eyear/1000).toFixed(2)+'k':eyear.toFixed(0);
+  // daily production profile (clear sky)
+  $('latv').textContent=$('lat').value+'° N';
+  const lat=parseFloat($('lat').value), day=parseInt($('season').value);
+  const pshCalc=daySunHours(lat,day);   // kWh/m²/day of GHI ≡ PSH
+  $('m_pshc').textContent=pshCalc.toFixed(1);
   // validation
   $('vr1').textContent='V_oc='+cell.Voc.toFixed(3)+' V · FF='+(cell.FF*100).toFixed(0)+'%';
   $('vr2').textContent='V_oc(60°C)/V_oc(25°C) = '+(cellIV(1000,60,p).Voc/cellIV(1000,25,p).Voc*100).toFixed(0)+'% ('+((cellIV(1000,60,p).Voc/cellIV(1000,25,p).Voc-1)/35*100).toFixed(2)+'%/°C)';
@@ -280,8 +302,39 @@ function recompute(){
   $('sh-pg').textContent=sh.gP.toFixed(1);
   $('sh-nmax').textContent=sh.locals.length;
   const loss=Pfull>0?Math.max(0,(1-sh.gP/Pfull)*100):0; $('sh-loss').textContent=loss.toFixed(0);
-  CUR={G,T,p,cell,Ns,Np,lvl,scV,scI,Voc,Isc,Vmp,Imp,Pmp,sh};
-  drawIV(); drawFam(); drawShade();
+  CUR={G,T,p,cell,Ns,Np,lvl,scV,scI,Voc,Isc,Vmp,Imp,Pmp,sh,Pc,pr,lat,day};
+  drawIV(); drawFam(); drawShade(); drawDay();
+}
+// solar elevation (rad) at latitude lat(°), day of year, solar hour
+function solarElev(lat,day,hour){
+  const L=lat*Math.PI/180, dcl=23.45*Math.PI/180*Math.sin(2*Math.PI*(284+day)/365), H=(hour-12)*15*Math.PI/180;
+  return Math.asin(Math.sin(L)*Math.sin(dcl)+Math.cos(L)*Math.cos(dcl)*Math.cos(H));
+}
+// clear-sky global horizontal irradiance (W/m²) from elevation
+function ghi(el){ if(el<=0)return 0; const AM=1/Math.sin(el); return 1050*Math.sin(el)*Math.pow(0.7,Math.pow(AM,0.678))*1.15; }
+// daily sun-hours (∫GHI dt /1000, kWh/m²/day)
+function daySunHours(lat,day){ let s=0; for(let h=0;h<24;h+=0.25){s+=ghi(solarElev(lat,day,h))*0.25;} return s/1000; }
+function drawDay(){
+  const c=CUR, cv=$('cv_day'); cv.style.height='300px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const pad=46,x0=pad,x1=w-12,y0=h-30,y1=18;
+  const Pc=c.Pc, PR=c.pr;   // installed peak power (Wc)
+  const PfromG=G=>Pc/1000*(G/1000)*PR*1000;   // W output at irradiance G  (= Pc·(G/1000)·PR in W)
+  const seasons=[{day:172,col:'#f59e0b',lab:LANG==='fr'?'été':'summer'},{day:80,col:'#16a34a',lab:LANG==='fr'?'équinoxe':'equinox'},{day:355,col:'#3b82f6',lab:LANG==='fr'?'hiver':'winter'}];
+  let Pmax=1; seasons.forEach(s=>{for(let hh=0;hh<24;hh+=0.5)Pmax=Math.max(Pmax,PfromG(ghi(solarElev(c.lat,s.day,hh))));}); Pmax*=1.12;
+  const sx=hh=>x0+hh/24*(x1-x0), sy=P=>y0-P/Pmax*(y0-y1);
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  const uW=Pmax>=1000?1e-3:1, uL=Pmax>=1000?'kW':'W';
+  x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='right';for(let k=0;k<=4;k++){const P=Pmax*k/4;x.fillText((P*uW).toFixed(P*uW<10?1:0),x0-4,sy(P)+3);x.strokeStyle='#f1f5f9';x.beginPath();x.moveTo(x0,sy(P));x.lineTo(x1,sy(P));x.stroke();}
+  x.textAlign='center';for(let hh=0;hh<=24;hh+=4)x.fillText(hh+'h',sx(hh),y0+13);
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.fillText(LANG==='fr'?'heure solaire':'solar time',(x0+x1)/2,h-6);
+  x.save();x.translate(12,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText(LANG==='fr'?'puissance produite ('+uL+')':'output power ('+uL+')',0,0);x.restore();
+  seasons.forEach(s=>{const cur=(s.day===c.day);
+    if(cur){x.fillStyle='rgba(245,158,11,.10)';x.beginPath();x.moveTo(sx(0),sy(0));for(let hh=0;hh<=24;hh+=0.25){x.lineTo(sx(hh),sy(PfromG(ghi(solarElev(c.lat,c.day,hh)))));}x.lineTo(sx(24),sy(0));x.closePath();x.fill();}
+    x.strokeStyle=s.col;x.lineWidth=cur?2.6:1.4;x.globalAlpha=cur?1:0.6;x.beginPath();let st=false;
+    for(let hh=0;hh<=24;hh+=0.25){const P=PfromG(ghi(solarElev(c.lat,s.day,hh)));const X=sx(hh),Y=sy(P);st?x.lineTo(X,Y):x.moveTo(X,Y);st=true;}x.stroke();x.globalAlpha=1;});
+  // legend
+  x.font='10px sans-serif';x.textAlign='left';seasons.forEach((s,i)=>{x.strokeStyle=s.col;x.lineWidth=s.day===c.day?2.6:1.4;x.beginPath();x.moveTo(x1-86,y1+6+i*13);x.lineTo(x1-68,y1+6+i*13);x.stroke();x.fillStyle='#475569';x.fillText(s.lab,x1-64,y1+9+i*13);});
 }
 function setTech(){ const t=TECH[$('tech').value]; if(t){ /* area default kept */ } recompute(); }
 
@@ -385,6 +438,13 @@ const I18N={
  'sys.intro':{fr:"<b>Du module au système —</b> on multiplie par le nombre de modules pour la <b>puissance crête</b> (à STC), puis on estime l'énergie par la méthode des <b>heures de soleil crête</b> : <b>E = P_crête × PSH × PR</b>, où PSH ≈ ensoleillement quotidien (kWh/m²/j) et PR (ratio de performance ≈ 0,75–0,85) regroupe pertes onduleur, câbles, température, salissure.",
               en:"<b>From module to system —</b> multiply by the number of modules for the <b>peak power</b> (at STC), then estimate energy by the <b>peak-sun-hours</b> method: <b>E = P_peak × PSH × PR</b>, where PSH ≈ daily irradiation (kWh/m²/day) and PR (performance ratio ≈ 0.75–0.85) lumps inverter, cable, temperature and soiling losses."},
  'Nm':{fr:"Nombre de modules",en:"Number of modules"},'psh':{fr:"Heures de soleil crête (PSH)",en:"Peak sun hours (PSH)"},'pr':{fr:"Ratio de performance (PR)",en:"Performance ratio (PR)"},
+ 'day.t':{fr:"Profil de production sur une journée (ciel clair)",en:"Daily production profile (clear sky)"},
+ 'day.intro':{fr:"<b>D'où viennent les « heures de soleil crête » —</b> au cours de la journée, le soleil monte puis redescend : l'ensoleillement suit une <b>cloche</b> (maximale au midi solaire), d'autant plus haute et large que le soleil culmine haut (été, basse latitude). L'<b>aire sous la cloche</b> (kWh/m²/jour) <b>est</b> le PSH. La production du système suit cette cloche, à un facteur près (P = P_crête × G/1000 × PR).",
+              en:"<b>Where “peak sun hours” come from —</b> over the day the sun rises then sets: irradiance follows a <b>bell</b> (maximal at solar noon), higher and wider when the sun climbs high (summer, low latitude). The <b>area under the bell</b> (kWh/m²/day) <b>is</b> the PSH. System output follows this bell, up to a factor (P = P_peak × G/1000 × PR)."},
+ 'lat':{fr:"Latitude",en:"Latitude"},'season':{fr:"Saison (jour de l'année)",en:"Season (day of year)"},
+ 'se.sum':{fr:"Été (solstice)",en:"Summer (solstice)"},'se.eq':{fr:"Équinoxe",en:"Equinox"},'se.win':{fr:"Hiver (solstice)",en:"Winter (solstice)"},
+ 'day.psh':{fr:"PSH calculé (lat/saison)",en:"Computed PSH (lat/season)"},
+ 'day.sub':{fr:"Puissance produite heure par heure ; l'aire sous la courbe = énergie du jour. Été/équinoxe/hiver superposés (saison choisie en gras). PSH ≈ aire ÷ puissance crête.",en:"Hour-by-hour output power; area under the curve = daily energy. Summer/equinox/winter overlaid (selected season in bold). PSH ≈ area ÷ peak power."},
  'm.pcrete':{fr:"Puissance crête installée",en:"Installed peak power"},'m.surf':{fr:"Surface de panneaux",en:"Panel area"},'m.eday':{fr:"Énergie / jour",en:"Energy / day"},'m.eyear':{fr:"Énergie / an",en:"Energy / year"},
  'valid':{fr:"Validation & repères",en:"Validation & benchmarks"},
  'v.case':{fr:"Cas",en:"Case"},'v.tool':{fr:"Cet outil",en:"This tool"},'v.ref':{fr:"Repère",en:"Benchmark"},
@@ -406,7 +466,7 @@ function applyLang(){
 }
 function toggleLang(){LANG=LANG==='fr'?'en':'fr';localStorage.setItem('emtools_lang',LANG);applyLang();recompute();}
 applyLang(); recompute();
-window.addEventListener('resize',()=>{if(CUR){drawIV();drawFam();}});
+window.addEventListener('resize',()=>{if(CUR){drawIV();drawFam();drawShade();drawDay();}});
 </script>
 </body>
 </html>
