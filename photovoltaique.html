@@ -134,6 +134,23 @@ table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
   </div>
 
   <div class="panel">
+    <div class="ptitle" data-i18n="sh.t">Ombrage partiel &amp; diodes de by-pass</div>
+    <div data-i18n-html="sh.intro"></div>
+    <div class="controls" style="margin-top:.9rem">
+      <div class="ctrl"><label><span data-i18n="sh.nsub">Sous-chaînes (diodes by-pass)</span> · <span id="sh-nsubv" class="val">3</span></label><input id="sh-nsub" type="range" min="1" max="6" step="1" value="3" oninput="recompute()"></div>
+      <div class="ctrl"><label><span data-i18n="sh.n">Sous-chaînes ombrées</span> · <span id="sh-nv" class="val">1</span></label><input id="sh-n" type="range" min="0" max="6" step="1" value="1" oninput="recompute()"></div>
+      <div class="ctrl"><label><span data-i18n="sh.g">Ensoleillement de la zone ombrée</span> · <span id="sh-gv" class="val">200 W/m²</span></label><input id="sh-g" type="range" min="0" max="1000" step="10" value="200" oninput="recompute()"></div>
+    </div>
+    <div class="metrics" style="margin-top:1rem">
+      <div class="metric hl"><div class="k" data-i18n="sh.mglob">MPP global (avec ombrage)</div><div class="v" id="sh-pg">—</div><div class="u">W</div></div>
+      <div class="metric"><div class="k" data-i18n="sh.mloc">Maxima de puissance</div><div class="v" id="sh-nmax">—</div><div class="u" data-i18n="sh.bosses">bosses</div></div>
+      <div class="metric"><div class="k" data-i18n="sh.loss">Perte vs sans ombrage</div><div class="v bad" id="sh-loss">—</div><div class="u">%</div></div>
+    </div>
+    <canvas id="cv_shade" width="900" height="340" style="margin-top:1rem"></canvas>
+    <div class="warn" id="sh-note" style="margin-top:.7rem" data-i18n-html="sh.note"></div>
+  </div>
+
+  <div class="panel">
     <div class="ptitle" data-i18n="sys">Système — énergie produite</div>
     <div data-i18n-html="sys.intro"></div>
     <div class="controls" style="margin-top:.9rem">
@@ -197,6 +214,29 @@ function cellIV(G,T,p){
   const FF=Pmp/(Voc*Isc), eta=Pmp/(G*p.area/1e4);
   return {Voc,Isc,Vmp,Imp,Pmp,FF,eta,curve};
 }
+// voltage of one cell at a given series current I (forward; reverse → steep negative so the bypass clamps)
+function vCell(I,G,T,p){
+  const Tk=T+273.15, Vt=p.n*KB*Tk/QE;
+  const Iph=p.Iph_ref*(G/1000)*(1+0.0005*(T-25));
+  const I0=p.I0_ref*Math.pow(Tk/298.15,3)*Math.exp((p.Eg*QE/KB)*(1/298.15-1/Tk));
+  if(I<Iph*0.9999) return Vt*Math.log((Iph-I)/I0+1) - I*p.Rs;
+  return -1.5 - (I-Iph)*8;                 // reverse-biased shaded cell
+}
+// partially-shaded module: nsub substrings (each a bypass diode), nshade of them at Gshade
+function shadedModule(G,T,p,Ns,nsub,nshade,Gsh){
+  const cps=Ns/nsub, Vbp=0.6, subs=[];
+  for(let s=0;s<nsub;s++) subs.push({cells:cps, G: s<nshade?Gsh:G});
+  let Imax=0; subs.forEach(s=>{Imax=Math.max(Imax,p.Iph_ref*(s.G/1000)*(1+0.0005*(T-25)));});
+  const NP=420, curve=[];
+  for(let k=0;k<=NP;k++){const I=Imax*1.02*k/NP; let V=0;
+    subs.forEach(s=>{ V += Math.max(s.cells*vCell(I,s.G,T,p), -Vbp); });   // bypass clamps each substring
+    curve.push({V:Math.max(V,0), I});}
+  // global MPP + count of local power maxima
+  let gP=0,gV=0,gI=0; const locals=[];
+  for(let k=1;k<curve.length-1;k++){const P=curve[k].V*curve[k].I, Pm=curve[k-1].V*curve[k-1].I, Pp=curve[k+1].V*curve[k+1].I;
+    if(P>=Pm&&P>Pp&&P>0.02){locals.push({V:curve[k].V,I:curve[k].I,P});} if(P>gP){gP=P;gV=curve[k].V;gI=curve[k].I;}}
+  return {curve,subs,gP,gV,gI,locals,Imax};
+}
 
 let CUR=null;
 function recompute(){
@@ -231,8 +271,17 @@ function recompute(){
   // validation
   $('vr1').textContent='V_oc='+cell.Voc.toFixed(3)+' V · FF='+(cell.FF*100).toFixed(0)+'%';
   $('vr2').textContent='V_oc(60°C)/V_oc(25°C) = '+(cellIV(1000,60,p).Voc/cellIV(1000,25,p).Voc*100).toFixed(0)+'% ('+((cellIV(1000,60,p).Voc/cellIV(1000,25,p).Voc-1)/35*100).toFixed(2)+'%/°C)';
-  CUR={G,T,p,cell,Ns,Np,lvl,scV,scI,Voc,Isc,Vmp,Imp,Pmp};
-  drawIV(); drawFam();
+  // partial shading
+  $('sh-nsubv').textContent=$('sh-nsub').value;$('sh-nv').textContent=$('sh-n').value;$('sh-gv').textContent=$('sh-g').value+' W/m²';
+  const nsub=parseInt($('sh-nsub').value), nshade=Math.min(parseInt($('sh-n').value),nsub), Gsh=parseFloat($('sh-g').value);
+  $('sh-n').max=nsub;
+  const sh=shadedModule(G,T,p,Ns,nsub,nshade,Gsh);
+  const Pfull=cell.Pmp*Ns;            // unshaded module Pmp (Np=1 reference)
+  $('sh-pg').textContent=sh.gP.toFixed(1);
+  $('sh-nmax').textContent=sh.locals.length;
+  const loss=Pfull>0?Math.max(0,(1-sh.gP/Pfull)*100):0; $('sh-loss').textContent=loss.toFixed(0);
+  CUR={G,T,p,cell,Ns,Np,lvl,scV,scI,Voc,Isc,Vmp,Imp,Pmp,sh};
+  drawIV(); drawFam(); drawShade();
 }
 function setTech(){ const t=TECH[$('tech').value]; if(t){ /* area default kept */ } recompute(); }
 
@@ -277,6 +326,30 @@ function drawFam(){
   series.forEach((s,si)=>{x.strokeStyle=cols[si];x.lineWidth=2;x.beginPath();s.iv.curve.forEach((pt,i)=>{const V=pt.V*c.scV,I=pt.I*c.scI;const X=sx(V),Y=sy(I);i?x.lineTo(X,Y):x.moveTo(X,Y);});x.stroke();
     x.fillStyle=cols[si];x.font='9px sans-serif';x.textAlign='left';x.fillText(s.lab,x1-66,y1+8+si*11);});
 }
+function drawShade(){
+  const c=CUR, sh=c.sh, cv=$('cv_shade'); cv.style.height='340px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const pad=46,x0=pad,x1=w-44,y0=h-30,y1=18;
+  let Vm=0,Im=0,Pm=0; sh.curve.forEach(p=>{Vm=Math.max(Vm,p.V);Im=Math.max(Im,p.I);Pm=Math.max(Pm,p.V*p.I);}); Vm*=1.05;Im*=1.12;Pm*=1.12;
+  if(Vm<=0)Vm=1; if(Im<=0)Im=1; if(Pm<=0)Pm=1;
+  const sx=V=>x0+V/Vm*(x1-x0), syI=I=>y0-I/Im*(y0-y1), syP=P=>y0-P/Pm*(y0-y1);
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='right';for(let k=0;k<=4;k++){const I=Im*k/4;x.fillText(I.toFixed(Im<2?2:1),x0-4,syI(I)+3);x.strokeStyle='#f1f5f9';x.beginPath();x.moveTo(x0,syI(I));x.lineTo(x1,syI(I));x.stroke();}
+  x.textAlign='center';for(let k=0;k<=5;k++){const V=Vm*k/5;x.fillText(V.toFixed(0),sx(V),y0+13);}
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.fillText(LANG==='fr'?'tension module V (V)':'module voltage V (V)',(x0+x1)/2,h-6);
+  x.fillStyle='#0d9488';x.save();x.translate(12,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText('I (A)',0,0);x.restore();
+  x.fillStyle='#7c3aed';x.save();x.translate(w-12,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText('P (W)',0,0);x.restore();
+  // P-V (purple) — shows the multiple bumps
+  x.strokeStyle='#c4b5fd';x.lineWidth=1.8;x.beginPath();sh.curve.forEach((p,i)=>{const X=sx(p.V),Y=syP(p.V*p.I);i?x.lineTo(X,Y):x.moveTo(X,Y);});x.stroke();
+  // I-V (teal) — the staircase
+  x.strokeStyle='#0d9488';x.lineWidth=2.4;x.beginPath();sh.curve.forEach((p,i)=>{const X=sx(p.V),Y=syI(p.I);i?x.lineTo(X,Y):x.moveTo(X,Y);});x.stroke();
+  // local maxima (red), global MPP (orange)
+  sh.locals.forEach(L=>{x.fillStyle=(Math.abs(L.P-sh.gP)<1e-6)?'#d97706':'#ef4444';x.beginPath();x.arc(sx(L.V),syP(L.P),4,0,7);x.fill();});
+  // global MPP marker on both curves
+  x.strokeStyle='#d97706';x.setLineDash([3,3]);x.lineWidth=1;x.beginPath();x.moveTo(sx(sh.gV),y0);x.lineTo(sx(sh.gV),syP(sh.gP));x.stroke();x.setLineDash([]);
+  x.fillStyle='#b45309';x.font='700 11px sans-serif';x.textAlign='left';x.fillText((LANG==='fr'?'MPP global ':'global MPP ')+sh.gP.toFixed(0)+' W',Math.min(sx(sh.gV)+6,x1-110),syP(sh.gP)-6);
+  if(sh.locals.length>1){const loc=sh.locals.find(L=>Math.abs(L.P-sh.gP)>1e-6);if(loc){x.fillStyle='#dc2626';x.font='10px sans-serif';x.fillText((LANG==='fr'?'max local':'local max'),Math.min(sx(loc.V)+5,x1-70),syP(loc.P)-5);}}
+}
 
 /* i18n */
 const I18N={
@@ -301,6 +374,13 @@ const I18N={
  'p.fam':{fr:"Effet de l'ensoleillement",en:"Irradiance effect"},'p.fam.sub':{fr:"I_sc ∝ G ; V_oc varie peu (en ln G).",en:"I_sc ∝ G; V_oc varies little (as ln G)."},
  'p.famT':{fr:"Effet de la température",en:"Temperature effect"},'p.famT.sub':{fr:"V_oc baisse avec T → P_mpp baisse (~ −0,4 %/°C).",en:"V_oc drops with T → P_mpp drops (~ −0.4 %/°C)."},
  'fam.l':{fr:"Famille de courbes",en:"Curve family"},'fam.G':{fr:"vs ensoleillement G",en:"vs irradiance G"},'fam.T':{fr:"vs température T",en:"vs temperature T"},
+ 'sh.t':{fr:"Ombrage partiel & diodes de by-pass",en:"Partial shading & bypass diodes"},
+ 'sh.intro':{fr:"<b>Pourquoi des diodes de by-pass —</b> dans un module, les cellules sont en <b>série</b> : le courant est imposé par la <b>cellule la plus faible</b>. Si une zone est ombrée, ses cellules ne peuvent plus fournir le courant des autres et passeraient en <b>tension inverse</b> (échauffement, « point chaud »). Une <b>diode de by-pass</b> placée sur chaque sous-chaîne <b>court-circuite</b> la zone ombrée dès qu'elle bloquerait le courant. Conséquence : la courbe I-V présente des <b>marches</b> et la courbe de puissance plusieurs <b>bosses</b> — le suiveur <b>MPPT</b> peut rester piégé sur un <b>maximum local</b>.",
+             en:"<b>Why bypass diodes —</b> in a module the cells are in <b>series</b>: the current is set by the <b>weakest cell</b>. If a region is shaded, its cells can no longer carry the others' current and would go into <b>reverse bias</b> (heating, “hot spot”). A <b>bypass diode</b> across each substring <b>short-circuits</b> the shaded region as soon as it would block the current. As a result the I-V curve shows <b>steps</b> and the power curve several <b>peaks</b> — the <b>MPPT</b> tracker can get trapped on a <b>local maximum</b>."},
+ 'sh.nsub':{fr:"Sous-chaînes (diodes by-pass)",en:"Substrings (bypass diodes)"},'sh.n':{fr:"Sous-chaînes ombrées",en:"Shaded substrings"},'sh.g':{fr:"Ensoleillement de la zone ombrée",en:"Irradiance of the shaded area"},
+ 'sh.mglob':{fr:"MPP global (avec ombrage)",en:"Global MPP (with shading)"},'sh.mloc':{fr:"Maxima de puissance",en:"Power maxima"},'sh.bosses':{fr:"bosses",en:"peaks"},'sh.loss':{fr:"Perte vs sans ombrage",en:"Loss vs unshaded"},
+ 'sh.note':{fr:"💡 La <b>marche</b> vient des sous-chaînes ombrées court-circuitées par leur diode (tension perdue ≈ N_série_ombré × V_cellule). Le <b>MPP global</b> (point orange) est souvent à plus basse tension / plus fort courant que le pic « plein soleil ». Un <b>MPPT</b> à balayage global retrouve ce point ; un MPPT local peut se bloquer sur un <b>maximum local</b> (point rouge) et perdre du rendement.",
+            en:"💡 The <b>step</b> comes from shaded substrings short-circuited by their diode (lost voltage ≈ N_shaded_series × V_cell). The <b>global MPP</b> (orange dot) is often at lower voltage / higher current than the “full sun” peak. A <b>global-scan MPPT</b> finds it; a local MPPT may stick on a <b>local maximum</b> (red dot) and lose yield."},
  'sys':{fr:"Système — énergie produite",en:"System — energy yield"},
  'sys.intro':{fr:"<b>Du module au système —</b> on multiplie par le nombre de modules pour la <b>puissance crête</b> (à STC), puis on estime l'énergie par la méthode des <b>heures de soleil crête</b> : <b>E = P_crête × PSH × PR</b>, où PSH ≈ ensoleillement quotidien (kWh/m²/j) et PR (ratio de performance ≈ 0,75–0,85) regroupe pertes onduleur, câbles, température, salissure.",
               en:"<b>From module to system —</b> multiply by the number of modules for the <b>peak power</b> (at STC), then estimate energy by the <b>peak-sun-hours</b> method: <b>E = P_peak × PSH × PR</b>, where PSH ≈ daily irradiation (kWh/m²/day) and PR (performance ratio ≈ 0.75–0.85) lumps inverter, cable, temperature and soiling losses."},
