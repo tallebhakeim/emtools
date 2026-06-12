@@ -136,6 +136,12 @@ table.frames code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8
   </div>
 
   <div class="panel">
+    <div class="ptitle" data-i18n="sch.t">Schéma de la liaison</div>
+    <canvas id="cv_schema" width="900" height="240"></canvas>
+    <div class="sub" style="font-size:.76rem;color:var(--text2);margin-top:.4rem" data-i18n="sch.sub">Vue de côté : boucles vues par la tranche. Compte les traits = spires (N₁, N₂) ; longueur = diamètre (a, b) ; l'inclinaison du tag = angle α (couplage ∝ cos α, nul à 90°).</div>
+  </div>
+
+  <div class="panel">
     <div class="ptitle" data-i18n="results">Couplage &amp; alimentation du tag</div>
     <div class="metrics">
       <div class="metric hl"><div class="k" data-i18n="m.h">Champ H au tag</div><div class="v" id="m_h">—</div><div class="u">A/m</div></div>
@@ -144,7 +150,8 @@ table.frames code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8
       <div class="metric"><div class="k" data-i18n="m.m">Inductance mutuelle M</div><div class="v" id="m_m">—</div><div class="u">nH</div></div>
       <div class="metric"><div class="k" data-i18n="m.k">Coefficient de couplage k</div><div class="v" id="m_k">—</div><div class="u">%</div></div>
       <div class="metric"><div class="k" data-i18n="m.voc">F.é.m. induite (circuit ouvert)</div><div class="v" id="m_voc">—</div><div class="u">V</div></div>
-      <div class="metric"><div class="k" data-i18n="m.vtag">Tension tag (résonance ≈ Q·e)</div><div class="v" id="m_vtag">—</div><div class="u">V</div></div>
+      <div class="metric"><div class="k" data-i18n="m.vtag">Tension crête à vide (Q·e)</div><div class="v" id="m_vtag">—</div><div class="u">V</div></div>
+      <div class="metric"><div class="k" data-i18n="m.vchip">Tension puce (écrêtée)</div><div class="v" id="m_vchip">—</div><div class="u">V</div></div>
       <div class="metric"><div class="k" data-i18n="m.cap">Capacité d'accord C₂ (L₂ tag)</div><div class="v" id="m_cap">—</div><div class="u">pF</div></div>
       <div class="metric"><div class="k" data-i18n="m.zref">Impédance reflétée Z_ref</div><div class="v" id="m_zref">—</div><div class="u">Ω</div></div>
       <div class="metric"><div class="k" data-i18n="m.mod">Profondeur de modulation</div><div class="v" id="m_mod">—</div><div class="u">%</div></div>
@@ -286,8 +293,10 @@ function compute(){
   const k=M/Math.sqrt(L1*L2);
   const C2=1/(W0*W0*L2);                             // tuning cap for 13.56 MHz (F)
   const Voc=W0*M*I1;                                 // open-circuit emf (V), reduced by cos α
-  const Vtag=Q*Voc;                                  // resonant amplification
-  const Vtag0=Q*W0*Mgeo*I1;                          // recoverable voltage at α=0 (for the angle plot)
+  const Vtag=Q*Voc;                                  // unloaded resonant peak (Q·e)
+  const Vtag0=Q*W0*Mgeo*I1;                          // unloaded peak at α=0 (for the angle plot)
+  const VCLAMP=5;                                    // representative chip regulation voltage (limiter)
+  const Vchip=Math.min(Vtag,VCLAMP);                 // what the chip actually sees (excess is shunted)
   // read range: largest z where H(z) ≥ HMIN
   const arg=Math.pow(N1*I1*a*a/(2*HMIN),2/3)-a*a;
   const range=arg>0?Math.sqrt(arg):0;               // m
@@ -307,7 +316,7 @@ function compute(){
   const SAR=sig*Math.pow(W0*Bpk*rT,2)/(8*rhoT);      // σ(ωB r)²/(8ρ) — peak local SAR (W/kg)
   const SARlim=$('sar-pop').value==='worker'?10:2;   // ICNIRP 2020 local 10 g limit
   const Hmax=Math.sqrt(8*rhoT*SARlim/sig)/(W0*MU0*rT);// max H before reaching the SAR limit (A/m)
-  CUR={a,N1,I1,b,N2,Q,z,angDeg,cosA,H,B,Mgeo,M,L1,L2,k,C2,Voc,Vtag,Vtag0,range,Zref,modDepth,
+  CUR={a,N1,I1,b,N2,Q,z,angDeg,cosA,H,B,Mgeo,M,L1,L2,k,C2,Voc,Vtag,Vtag0,VCLAMP,Vchip,range,Zref,modDepth,
        sig,rhoT,rT,Eind,SAR,SARlim,Hmax};
   return CUR;
 }
@@ -340,6 +349,7 @@ function recompute(){
   $('m_k').textContent=(c.k*100).toFixed(2);
   $('m_voc').textContent=fmtSI(c.Voc);
   $('m_vtag').textContent=fmtSI(c.Vtag);
+  $('m_vchip').textContent=fmtSI(c.Vchip);
   $('m_cap').textContent=(c.C2*1e12).toFixed(0);
   $('m_zref').textContent=fmtSI(c.Zref);
   $('m_mod').textContent=(c.modDepth*100).toFixed(1);
@@ -369,7 +379,7 @@ function recompute(){
   // validation
   $('vr1').textContent=fmtSI(Hax(c.N1,c.I1,c.a,0),'A/m')+'  (= '+fmtSI(c.N1*c.I1/(2*c.a),'A/m')+')';
   $('vr2').textContent=(1/(2*Math.PI*Math.sqrt(c.L2*c.C2))/1e6).toFixed(2)+' MHz';
-  drawField(c); drawRes(c); drawSignal(c); drawAngle(c);
+  drawSchema(c); drawField(c); drawRes(c); drawSignal(c); drawAngle(c);
 }
 function preset(p){
   if(p==='card'){$('a').value=3;$('n1').value=1;$('i1').value=0.5;$('b').value=2.2;$('n2').value=4;$('q').value=20;$('z').value=2;}
@@ -432,6 +442,54 @@ function drawRes(c){
   x.strokeStyle='#86efac';x.setLineDash([3,3]);x.lineWidth=1;x.beginPath();x.moveTo(x0,sy(half));x.lineTo(x1,sy(half));x.stroke();x.setLineDash([]);
   x.fillStyle='#16a34a';x.font='9px sans-serif';x.textAlign='right';x.fillText('−3 dB → BP ≈ f₀/Q = '+(F0/Q/1e3).toFixed(0)+' kHz',x1-4,sy(half)-3);
 }
+function arrow(x,x1,y1,x2,y2,col){
+  x.strokeStyle=col;x.fillStyle=col;x.lineWidth=1.6;
+  x.beginPath();x.moveTo(x1,y1);x.lineTo(x2,y2);x.stroke();
+  const a=Math.atan2(y2-y1,x2-x1),hl=8;
+  x.beginPath();x.moveTo(x2,y2);x.lineTo(x2-hl*Math.cos(a-0.4),y2-hl*Math.sin(a-0.4));x.lineTo(x2-hl*Math.cos(a+0.4),y2-hl*Math.sin(a+0.4));x.closePath();x.fill();
+}
+// side-view schematic of the link: reader & tag coils (turns visible), spacing z and tilt α
+function drawSchema(c){
+  const cv=$('cv_schema'); cv.style.height='240px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const mid=h*0.48, xR=120, xTmax=w-150, zMax=0.20;
+  const xT=xR+Math.max(96,Math.min(c.z/zMax,1)*(xTmax-xR));   // min visual gap (schematic, not to scale)
+  const pxPerM=(h*0.30)/0.15;                          // 0.15 m → 0.30·h px (half-height)
+  const aPx=Math.max(13,c.a*pxPerM), bPx=Math.max(9,c.b*pxPerM);
+  const N1=c.N1, N2=c.N2, al=c.angDeg*Math.PI/180;
+  // axis
+  x.strokeStyle='#cbd5e1';x.setLineDash([6,4]);x.lineWidth=1;x.beginPath();x.moveTo(xR-34,mid);x.lineTo(xTmax+46,mid);x.stroke();x.setLineDash([]);
+  // a few dipole-like field lines from the reader
+  x.strokeStyle='#bfdbfe';x.lineWidth=1.2;
+  const reach=Math.max(70,(xT-xR)*0.92+34);
+  for(const f of [0.5,0.82,1.12]){const ext=aPx*f;
+    x.beginPath();x.moveTo(xR,mid-ext);
+    x.bezierCurveTo(xR+reach*0.5,mid-ext-22,xR+reach,mid-ext*0.3,xR+reach,mid);
+    x.bezierCurveTo(xR+reach,mid+ext*0.3,xR+reach*0.5,mid+ext+22,xR,mid+ext);x.stroke();}
+  // reader coil — N1 vertical strokes (loop seen edge-on)
+  x.strokeStyle='#1d4ed8';x.lineWidth=2.6;x.lineCap='round';
+  for(let i=0;i<N1;i++){const xx=xR+(i-(N1-1)/2)*3.4;x.beginPath();x.moveTo(xx,mid-aPx);x.lineTo(xx,mid+aPx);x.stroke();}
+  // tag coil — N2 strokes along (sinα,cosα), offset along the normal (cosα,-sinα)
+  const dx=Math.sin(al),dy=Math.cos(al), nx=Math.cos(al),ny=-Math.sin(al);
+  x.strokeStyle='#0d9488';
+  for(let i=0;i<N2;i++){const off=(i-(N2-1)/2)*3.4, cx=xT+off*nx, cy=mid+off*ny;
+    x.beginPath();x.moveTo(cx-dx*bPx,cy-dy*bPx);x.lineTo(cx+dx*bPx,cy+dy*bPx);x.stroke();}
+  x.lineCap='butt';
+  // normals + angle arc
+  arrow(x,xR,mid,xR+40,mid,'#1d4ed8');
+  arrow(x,xT,mid,xT+nx*42,mid+ny*42,'#7c3aed');
+  if(c.angDeg>1.5){x.strokeStyle='#7c3aed';x.lineWidth=1.3;x.beginPath();x.arc(xT,mid,26,0,-al,true);x.stroke();
+    x.fillStyle='#7c3aed';x.font='12px sans-serif';x.textAlign='left';x.fillText('α='+c.angDeg+'°',xT+30*Math.cos(-al/2)+2,mid+30*Math.sin(-al/2)+4);}
+  // z dimension line
+  const yd=mid+Math.max(aPx,bPx)+30;
+  x.strokeStyle='#94a3b8';x.lineWidth=1;x.beginPath();x.moveTo(xR,yd);x.lineTo(xT,yd);x.moveTo(xR,yd-4);x.lineTo(xR,yd+4);x.moveTo(xT,yd-4);x.lineTo(xT,yd+4);x.stroke();
+  x.fillStyle='#64748b';x.font='12px sans-serif';x.textAlign='center';x.fillText('z = '+(c.z*100).toFixed(1)+' cm',(xR+xT)/2,yd-5);
+  // labels
+  x.fillStyle='#1e293b';x.font='700 12px sans-serif';
+  x.fillText('Lecteur',xR,mid-aPx-22); x.fillText('Tag',xT,mid-Math.max(bPx,18)-22);
+  x.fillStyle='#1d4ed8';x.font='11px sans-serif';x.fillText('N₁='+N1+' · a='+(c.a*100).toFixed(1)+'cm',xR,mid-aPx-8);
+  x.fillStyle='#0d9488';x.fillText('N₂='+N2+' · b='+(c.b*100).toFixed(1)+'cm',xT,mid-Math.max(bPx,18)-8);
+}
 // time-domain envelope of the carrier: ASK 100 % downlink then load-modulated uplink
 function drawSignal(c){
   const cv=$('cv_signal'); cv.style.height='300px'; const {x,w,h}=dpr(cv);
@@ -476,10 +534,20 @@ function drawAngle(c){
   x.textAlign='center';for(let a=0;a<=90;a+=15){x.fillText(a+'°',sx(a),y0+14);}
   x.fillStyle='#64748b';x.font='11px sans-serif';x.fillText('angle α (°)',(x0+x1)/2,h-5);
   x.save();x.translate(12,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText('tension tag (V)',0,0);x.restore();
-  // cos curve
+  // chip regulation (clamp) line — above it the limiter shunts the excess
+  const vc=c.VCLAMP;
+  if(vc<yTop){
+    x.fillStyle='rgba(13,148,136,.07)';x.fillRect(x0,y1,x1-x0,sy(vc)-y1);
+    x.strokeStyle='#0d9488';x.setLineDash([5,3]);x.lineWidth=1.2;x.beginPath();x.moveTo(x0,sy(vc));x.lineTo(x1,sy(vc));x.stroke();x.setLineDash([]);
+    x.fillStyle='#0f766e';x.font='10px sans-serif';x.textAlign='left';x.fillText('écrêtage puce ≈ '+vc+' V (zone alimentée)',x0+6,sy(vc)+13);
+  }
+  // cos curve (unloaded resonant peak V₀·cos α)
   x.strokeStyle='#7c3aed';x.lineWidth=2.2;x.beginPath();
   for(let i=0;i<=180;i++){const a=90*i/180;const v=V0*Math.cos(a*Math.PI/180);const X=sx(a),Y=sy(Math.max(v,0));i?x.lineTo(X,Y):x.moveTo(X,Y);}
   x.stroke();
+  // angle where the unloaded peak drops below the clamp → tag starts losing power
+  if(V0>vc){const acrit=Math.acos(vc/V0)*180/Math.PI;x.strokeStyle='#94a3b8';x.setLineDash([2,3]);x.lineWidth=1;x.beginPath();x.moveTo(sx(acrit),sy(vc));x.lineTo(sx(acrit),y0);x.stroke();x.setLineDash([]);
+    x.fillStyle='#64748b';x.font='9px sans-serif';x.textAlign='center';x.fillText('α≈'+acrit.toFixed(0)+'°',sx(acrit),y0-3);}
   // current angle marker
   const ax=sx(c.angDeg), ay=sy(c.Vtag);
   x.strokeStyle='#d97706';x.setLineDash([3,3]);x.lineWidth=1.2;x.beginPath();x.moveTo(ax,y0);x.lineTo(ax,ay);x.lineTo(x0,ay);x.stroke();x.setLineDash([]);
@@ -515,7 +583,11 @@ const I18N={
  'm.m':{fr:"Inductance mutuelle M",en:"Mutual inductance M"},
  'm.k':{fr:"Coefficient de couplage k",en:"Coupling coefficient k"},
  'm.voc':{fr:"F.é.m. induite (circuit ouvert)",en:"Induced emf (open circuit)"},
- 'm.vtag':{fr:"Tension tag (résonance ≈ Q·e)",en:"Tag voltage (resonance ≈ Q·e)"},
+ 'm.vtag':{fr:"Tension crête à vide (Q·e)",en:"Open-circuit peak voltage (Q·e)"},
+ 'm.vchip':{fr:"Tension puce (écrêtée)",en:"Chip voltage (clamped)"},
+ 'sch.t':{fr:"Schéma de la liaison",en:"Link schematic"},
+ 'sch.sub':{fr:"Vue de côté : boucles vues par la tranche. Compte les traits = spires (N₁, N₂) ; longueur = diamètre (a, b) ; l'inclinaison du tag = angle α (couplage ∝ cos α, nul à 90°).",
+            en:"Side view: loops seen edge-on. Count the strokes = turns (N₁, N₂); length = diameter (a, b); the tag tilt = angle α (coupling ∝ cos α, zero at 90°)."},
  'm.cap':{fr:"Capacité d'accord C₂ (L₂ tag)",en:"Tuning capacitance C₂ (tag L₂)"},
  'm.zref':{fr:"Impédance reflétée Z_ref",en:"Reflected impedance Z_ref"},
  'm.mod':{fr:"Profondeur de modulation",en:"Load-modulation depth"},
@@ -597,7 +669,7 @@ function applyLang(){
 }
 function toggleLang(){LANG=LANG==='fr'?'en':'fr';localStorage.setItem('emtools_lang',LANG);applyLang();recompute();}
 applyLang(); recompute();
-window.addEventListener('resize',()=>{const c=CUR||compute();drawField(c);drawRes(c);drawSignal(c);drawAngle(c);});
+window.addEventListener('resize',()=>{const c=CUR||compute();drawSchema(c);drawField(c);drawRes(c);drawSignal(c);drawAngle(c);});
 </script>
 </body>
 </html>
