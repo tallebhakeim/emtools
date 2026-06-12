@@ -166,6 +166,28 @@ table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
     <div class="warn" id="split-note" data-i18n-html="split.note" style="margin-top:.7rem"></div>
   </div>
 
+  <div class="panel grp-ind">
+    <div class="ptitle" data-i18n="exp.t">Exposition CEM — le champ qui fuit</div>
+    <div data-i18n-html="exp.intro"></div>
+    <div class="controls" style="margin:.9rem 0">
+      <div class="ctrl"><label><span data-i18n="exp.d">Distance d'une personne</span> · <span id="exp-dv" class="val">20 cm</span></label><input id="exp-d" type="range" min="3" max="100" step="1" value="20" oninput="recompute()"></div>
+      <div class="ctrl">
+        <label data-i18n="exp.pop">Population</label>
+        <select id="exp-pop" onchange="recompute()">
+          <option value="public" data-i18n="exp.public">Public général</option>
+          <option value="worker" data-i18n="exp.worker">Travailleurs</option>
+        </select>
+      </div>
+    </div>
+    <div class="metrics">
+      <div class="metric"><div class="k" data-i18n="exp.h">Champ H à cette distance</div><div class="v" id="exp-h">—</div><div class="u">A/m</div></div>
+      <div class="metric"><div class="k" data-i18n="exp.b">Induction B</div><div class="v" id="exp-b">—</div><div class="u">µT</div></div>
+      <div class="metric"><div class="k" data-i18n="exp.ref">Niveau de réf. ICNIRP (à f₀)</div><div class="v" id="exp-ref">—</div><div class="u">A/m</div></div>
+      <div class="metric hl"><div class="k" data-i18n="exp.verd">Conformité exposition</div><div class="v" id="exp-verd" style="font-size:1rem">—</div><div class="u" id="exp-ratio"></div></div>
+    </div>
+    <div class="warn" id="exp-note" style="margin-top:.7rem"></div>
+  </div>
+
   <div class="panel">
     <div class="ptitle" data-i18n="valid">Validation &amp; repères</div>
     <table class="valid">
@@ -194,6 +216,9 @@ function Mut(N1,N2,a,b,z){ return MU0*Math.PI*N1*N2*a*a*b*b/(2*Math.pow(a*a+z*z,
 function Lself(N,r){ const rw=0.5e-3; return MU0*N*N*r*(Math.log(8*r/rw)-2); }
 // resonant coil-to-coil max efficiency from the figure of merit U=k√(Q1Q2)
 function etaLink(U){ const s=Math.sqrt(1+U*U); return U*U/((1+s)*(1+s)); }
+// ICNIRP magnetic-field reference level (A/m) at frequency f(Hz), pop public/worker
+function HrefAm(f,pop){ const M=f/1e6, c=pop==='worker'?1.6:0.73, plat=pop==='worker'?0.16:0.073;
+  if(M<=10) return c/Math.max(M,0.05); return plat; }
 
 let CUR=null;
 function compute(){
@@ -248,6 +273,23 @@ function recompute(){
   $('m2k').textContent=c.mode==='ind'?t('m.kq'):t('m.fspl'); $('m2').textContent=c.m2; $('m2u').textContent=c.m2u;
   if(isFinite(c.tch)){const h=c.tch; $('m_tc').textContent=h<1?(h*60).toFixed(0):h.toFixed(1); $('m_tcu').textContent=h<1?'min':'h';}
   else {$('m_tc').textContent='∞';$('m_tcu').textContent='';}
+  // EMF exposure (inductive mode): field leaking from the Tx coil vs ICNIRP reference
+  if(c.mode==='ind'){
+    $('exp-dv').textContent=$('exp-d').value+' cm';
+    const a1=parseFloat($('a1').value)/100, N=parseInt($('N').value), Q=parseFloat($('Q').value), f0=parseFloat($('f0').value)*1e6;
+    const L1=Lself(N,a1), Rtx=2*Math.PI*f0*L1/Q, I1=Math.sqrt(c.Ptx/Math.max(Rtx,1e-9));  // worst-case coil current
+    const de=parseFloat($('exp-d').value)/100;
+    const Hexp=N*I1*a1*a1/(2*Math.pow(a1*a1+de*de,1.5));     // on-axis H at the person (A/m)
+    const Bexp=MU0*Hexp*1e6, pop=$('exp-pop').value, Href=HrefAm(f0,pop), ratio=Hexp/Href;
+    $('exp-h').textContent=Hexp<1?Hexp.toFixed(3):Hexp.toFixed(2);
+    $('exp-b').textContent=Bexp<1?Bexp.toFixed(3):Bexp.toFixed(1);
+    $('exp-ref').textContent=Href<1?Href.toFixed(3):Href.toFixed(2);
+    const vd=$('exp-verd');
+    if(ratio<=1){vd.textContent='✅ '+t('exp.ok');vd.className='v ok';$('exp-ratio').textContent='×'+(1/ratio).toFixed(1)+' '+t('exp.under');}
+    else {vd.textContent='⛔ '+t('exp.over');vd.className='v bad';$('exp-ratio').textContent='×'+ratio.toFixed(1)+' '+t('exp.above');}
+    $('exp-note').innerHTML=t(ratio<=1?'exp.noteok':'exp.noteover').replace('{r}',ratio>=1?ratio.toFixed(1):(1/ratio).toFixed(1));
+    $('exp-note').style.background=ratio<=1?'#ecfdf5':'#fef2f2';$('exp-note').style.borderColor=ratio<=1?'#a7f3d0':'#fecaca';$('exp-note').style.color=ratio<=1?'#065f46':'#991b1b';
+  }
   drawDist(c); drawKQ(c); drawSplit();
 }
 function setMode(){
@@ -396,6 +438,16 @@ const I18N={
  'split.under':{fr:"sous-couplé",en:"under-coupled"},'split.crit':{fr:"critique",en:"critical"},'split.over':{fr:"sur-couplé",en:"over-coupled"},'split.cur':{fr:"config actuelle",en:"current config"},
  'split.note':{fr:"💡 En <b>sur-couplage</b> (rapproche les bobines), les deux pics s'écartent (f± ≈ 1/√(1±k)) et le creux à f₀ s'accentue. Pour garder le maximum d'efficacité, l'électronique doit se <b>recaler sur f₊ ou f₋</b> (suivi de fréquence) — sinon rester à f₀ ferait perdre beaucoup de puissance malgré un k·Q élevé.",
               en:"💡 Under <b>over-coupling</b> (bring the coils closer), the two peaks separate (f± ≈ 1/√(1±k)) and the dip at f₀ deepens. To keep maximum efficiency the electronics must <b>re-tune to f₊ or f₋</b> (frequency tracking) — otherwise staying at f₀ would waste much power despite a high k·Q."},
+ 'exp.t':{fr:"Exposition CEM — le champ qui fuit",en:"EMF exposure — the leaking field"},
+ 'exp.intro':{fr:"<b>La sécurité, l'autre contrainte —</b> la bobine émettrice rayonne un champ magnétique qui ne s'arrête pas au récepteur : à proximité, une personne y est <b>exposée</b>. On estime le <b>champ H</b> à sa distance (courant bobine ≈ √(P_tx/R_bobine), R = ω₀L/Q) et on le compare au <b>niveau de référence ICNIRP</b> à f₀. Un système non blindé peut <b>dépasser la limite</b> — d'où l'importance du blindage, de la distance et du couplage serré (peu de fuite).",
+              en:"<b>Safety, the other constraint —</b> the transmit coil radiates a magnetic field that does not stop at the receiver: nearby, a person is <b>exposed</b>. The <b>H field</b> at their distance is estimated (coil current ≈ √(P_tx/R_coil), R = ω₀L/Q) and compared to the <b>ICNIRP reference level</b> at f₀. An unshielded system can <b>exceed the limit</b> — hence the importance of shielding, distance and tight coupling (little leakage)."},
+ 'exp.d':{fr:"Distance d'une personne",en:"Distance of a person"},'exp.pop':{fr:"Population",en:"Population"},'exp.public':{fr:"Public général",en:"General public"},'exp.worker':{fr:"Travailleurs",en:"Occupational"},
+ 'exp.h':{fr:"Champ H à cette distance",en:"H field at this distance"},'exp.b':{fr:"Induction B",en:"Flux density B"},'exp.ref':{fr:"Niveau de réf. ICNIRP (à f₀)",en:"ICNIRP reference level (at f₀)"},'exp.verd':{fr:"Conformité exposition",en:"Exposure compliance"},
+ 'exp.ok':{fr:"conforme",en:"compliant"},'exp.over':{fr:"dépassement",en:"exceeded"},'exp.under':{fr:"sous la limite",en:"under the limit"},'exp.above':{fr:"au-dessus",en:"over"},
+ 'exp.noteok':{fr:"✅ Le champ à cette distance reste <b>×{r} sous</b> le niveau de référence ICNIRP : exposition acceptable pour ce modèle simplifié. (Vérification réglementaire détaillée : voir l'outil <b>Dosimétrie</b>.)",
+               en:"✅ The field at this distance stays <b>×{r} below</b> the ICNIRP reference level: acceptable exposure for this simplified model. (Detailed regulatory check: see the <b>Dosimetry</b> tool.)"},
+ 'exp.noteover':{fr:"⛔ Le champ dépasse le niveau de référence ICNIRP d'un facteur <b>×{r}</b> à cette distance ! En pratique il faut <b>blinder</b> (ferrite, plan de masse), <b>éloigner</b> les personnes ou réduire la puissance. C'est exactement le compromis efficacité ↔ exposition de la recharge sans fil. (Voir l'outil <b>Dosimétrie</b>.)",
+                 en:"⛔ The field exceeds the ICNIRP reference level by <b>×{r}</b> at this distance! In practice one must <b>shield</b> (ferrite, ground plane), keep people <b>away</b>, or reduce power. This is exactly the efficiency ↔ exposure trade-off of wireless charging. (See the <b>Dosimetry</b> tool.)"},
  'valid':{fr:"Validation & repères",en:"Validation & benchmarks"},
  'v.case':{fr:"Cas",en:"Case"},'v.tool':{fr:"Cet outil",en:"This tool"},'v.ref':{fr:"Repère",en:"Benchmark"},
  'v.qi':{fr:"Chargeur Qi (~5–10 cm, kQ qq. unités)",en:"Qi charger (~5–10 cm, kQ a few units)"},'v.qiref':{fr:"rendement bobine ~70–90 %",en:"coil efficiency ~70–90 %"},
