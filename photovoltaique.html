@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EMtools — Photovoltaïque</title>
+<meta name="description" content="EMtools — du photovoltaïque : cellule (modèle à une diode), module, système. Courbe I-V/P-V, MPP, rendement, effets irradiance/température, énergie produite. Par Hakeim Talleb.">
+<style>
+:root{--navy:#1a2e4a;--teal:#0d9488;--teal2:#0f766e;--teal-light:#e6f7f5;--gold:#d97706;
+  --text:#1e293b;--text2:#64748b;--border:#e2e8f0;--bg:#f8fafc;--bg2:#f0fdf9;--white:#fff;--radius:14px;--shadow:0 2px 14px rgba(26,46,74,.08);}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--text);background:var(--bg);line-height:1.6}
+a{color:var(--teal2)}
+.wrap{max-width:980px;margin:0 auto;padding:0 1.25rem}
+#lang-toggle{position:fixed;top:14px;right:16px;z-index:50;background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.45);border-radius:8px;padding:5px 12px;font-size:13px;font-weight:700;cursor:pointer;backdrop-filter:blur(4px)}
+header{background:linear-gradient(135deg,#1a2e4a,#0f3a4d);color:#fff;padding:2.4rem 0 2rem}
+header .wrap{display:flex;flex-direction:column;gap:.4rem}
+header .back{font-size:.82rem;color:#94a3b8;text-decoration:none}
+header .back:hover{color:#cbd5e1}
+header h1{font-size:1.7rem;font-weight:800;letter-spacing:-.02em}
+header .tag{font-size:1rem;color:#cbd5e1;max-width:700px}
+main{padding:2rem 0 3rem}
+.intro{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius);padding:1rem 1.2rem;font-size:.9rem;margin-bottom:1.6rem}
+.intro b{color:var(--navy)}
+.panel{background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.3rem 1.4rem;margin-bottom:1.4rem}
+.ptitle{font-size:.78rem;font-weight:700;color:var(--teal2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:1rem}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:1rem 1.4rem}
+.ctrl{display:flex;flex-direction:column;gap:.3rem}
+.ctrl label{font-size:.82rem;font-weight:600;color:var(--text2)}
+.ctrl input,.ctrl select{font:inherit;font-size:.92rem;padding:.45rem .55rem;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--text)}
+.ctrl input[type=range]{padding:0}
+.ctrl .val{font-size:.8rem;color:var(--teal2);font-weight:700}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.9rem}
+.metric{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:.8rem .9rem}
+.metric .k{font-size:.72rem;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.metric .v{font-size:1.18rem;font-weight:800;color:var(--navy);margin-top:.15rem}
+.metric .u{font-size:.76rem;color:var(--text2);font-weight:600}
+.metric.hl{background:var(--teal-light);border-color:#99e6dc}.metric.hl .v{color:var(--teal2)}
+.plots{display:grid;grid-template-columns:1fr 1fr;gap:1.4rem}
+.plotbox{display:flex;flex-direction:column;gap:.4rem}
+.plotbox h4{font-size:.86rem;font-weight:700;color:var(--navy)}
+.plotbox .sub{font-size:.74rem;color:var(--text2)}
+canvas{width:100%;height:auto;background:#fff;border:1px solid var(--border);border-radius:10px}
+@media(max-width:760px){.plots{grid-template-columns:1fr}}
+.warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:10px;padding:.7rem .9rem;font-size:.83rem;margin-top:1rem}
+footer{border-top:1px solid var(--border);padding:1.5rem 0;font-size:.8rem;color:var(--text2);margin-top:1rem}
+footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+footer a{color:var(--text2)}
+table.valid{width:100%;border-collapse:collapse;font-size:.84rem;margin-top:.4rem}
+table.valid th,table.valid td{border:1px solid var(--border);padding:.35rem .55rem;text-align:left}
+table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
+</style>
+</head>
+<body>
+<button id="lang-toggle" onclick="toggleLang()">EN</button>
+
+<header><div class="wrap">
+  <a class="back" href="index.html">← <span data-i18n="back.hub">EMtools</span></a>
+  <h1>☀️ <span data-i18n="title">Photovoltaïque</span></h1>
+  <div class="tag" data-i18n="tag">De la cellule au système : modèle à une diode, courbe I-V/P-V, point de puissance maximale, rendement, effets de l'ensoleillement et de la température, et énergie produite.</div>
+</div></header>
+
+<main class="wrap">
+  <div class="intro" data-i18n-html="intro">
+    <b>Principe —</b> une cellule PV est une <b>diode éclairée</b> : la lumière génère un photocourant
+    I<sub>ph</sub> (∝ ensoleillement), en parallèle d'une diode et de résistances parasites
+    (<b>modèle à une diode</b>). Sa courbe <b>I-V</b> donne le <b>point de puissance maximale (MPP)</b>, le
+    <b>facteur de forme</b> et le <b>rendement</b>. On met les cellules <b>en série</b> (la tension s'ajoute)
+    et <b>en parallèle</b> (le courant s'ajoute) pour faire un <b>module</b>, puis on assemble des modules en
+    <b>système</b> dont on estime l'énergie produite.
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="cfg">Cellule &amp; conditions</div>
+    <div class="controls">
+      <div class="ctrl">
+        <label data-i18n="tech">Technologie</label>
+        <select id="tech" onchange="setTech()">
+          <option value="mono" data-i18n="t.mono">Silicium monocristallin</option>
+          <option value="poly" data-i18n="t.poly">Silicium polycristallin</option>
+          <option value="cdte" data-i18n="t.cdte">Couche mince (CdTe)</option>
+        </select>
+      </div>
+      <div class="ctrl"><label><span data-i18n="G">Ensoleillement G</span> · <span id="Gv" class="val">1000 W/m²</span></label><input id="G" type="range" min="50" max="1200" step="10" value="1000" oninput="recompute()"></div>
+      <div class="ctrl"><label><span data-i18n="T">Température cellule T</span> · <span id="Tv" class="val">25 °C</span></label><input id="T" type="range" min="-10" max="75" step="1" value="25" oninput="recompute()"></div>
+      <div class="ctrl"><label><span data-i18n="area">Surface cellule</span> · <span id="areav" class="val">243 cm²</span></label><input id="area" type="range" min="20" max="260" step="1" value="243" oninput="recompute()"></div>
+      <div class="ctrl"><label><span data-i18n="Rs">Résistance série R_s</span> · <span id="Rsv" class="val">6 mΩ</span></label><input id="Rs" type="range" min="0" max="40" step="0.5" value="6" oninput="recompute()"></div>
+      <div class="ctrl"><label><span data-i18n="Rsh">Résistance shunt R_sh</span> · <span id="Rshv" class="val">10 Ω</span></label><input id="Rsh" type="range" min="0.5" max="50" step="0.5" value="10" oninput="recompute()"></div>
+      <div class="ctrl">
+        <label data-i18n="level">Niveau affiché (courbe)</label>
+        <select id="level" onchange="recompute()">
+          <option value="cell" data-i18n="lv.cell">Cellule</option>
+          <option value="mod" selected data-i18n="lv.mod">Module (N_s × N_p)</option>
+        </select>
+      </div>
+      <div class="ctrl"><label><span data-i18n="Ns">Cellules en série N_s</span> · <span id="Nsv" class="val">60</span></label><input id="Ns" type="range" min="1" max="96" step="1" value="60" oninput="recompute()"></div>
+      <div class="ctrl"><label><span data-i18n="Np">Branches en parallèle N_p</span> · <span id="Npv" class="val">1</span></label><input id="Np" type="range" min="1" max="6" step="1" value="1" oninput="recompute()"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" id="res-t" data-i18n="res">Caractéristiques (module)</div>
+    <div class="metrics">
+      <div class="metric hl"><div class="k" data-i18n="m.pmp">Puissance crête P_mpp</div><div class="v" id="m_pmp">—</div><div class="u" id="m_pmpu">W</div></div>
+      <div class="metric"><div class="k" data-i18n="m.voc">Tension circuit ouvert V_oc</div><div class="v" id="m_voc">—</div><div class="u">V</div></div>
+      <div class="metric"><div class="k" data-i18n="m.isc">Courant court-circuit I_sc</div><div class="v" id="m_isc">—</div><div class="u">A</div></div>
+      <div class="metric"><div class="k" data-i18n="m.mpp">Au MPP (V_mp, I_mp)</div><div class="v" id="m_mpp" style="font-size:.95rem">—</div><div class="u">V · A</div></div>
+      <div class="metric"><div class="k" data-i18n="m.ff">Facteur de forme FF</div><div class="v" id="m_ff">—</div><div class="u">%</div></div>
+      <div class="metric"><div class="k" data-i18n="m.eta">Rendement η</div><div class="v" id="m_eta">—</div><div class="u">%</div></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="viz">Courbes</div>
+    <div class="plots">
+      <div class="plotbox">
+        <h4 data-i18n="p.iv">Caractéristique I-V &amp; P-V</h4>
+        <div class="sub" data-i18n="p.iv.sub">Le MPP (point orange) maximise la puissance V·I.</div>
+        <canvas id="cv_iv" width="440" height="340"></canvas>
+      </div>
+      <div class="plotbox">
+        <h4 id="fam-t" data-i18n="p.fam">Effet de l'ensoleillement</h4>
+        <div class="sub" id="fam-s" data-i18n="p.fam.sub">I_sc ∝ G ; V_oc varie peu (en ln G).</div>
+        <canvas id="cv_fam" width="440" height="340"></canvas>
+      </div>
+    </div>
+    <div style="margin-top:.7rem">
+      <label style="font-size:.82rem;font-weight:600;color:var(--text2);margin-right:.5rem" data-i18n="fam.l">Famille de courbes</label>
+      <select id="fam" onchange="recompute()" style="font:inherit;font-size:.9rem;padding:.35rem .55rem;border:1.5px solid var(--border);border-radius:8px">
+        <option value="G" data-i18n="fam.G">vs ensoleillement G</option>
+        <option value="T" data-i18n="fam.T">vs température T</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="sys">Système — énergie produite</div>
+    <div data-i18n-html="sys.intro"></div>
+    <div class="controls" style="margin-top:.9rem">
+      <div class="ctrl"><label><span data-i18n="Nm">Nombre de modules</span> · <span id="Nmv" class="val">20</span></label><input id="Nm" type="range" min="1" max="60" step="1" value="20" oninput="recompute()"></div>
+      <div class="ctrl"><label><span data-i18n="psh">Heures de soleil crête (PSH)</span> · <span id="pshv" class="val">4.5 h/j</span></label><input id="psh" type="range" min="1" max="7" step="0.1" value="4.5" oninput="recompute()"></div>
+      <div class="ctrl"><label><span data-i18n="pr">Ratio de performance (PR)</span> · <span id="prv" class="val">0.80</span></label><input id="pr" type="range" min="0.5" max="0.95" step="0.01" value="0.8" oninput="recompute()"></div>
+    </div>
+    <div class="metrics" style="margin-top:1rem">
+      <div class="metric hl"><div class="k" data-i18n="m.pcrete">Puissance crête installée</div><div class="v" id="m_pc">—</div><div class="u" id="m_pcu">kWc</div></div>
+      <div class="metric"><div class="k" data-i18n="m.surf">Surface de panneaux</div><div class="v" id="m_surf">—</div><div class="u">m²</div></div>
+      <div class="metric"><div class="k" data-i18n="m.eday">Énergie / jour</div><div class="v" id="m_eday">—</div><div class="u">kWh/j</div></div>
+      <div class="metric"><div class="k" data-i18n="m.eyear">Énergie / an</div><div class="v" id="m_eyear">—</div><div class="u">kWh/an</div></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="valid">Validation &amp; repères</div>
+    <table class="valid">
+      <thead><tr><th data-i18n="v.case">Cas</th><th data-i18n="v.tool">Cet outil</th><th data-i18n="v.ref">Repère</th></tr></thead>
+      <tbody>
+        <tr><td data-i18n="v.cell">Cellule Si mono à STC (1000 W/m², 25 °C)</td><td id="vr1">—</td><td data-i18n="v.cellref">V_oc ~ 0,69 V · FF ~ 80 %</td></tr>
+        <tr><td data-i18n="v.tcoef">V_oc baisse avec T</td><td id="vr2">—</td><td>≈ −0,3 %/°C (Si)</td></tr>
+        <tr><td data-i18n="v.isc">I_sc proportionnel à G</td><td data-i18n="v.iscok">vérifié</td><td>I_sc(G) = I_sc·G/1000</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="warn" data-i18n-html="disclaimer"><b>Outil pédagogique —</b> modèle <b>à une diode</b> (I = I_ph − I₀(exp((V+IR_s)/nV_T) − 1) − (V+IR_s)/R_sh), paramètres typiques par technologie, I₀(T) ∝ T³·exp(−E_g/kT). Module = mise à l'échelle idéale N_s × N_p (sans désappariement ni diodes de by-pass). Énergie système estimée par P_crête × PSH × PR (méthode des heures de soleil crête). Donne les ordres de grandeur, pas un dimensionnement certifié.</div>
+</main>
+
+<footer><div class="wrap">
+  <span data-i18n-html="footer.lic">© 2026 Hakeim Talleb · EMtools · Code sous licence <a href="LICENSE">MIT</a></span>
+  <span><a href="index.html" data-i18n="footer.home">← Tous les outils EMtools</a></span>
+</div></footer>
+
+<script>
+function $(id){return document.getElementById(id);}
+function dpr(cv){const r=window.devicePixelRatio||1;const w=cv.clientWidth||parseFloat(cv.style.width)||cv.width;const h=parseFloat(cv.style.height)||cv.clientHeight||cv.height;cv.width=Math.round(w*r);cv.height=Math.round(h*r);const x=cv.getContext('2d');x.setTransform(r,0,0,r,0,0);return {x,w,h};}
+const QE=1.602e-19, KB=1.381e-23;
+// technology presets: Jsc (mA/cm²), Voc_ref (V/cell), n (ideality), Eg (eV)
+const TECH={ mono:{Jsc:39,Voc:0.690,n:1.1,Eg:1.12}, poly:{Jsc:37,Voc:0.660,n:1.2,Eg:1.12}, cdte:{Jsc:26,Voc:0.850,n:1.5,Eg:1.50} };
+function cellParams(){
+  const tp=TECH[$('tech').value]||TECH.mono, area=parseFloat($('area').value);
+  const Iph_ref=tp.Jsc/1000*area;                 // A at STC (G=1000)
+  const Vt0=tp.n*KB*298.15/QE;
+  const I0_ref=Iph_ref/(Math.exp(tp.Voc/Vt0)-1);  // saturation current from Voc
+  return {tp,area,Iph_ref,I0_ref,n:tp.n,Eg:tp.Eg,Rs:parseFloat($('Rs').value)/1000,Rsh:parseFloat($('Rsh').value)};
+}
+// single-diode cell I-V at (G,T). returns {Voc,Isc,Vmp,Imp,Pmp,FF,eta,curve}
+function cellIV(G,T,p){
+  const Tk=T+273.15, Vt=p.n*KB*Tk/QE;
+  const Iph=p.Iph_ref*(G/1000)*(1+0.0005*(T-25));
+  const I0=p.I0_ref*Math.pow(Tk/298.15,3)*Math.exp((p.Eg*QE/KB)*(1/298.15-1/Tk));
+  function I(V){let i=Iph*0.98;for(let it=0;it<90;it++){const e=Math.exp(Math.min((V+i*p.Rs)/Vt,300));const f=Iph-I0*(e-1)-(V+i*p.Rs)/p.Rsh-i;const df=-I0*e*p.Rs/Vt-p.Rs/p.Rsh-1;const di=f/df;i-=di;if(Math.abs(di)<1e-10)break;}return i;}
+  const Voc0=Vt*Math.log(Iph/I0+1);               // approx Voc (ignoring Rs,Rsh)
+  const Vmax=Voc0*1.04, NP=140, curve=[]; let Pmp=0,Vmp=0,Imp=0,Voc=Voc0,prevV=0,prevI=Iph;
+  for(let k=0;k<=NP;k++){const V=Vmax*k/NP, i=I(V); const ii=Math.max(0,i); curve.push({V,I:ii});
+    const P=V*ii; if(P>Pmp){Pmp=P;Vmp=V;Imp=ii;}
+    if(prevI>0&&i<=0){Voc=prevV+(0-prevI)/(i-prevI)*(V-prevV);} prevV=V;prevI=i;}
+  const Isc=Math.max(0,I(0));
+  const FF=Pmp/(Voc*Isc), eta=Pmp/(G*p.area/1e4);
+  return {Voc,Isc,Vmp,Imp,Pmp,FF,eta,curve};
+}
+
+let CUR=null;
+function recompute(){
+  $('Gv').textContent=$('G').value+' W/m²';$('Tv').textContent=$('T').value+' °C';$('areav').textContent=$('area').value+' cm²';
+  $('Rsv').textContent=$('Rs').value+' mΩ';$('Rshv').textContent=parseFloat($('Rsh').value).toFixed(1)+' Ω';
+  $('Nsv').textContent=$('Ns').value;$('Npv').textContent=$('Np').value;
+  $('Nmv').textContent=$('Nm').value;$('pshv').textContent=parseFloat($('psh').value).toFixed(1)+' h/j';$('prv').textContent=parseFloat($('pr').value).toFixed(2);
+  const G=parseFloat($('G').value), T=parseFloat($('T').value), p=cellParams();
+  const cell=cellIV(G,T,p);
+  const Ns=parseInt($('Ns').value), Np=parseInt($('Np').value), lvl=$('level').value;
+  const scV=lvl==='mod'?Ns:1, scI=lvl==='mod'?Np:1, scA=lvl==='mod'?Ns*Np:1;
+  // displayed quantities (cell or module)
+  const Voc=cell.Voc*scV, Isc=cell.Isc*scI, Vmp=cell.Vmp*scV, Imp=cell.Imp*scI, Pmp=cell.Pmp*scA;
+  const FF=cell.FF, eta=cell.eta;
+  $('res-t').textContent=t(lvl==='mod'?'res':'res.cell');
+  $('m_pmp').textContent=Pmp>=1?Pmp.toFixed(1):(Pmp*1000).toFixed(0); $('m_pmpu').textContent=Pmp>=1?'W':'mW';
+  $('m_voc').textContent=Voc.toFixed(Voc<10?3:1);
+  $('m_isc').textContent=Isc.toFixed(2);
+  $('m_mpp').textContent=Vmp.toFixed(Vmp<10?2:1)+' · '+Imp.toFixed(2);
+  $('m_ff').textContent=(FF*100).toFixed(1);
+  $('m_eta').textContent=(eta*100).toFixed(1);
+  // module power for system (always module)
+  const Pmod=cell.Pmp*Ns*Np, areaMod=p.area/1e4*Ns*Np;
+  const Nm=parseInt($('Nm').value), psh=parseFloat($('psh').value), pr=parseFloat($('pr').value);
+  // peak power rated at STC
+  const cellSTC=cellIV(1000,25,p), PmodSTC=cellSTC.Pmp*Ns*Np, Pc=PmodSTC*Nm;   // Wc
+  const surf=areaMod*Nm, eday=Pc/1000*psh*pr, eyear=eday*365;
+  $('m_pc').textContent=Pc>=1000?(Pc/1000).toFixed(2):Pc.toFixed(0); $('m_pcu').textContent=Pc>=1000?'kWc':'Wc';
+  $('m_surf').textContent=surf.toFixed(1);
+  $('m_eday').textContent=eday.toFixed(1);
+  $('m_eyear').textContent=eyear>=1000?(eyear/1000).toFixed(2)+'k':eyear.toFixed(0);
+  // validation
+  $('vr1').textContent='V_oc='+cell.Voc.toFixed(3)+' V · FF='+(cell.FF*100).toFixed(0)+'%';
+  $('vr2').textContent='V_oc(60°C)/V_oc(25°C) = '+(cellIV(1000,60,p).Voc/cellIV(1000,25,p).Voc*100).toFixed(0)+'% ('+((cellIV(1000,60,p).Voc/cellIV(1000,25,p).Voc-1)/35*100).toFixed(2)+'%/°C)';
+  CUR={G,T,p,cell,Ns,Np,lvl,scV,scI,Voc,Isc,Vmp,Imp,Pmp};
+  drawIV(); drawFam();
+}
+function setTech(){ const t=TECH[$('tech').value]; if(t){ /* area default kept */ } recompute(); }
+
+function drawIV(){
+  const c=CUR; const cv=$('cv_iv'); cv.style.height='340px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const pad=44,x0=pad,x1=w-40,y0=h-30,y1=16;
+  const Vm=c.Voc*1.04, Im=c.Isc*1.12, Pm=c.Vmp*c.Imp*1.15;
+  const sx=V=>x0+V/Vm*(x1-x0), syI=I=>y0-I/Im*(y0-y1), syP=P=>y0-P/Pm*(y0-y1);
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='right';
+  for(let k=0;k<=4;k++){const I=Im*k/4;x.fillText(I.toFixed(Im<2?2:1),x0-4,syI(I)+3);x.strokeStyle='#f1f5f9';x.beginPath();x.moveTo(x0,syI(I));x.lineTo(x1,syI(I));x.stroke();}
+  x.textAlign='center';for(let k=0;k<=4;k++){const V=Vm*k/4;x.fillText(V.toFixed(Vm<10?2:0),sx(V),y0+13);}
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.fillText(LANG==='fr'?'tension V (V)':'voltage V (V)',(x0+x1)/2,h-6);
+  x.fillStyle='#0d9488';x.save();x.translate(12,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText(LANG==='fr'?'courant I (A)':'current I (A)',0,0);x.restore();
+  x.fillStyle='#7c3aed';x.save();x.translate(w-10,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText(LANG==='fr'?'puissance P (W)':'power P (W)',0,0);x.restore();
+  // P-V (purple)
+  x.strokeStyle='#c4b5fd';x.lineWidth=1.6;x.beginPath();c.cell.curve.forEach((pt,i)=>{const V=pt.V*c.scV,I=pt.I*c.scI;const X=sx(V),Y=syP(V*I);i?x.lineTo(X,Y):x.moveTo(X,Y);});x.stroke();
+  // I-V (teal)
+  x.strokeStyle='#0d9488';x.lineWidth=2.4;x.beginPath();c.cell.curve.forEach((pt,i)=>{const V=pt.V*c.scV,I=pt.I*c.scI;const X=sx(V),Y=syI(I);i?x.lineTo(X,Y):x.moveTo(X,Y);});x.stroke();
+  // MPP marker
+  const mX=sx(c.Vmp),mYi=syI(c.Imp);
+  x.strokeStyle='#d97706';x.setLineDash([3,3]);x.lineWidth=1;x.beginPath();x.moveTo(mX,y0);x.lineTo(mX,mYi);x.lineTo(x0,mYi);x.stroke();x.setLineDash([]);
+  x.fillStyle='#d97706';x.beginPath();x.arc(mX,mYi,4,0,7);x.fill();x.beginPath();x.arc(mX,syP(c.Vmp*c.Imp),4,0,7);x.fill();
+  x.font='10px sans-serif';x.textAlign='left';x.fillText('MPP '+(c.Pmp>=1?c.Pmp.toFixed(1)+' W':(c.Pmp*1e3).toFixed(0)+' mW'),Math.min(mX+6,x1-90),mYi-6);
+}
+function drawFam(){
+  const c=CUR, cv=$('cv_fam'); cv.style.height='340px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const pad=44,x0=pad,x1=w-12,y0=h-30,y1=16, mode=$('fam').value;
+  $('fam-t').textContent=t(mode==='G'?'p.fam':'p.famT'); $('fam-s').textContent=t(mode==='G'?'p.fam.sub':'p.famT.sub');
+  const series = mode==='G' ? [200,400,600,800,1000].map(G=>({lab:G+' W/m²',iv:cellIV(G,c.T,c.p),col:G}))
+                            : [0,25,45,65].map(T=>({lab:T+' °C',iv:cellIV(c.G,T,c.p),col:T}));
+  let Vm=0,Im=0; series.forEach(s=>{Vm=Math.max(Vm,s.iv.Voc);Im=Math.max(Im,s.iv.Isc);}); Vm*=c.scV*1.04;Im*=c.scI*1.12;
+  const sx=V=>x0+V/Vm*(x1-x0), sy=I=>y0-I/Im*(y0-y1);
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='right';for(let k=0;k<=4;k++){const I=Im*k/4;x.fillText(I.toFixed(Im<2?2:1),x0-4,sy(I)+3);}
+  x.textAlign='center';for(let k=0;k<=4;k++){const V=Vm*k/4;x.fillText(V.toFixed(Vm<10?2:0),sx(V),y0+13);}
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.fillText(LANG==='fr'?'tension V (V)':'voltage V (V)',(x0+x1)/2,h-6);
+  x.save();x.translate(12,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText(LANG==='fr'?'courant I (A)':'current I (A)',0,0);x.restore();
+  const cols=mode==='G'?['#bae6fd','#7dd3fc','#38bdf8','#0ea5e9','#0369a1']:['#0d9488','#22c55e','#f59e0b','#ef4444'];
+  series.forEach((s,si)=>{x.strokeStyle=cols[si];x.lineWidth=2;x.beginPath();s.iv.curve.forEach((pt,i)=>{const V=pt.V*c.scV,I=pt.I*c.scI;const X=sx(V),Y=sy(I);i?x.lineTo(X,Y):x.moveTo(X,Y);});x.stroke();
+    x.fillStyle=cols[si];x.font='9px sans-serif';x.textAlign='left';x.fillText(s.lab,x1-66,y1+8+si*11);});
+}
+
+/* i18n */
+const I18N={
+ 'back.hub':{fr:"EMtools",en:"EMtools"},
+ 'title':{fr:"Photovoltaïque",en:"Photovoltaics"},
+ 'tag':{fr:"De la cellule au système : modèle à une diode, courbe I-V/P-V, point de puissance maximale, rendement, effets de l'ensoleillement et de la température, et énergie produite.",
+        en:"From cell to system: single-diode model, I-V/P-V curve, maximum power point, efficiency, irradiance and temperature effects, and energy yield."},
+ 'intro':{fr:"<b>Principe —</b> une cellule PV est une <b>diode éclairée</b> : la lumière génère un photocourant I<sub>ph</sub> (∝ ensoleillement), en parallèle d'une diode et de résistances parasites (<b>modèle à une diode</b>). Sa courbe <b>I-V</b> donne le <b>point de puissance maximale (MPP)</b>, le <b>facteur de forme</b> et le <b>rendement</b>. On met les cellules <b>en série</b> (la tension s'ajoute) et <b>en parallèle</b> (le courant s'ajoute) pour faire un <b>module</b>, puis on assemble des modules en <b>système</b> dont on estime l'énergie produite.",
+          en:"<b>Principle —</b> a PV cell is an <b>illuminated diode</b>: light generates a photocurrent I<sub>ph</sub> (∝ irradiance), in parallel with a diode and parasitic resistances (<b>single-diode model</b>). Its <b>I-V</b> curve gives the <b>maximum power point (MPP)</b>, the <b>fill factor</b> and the <b>efficiency</b>. Cells are put <b>in series</b> (voltages add) and <b>in parallel</b> (currents add) to form a <b>module</b>, then modules are assembled into a <b>system</b> whose energy yield is estimated."},
+ 'cfg':{fr:"Cellule & conditions",en:"Cell & conditions"},
+ 'tech':{fr:"Technologie",en:"Technology"},'t.mono':{fr:"Silicium monocristallin",en:"Monocrystalline silicon"},'t.poly':{fr:"Silicium polycristallin",en:"Polycrystalline silicon"},'t.cdte':{fr:"Couche mince (CdTe)",en:"Thin film (CdTe)"},
+ 'G':{fr:"Ensoleillement G",en:"Irradiance G"},'T':{fr:"Température cellule T",en:"Cell temperature T"},'area':{fr:"Surface cellule",en:"Cell area"},
+ 'Rs':{fr:"Résistance série R_s",en:"Series resistance R_s"},'Rsh':{fr:"Résistance shunt R_sh",en:"Shunt resistance R_sh"},
+ 'level':{fr:"Niveau affiché (courbe)",en:"Displayed level (curve)"},'lv.cell':{fr:"Cellule",en:"Cell"},'lv.mod':{fr:"Module (N_s × N_p)",en:"Module (N_s × N_p)"},
+ 'Ns':{fr:"Cellules en série N_s",en:"Cells in series N_s"},'Np':{fr:"Branches en parallèle N_p",en:"Parallel strings N_p"},
+ 'res':{fr:"Caractéristiques (module)",en:"Characteristics (module)"},'res.cell':{fr:"Caractéristiques (cellule)",en:"Characteristics (cell)"},
+ 'm.pmp':{fr:"Puissance crête P_mpp",en:"Peak power P_mpp"},'m.voc':{fr:"Tension circuit ouvert V_oc",en:"Open-circuit voltage V_oc"},
+ 'm.isc':{fr:"Courant court-circuit I_sc",en:"Short-circuit current I_sc"},'m.mpp':{fr:"Au MPP (V_mp, I_mp)",en:"At MPP (V_mp, I_mp)"},
+ 'm.ff':{fr:"Facteur de forme FF",en:"Fill factor FF"},'m.eta':{fr:"Rendement η",en:"Efficiency η"},
+ 'viz':{fr:"Courbes",en:"Curves"},
+ 'p.iv':{fr:"Caractéristique I-V & P-V",en:"I-V & P-V characteristic"},'p.iv.sub':{fr:"Le MPP (point orange) maximise la puissance V·I.",en:"The MPP (orange dot) maximises the power V·I."},
+ 'p.fam':{fr:"Effet de l'ensoleillement",en:"Irradiance effect"},'p.fam.sub':{fr:"I_sc ∝ G ; V_oc varie peu (en ln G).",en:"I_sc ∝ G; V_oc varies little (as ln G)."},
+ 'p.famT':{fr:"Effet de la température",en:"Temperature effect"},'p.famT.sub':{fr:"V_oc baisse avec T → P_mpp baisse (~ −0,4 %/°C).",en:"V_oc drops with T → P_mpp drops (~ −0.4 %/°C)."},
+ 'fam.l':{fr:"Famille de courbes",en:"Curve family"},'fam.G':{fr:"vs ensoleillement G",en:"vs irradiance G"},'fam.T':{fr:"vs température T",en:"vs temperature T"},
+ 'sys':{fr:"Système — énergie produite",en:"System — energy yield"},
+ 'sys.intro':{fr:"<b>Du module au système —</b> on multiplie par le nombre de modules pour la <b>puissance crête</b> (à STC), puis on estime l'énergie par la méthode des <b>heures de soleil crête</b> : <b>E = P_crête × PSH × PR</b>, où PSH ≈ ensoleillement quotidien (kWh/m²/j) et PR (ratio de performance ≈ 0,75–0,85) regroupe pertes onduleur, câbles, température, salissure.",
+              en:"<b>From module to system —</b> multiply by the number of modules for the <b>peak power</b> (at STC), then estimate energy by the <b>peak-sun-hours</b> method: <b>E = P_peak × PSH × PR</b>, where PSH ≈ daily irradiation (kWh/m²/day) and PR (performance ratio ≈ 0.75–0.85) lumps inverter, cable, temperature and soiling losses."},
+ 'Nm':{fr:"Nombre de modules",en:"Number of modules"},'psh':{fr:"Heures de soleil crête (PSH)",en:"Peak sun hours (PSH)"},'pr':{fr:"Ratio de performance (PR)",en:"Performance ratio (PR)"},
+ 'm.pcrete':{fr:"Puissance crête installée",en:"Installed peak power"},'m.surf':{fr:"Surface de panneaux",en:"Panel area"},'m.eday':{fr:"Énergie / jour",en:"Energy / day"},'m.eyear':{fr:"Énergie / an",en:"Energy / year"},
+ 'valid':{fr:"Validation & repères",en:"Validation & benchmarks"},
+ 'v.case':{fr:"Cas",en:"Case"},'v.tool':{fr:"Cet outil",en:"This tool"},'v.ref':{fr:"Repère",en:"Benchmark"},
+ 'v.cell':{fr:"Cellule Si mono à STC (1000 W/m², 25 °C)",en:"Mono-Si cell at STC (1000 W/m², 25 °C)"},'v.cellref':{fr:"V_oc ~ 0,69 V · FF ~ 80 %",en:"V_oc ~ 0.69 V · FF ~ 80 %"},
+ 'v.tcoef':{fr:"V_oc baisse avec T",en:"V_oc drops with T"},
+ 'v.isc':{fr:"I_sc proportionnel à G",en:"I_sc proportional to G"},'v.iscok':{fr:"vérifié",en:"verified"},
+ 'disclaimer':{fr:"<b>Outil pédagogique —</b> modèle <b>à une diode</b> (I = I_ph − I₀(exp((V+IR_s)/nV_T) − 1) − (V+IR_s)/R_sh), paramètres typiques par technologie, I₀(T) ∝ T³·exp(−E_g/kT). Module = mise à l'échelle idéale N_s × N_p (sans désappariement ni diodes de by-pass). Énergie système estimée par P_crête × PSH × PR (méthode des heures de soleil crête). Donne les ordres de grandeur, pas un dimensionnement certifié.",
+               en:"<b>Educational tool —</b> <b>single-diode</b> model (I = I_ph − I₀(exp((V+IR_s)/nV_T) − 1) − (V+IR_s)/R_sh), typical per-technology parameters, I₀(T) ∝ T³·exp(−E_g/kT). Module = ideal N_s × N_p scaling (no mismatch or bypass diodes). System energy estimated by P_peak × PSH × PR (peak-sun-hours method). Gives orders of magnitude, not a certified design."},
+ 'footer.lic':{fr:'© 2026 Hakeim Talleb · EMtools · Code sous licence <a href="LICENSE">MIT</a>',en:'© 2026 Hakeim Talleb · EMtools · Code under the <a href="LICENSE">MIT</a> license'},
+ 'footer.home':{fr:"← Tous les outils EMtools",en:"← All EMtools tools"},
+};
+let LANG=localStorage.getItem('emtools_lang')||'fr';
+function t(k){const e=I18N[k];return e?(e[LANG]||e.fr):k;}
+function applyLang(){
+  document.documentElement.lang=LANG;
+  document.querySelectorAll('[data-i18n]').forEach(el=>{const e=I18N[el.dataset.i18n];if(e)el.textContent=e[LANG]||e.fr;});
+  document.querySelectorAll('[data-i18n-html]').forEach(el=>{const e=I18N[el.dataset.i18nHtml];if(e)el.innerHTML=e[LANG]||e.fr;});
+  const b=$('lang-toggle');if(b)b.textContent=LANG==='fr'?'EN':'FR';
+}
+function toggleLang(){LANG=LANG==='fr'?'en':'fr';localStorage.setItem('emtools_lang',LANG);applyLang();recompute();}
+applyLang(); recompute();
+window.addEventListener('resize',()=>{if(CUR){drawIV();drawFam();}});
+</script>
+</body>
+</html>
