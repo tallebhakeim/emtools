@@ -147,6 +147,13 @@ table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
     <div data-i18n-html="tri.intro"></div>
     <div class="controls" style="margin-top:.9rem">
       <div class="ctrl">
+        <label data-i18n="tri.np">Nombre de paires</label>
+        <select id="tri-np" onchange="recomputeTri()">
+          <option value="2" data-i18n="tri.np2">2 paires (champ dans le plan xy)</option>
+          <option value="3" selected data-i18n="tri.np3">3 paires (champ dans l'espace)</option>
+        </select>
+      </div>
+      <div class="ctrl">
         <label><span data-i18n="tri.th">Direction θ (depuis z)</span> · <span id="tri-thv" class="val">55°</span></label>
         <input id="tri-th" type="range" min="0" max="180" step="1" value="55" oninput="recomputeTri()">
       </div>
@@ -521,10 +528,12 @@ let TRI=null;
 function recomputeTri(){
   if(!CUR)return;
   $('tri-thv').textContent=$('tri-th').value+'°'; $('tri-phv').textContent=$('tri-ph').value+'°';
-  const th=parseFloat($('tri-th').value)*Math.PI/180, ph=parseFloat($('tri-ph').value)*Math.PI/180;
+  const np=parseInt($('tri-np').value);
+  $('tri-th').disabled=(np===2);
+  const th=(np===2?Math.PI/2:parseFloat($('tri-th').value)*Math.PI/180), ph=parseFloat($('tri-ph').value)*Math.PI/180;
   const u=[Math.sin(th)*Math.cos(ph),Math.sin(th)*Math.sin(ph),Math.cos(th)];
   const R=CUR.R, NI=CUR.NI, Rk=[R,1.16*R,1.32*R], axes=[[1,0,0],[0,1,0],[0,0,1]], coils=[];
-  axes.forEach((a,k)=>{const NIk=NI*u[k]*Rk[k]/R, d=Rk[k];
+  axes.slice(0,np).forEach((a,k)=>{const NIk=NI*u[k]*Rk[k]/R, d=Rk[k];
     [-0.5,0.5].forEach(s=>coils.push({cc:[a[0]*s*d,a[1]*s*d,a[2]*s*d],ax:a,R:Rk[k],NI:NIk}));});
   // field lines seeded on a disc perpendicular to u
   const e1=normalize(cross(u,Math.abs(u[2])<0.9?[0,0,1]:[1,0,0])), e2=cross(u,e1), lines=[];
@@ -534,7 +543,7 @@ function recomputeTri(){
   const B0mag=Math.pow(4/5,1.5)*MU0*NI/R;
   TRI={coils,lines,u,B0mag,R};
   $('m_tb').textContent=fmtB(B0mag); $('m_tbu').textContent=B0mag<1e-3?'µT':'mT';
-  $('m_tdir').textContent='θ='+$('tri-th').value+'° · φ='+$('tri-ph').value+'°';
+  $('m_tdir').textContent=(np===2?(LANG==='fr'?'plan xy · φ=':'xy-plane · φ=')+$('tri-ph').value+'°':'θ='+$('tri-th').value+'° · φ='+$('tri-ph').value+'°');
   drawTri();
 }
 let _az2=0.9,_el2=0.45;
@@ -643,6 +652,9 @@ const I18N={
  'tri.t':{fr:"Banc tri-axial — champ vectoriel & compensation des mutuelles",en:"Tri-axial bench — vector field & mutual compensation"},
  'tri.intro':{fr:"<b>Banc 3 axes —</b> trois paires de Helmholtz <b>orthogonales</b> (x, y, z) permettent de générer un champ uniforme dans <b>n'importe quelle direction</b> en combinant les courants. Point clé (ta Figure 2.14) : les <b>mutuelles entre axes orthogonaux s'annulent</b> — le flux d'une paire « secondaire » à travers une bobine « considérée » perpendiculaire se compense (un <b>+</b> et un <b>−</b> d'aires égales). Chaque bobine ne couple donc qu'avec sa paire (L<sub>équ</sub> = L<sub>propre</sub> + M).",
               en:"<b>3-axis bench —</b> three <b>orthogonal</b> Helmholtz pairs (x, y, z) generate a uniform field in <b>any direction</b> by combining the currents. Key point (your Figure 2.14): the <b>mutuals between orthogonal axes cancel</b> — the flux of a “secondary” pair through a perpendicular “considered” coil compensates (a <b>+</b> and a <b>−</b> of equal area). Each coil thus couples only with its own pair (L<sub>eq</sub> = L<sub>self</sub> + M)."},
+ 'tri.np':{fr:"Nombre de paires",en:"Number of pairs"},
+ 'tri.np2':{fr:"2 paires (champ dans le plan xy)",en:"2 pairs (field in the xy plane)"},
+ 'tri.np3':{fr:"3 paires (champ dans l'espace)",en:"3 pairs (field in space)"},
  'tri.th':{fr:"Direction θ (depuis z)",en:"Direction θ (from z)"},
  'tri.ph':{fr:"Azimut φ (autour de z)",en:"Azimuth φ (around z)"},
  'tri.b':{fr:"Champ uniforme résultant |B|",en:"Resulting uniform field |B|"},

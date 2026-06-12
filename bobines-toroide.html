@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EMtools — Solénoïde &amp; toroïdes</title>
+<meta name="description" content="EMtools — champ magnétique d'un solénoïde, d'une hélice toroïde et d'un toroïde de collisionneur : lignes de champ 3D, profil et confinement. Par Hakeim Talleb.">
+<style>
+:root{--navy:#1a2e4a;--teal:#0d9488;--teal2:#0f766e;--teal-light:#e6f7f5;--gold:#d97706;
+  --text:#1e293b;--text2:#64748b;--border:#e2e8f0;--bg:#f8fafc;--bg2:#f0fdf9;--white:#fff;--radius:14px;--shadow:0 2px 14px rgba(26,46,74,.08);}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--text);background:var(--bg);line-height:1.6}
+a{color:var(--teal2)}
+.wrap{max-width:980px;margin:0 auto;padding:0 1.25rem}
+#lang-toggle{position:fixed;top:14px;right:16px;z-index:50;background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.45);border-radius:8px;padding:5px 12px;font-size:13px;font-weight:700;cursor:pointer;backdrop-filter:blur(4px)}
+header{background:linear-gradient(135deg,#1a2e4a,#0f3a4d);color:#fff;padding:2.4rem 0 2rem}
+header .wrap{display:flex;flex-direction:column;gap:.4rem}
+header .back{font-size:.82rem;color:#94a3b8;text-decoration:none}
+header .back:hover{color:#cbd5e1}
+header h1{font-size:1.7rem;font-weight:800;letter-spacing:-.02em}
+header .tag{font-size:1rem;color:#cbd5e1;max-width:700px}
+main{padding:2rem 0 3rem}
+.intro{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius);padding:1rem 1.2rem;font-size:.9rem;margin-bottom:1.6rem}
+.intro b{color:var(--navy)}
+.panel{background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.3rem 1.4rem;margin-bottom:1.4rem}
+.ptitle{font-size:.78rem;font-weight:700;color:var(--teal2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:1rem}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem 1.4rem}
+.ctrl{display:flex;flex-direction:column;gap:.3rem}
+.ctrl label{font-size:.82rem;font-weight:600;color:var(--text2)}
+.ctrl input,.ctrl select{font:inherit;font-size:.92rem;padding:.45rem .55rem;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--text)}
+.ctrl input[type=range]{padding:0}
+.ctrl .val{font-size:.8rem;color:var(--teal2);font-weight:700}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.9rem}
+.metric{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:.8rem .9rem}
+.metric .k{font-size:.74rem;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.metric .v{font-size:1.2rem;font-weight:800;color:var(--navy);margin-top:.15rem}
+.metric .u{font-size:.78rem;color:var(--text2);font-weight:600}
+.metric.hl{background:var(--teal-light);border-color:#99e6dc}.metric.hl .v{color:var(--teal2)}
+.plots{display:grid;grid-template-columns:1fr 1fr;gap:1.4rem}
+.plotbox{display:flex;flex-direction:column;gap:.4rem}
+.plotbox h4{font-size:.86rem;font-weight:700;color:var(--navy)}
+.plotbox .sub{font-size:.74rem;color:var(--text2)}
+canvas{width:100%;height:auto;background:#fff;border:1px solid var(--border);border-radius:10px}
+@media(max-width:760px){.plots{grid-template-columns:1fr}}
+.warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:10px;padding:.7rem .9rem;font-size:.83rem;margin-top:1rem}
+footer{border-top:1px solid var(--border);padding:1.5rem 0;font-size:.8rem;color:var(--text2);margin-top:1rem}
+footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+footer a{color:var(--text2)}
+</style>
+</head>
+<body>
+<button id="lang-toggle" onclick="toggleLang()">EN</button>
+
+<header><div class="wrap">
+  <a class="back" href="index.html">← <span data-i18n="back.hub">EMtools</span></a>
+  <h1>🧲 <span data-i18n="title">Solénoïde &amp; toroïdes</span></h1>
+  <div class="tag" data-i18n="tag">Champ magnétique d'un solénoïde, d'une hélice toroïde et d'un toroïde de collisionneur : lignes de champ 3D, profil et confinement.</div>
+</div></header>
+
+<main class="wrap">
+  <div class="intro" data-i18n-html="intro">
+    <b>Principe —</b> en sommant le champ exact de chaque spire (intégrales elliptiques), on visualise trois
+    géométries emblématiques : le <b>solénoïde</b> (champ axial uniforme à l'intérieur, ≈ nul dehors), l'<b>hélice
+    toroïde</b> (champ <b>azimutal confiné dans le tube</b>, B = µ₀NI/2πr) et le <b>toroïde de collisionneur</b>
+    (quelques grandes bobines, champ toroïdal dans le grand volume avec une <b>ondulation</b> liée à leur nombre).
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="cfg">Configuration</div>
+    <div class="controls">
+      <div class="ctrl">
+        <label data-i18n="type">Géométrie</label>
+        <select id="cfg" onchange="setConfig()">
+          <option value="sol" data-i18n="t.sol">Solénoïde</option>
+          <option value="tor" data-i18n="t.tor">Hélice toroïde</option>
+          <option value="col" data-i18n="t.col">Toroïde de collisionneur</option>
+        </select>
+      </div>
+      <div class="ctrl">
+        <label><span data-i18n="I">Courant I</span> · <span id="Iv" class="val">10 A</span></label>
+        <input id="I" type="range" min="0.5" max="100" step="0.5" value="10" oninput="recompute()">
+      </div>
+      <!-- solenoid -->
+      <div class="ctrl grp-sol"><label><span data-i18n="sol.R">Rayon R</span> · <span id="solRv" class="val">5 cm</span></label><input id="solR" type="range" min="1" max="20" step="0.5" value="5" oninput="recompute()"></div>
+      <div class="ctrl grp-sol"><label><span data-i18n="sol.L">Longueur L</span> · <span id="solLv" class="val">30 cm</span></label><input id="solL" type="range" min="4" max="60" step="1" value="30" oninput="recompute()"></div>
+      <div class="ctrl grp-sol"><label><span data-i18n="sol.N">Spires N</span> · <span id="solNv" class="val">24</span></label><input id="solN" type="range" min="3" max="60" step="1" value="24" oninput="recompute()"></div>
+      <!-- toroid -->
+      <div class="ctrl grp-tor"><label><span data-i18n="tor.Rt">Rayon majeur R_t</span> · <span id="torRtv" class="val">15 cm</span></label><input id="torRt" type="range" min="6" max="30" step="0.5" value="15" oninput="recompute()"></div>
+      <div class="ctrl grp-tor"><label><span data-i18n="tor.a">Rayon du tube a</span> · <span id="torav" class="val">4 cm</span></label><input id="tora" type="range" min="1" max="10" step="0.25" value="4" oninput="recompute()"></div>
+      <div class="ctrl grp-tor"><label><span data-i18n="tor.N">Spires N</span> · <span id="torNv" class="val">28</span></label><input id="torN" type="range" min="6" max="60" step="1" value="28" oninput="recompute()"></div>
+      <!-- collider -->
+      <div class="ctrl grp-col"><label><span data-i18n="col.Rc">Rayon des bobines R_c</span> · <span id="colRcv" class="val">14 cm</span></label><input id="colRc" type="range" min="6" max="28" step="0.5" value="14" oninput="recompute()"></div>
+      <div class="ctrl grp-col"><label><span data-i18n="col.rho">Demi-hauteur bobine ρ</span> · <span id="colrhov" class="val">9 cm</span></label><input id="colrho" type="range" min="3" max="16" step="0.5" value="9" oninput="recompute()"></div>
+      <div class="ctrl grp-col"><label><span data-i18n="col.Nc">Nombre de bobines N_c</span> · <span id="colNcv" class="val">8</span></label><input id="colNc" type="range" min="3" max="16" step="1" value="8" oninput="recompute()"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="res">Champ caractéristique</div>
+    <div id="formula" style="font-size:.88rem;margin-bottom:.8rem"></div>
+    <div class="metrics">
+      <div class="metric hl"><div class="k" id="m1k">—</div><div class="v" id="m1">—</div><div class="u" id="m1u">mT</div></div>
+      <div class="metric"><div class="k" id="m2k">—</div><div class="v" id="m2">—</div><div class="u" id="m2u"></div></div>
+      <div class="metric"><div class="k" id="m3k">—</div><div class="v" id="m3">—</div><div class="u" id="m3u"></div></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="viz">Visualisation</div>
+    <div class="plots">
+      <div class="plotbox">
+        <h4 data-i18n="p.3d">Vue 3D — bobinage &amp; lignes de champ</h4>
+        <div class="sub" data-i18n="p.3d.sub">Glisse pour tourner.</div>
+        <canvas id="cv_3d" width="440" height="380" style="cursor:grab;touch-action:none"></canvas>
+      </div>
+      <div class="plotbox">
+        <h4 id="prof_t" data-i18n="p.prof">Profil du champ</h4>
+        <div class="sub" id="prof_s" data-i18n="p.prof.sub">Coupe du champ.</div>
+        <canvas id="cv_prof" width="440" height="380"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="warn" data-i18n-html="disclaimer"><b>Outil pédagogique —</b> champ exact d'une spire circulaire (intégrales elliptiques) sommé sur le bobinage ; spires supposées filiformes. Le toroïde de collisionneur est modélisé par N_c bobines circulaires en plans méridiens (modèle simplifié des bobines « racetrack » type ATLAS). Sans tenir compte des matériaux magnétiques, des pertes ni de la forme réelle des conducteurs.</div>
+</main>
+
+<footer><div class="wrap">
+  <span data-i18n-html="footer.lic">© 2026 Hakeim Talleb · EMtools · Code sous licence <a href="LICENSE">MIT</a></span>
+  <span><a href="index.html" data-i18n="footer.home">← Tous les outils EMtools</a></span>
+</div></footer>
+
+<script>
+function $(id){return document.getElementById(id);}
+function dpr(cv){const r=window.devicePixelRatio||1;const w=cv.clientWidth||parseFloat(cv.style.width)||cv.width;const h=parseFloat(cv.style.height)||cv.clientHeight||cv.height;cv.width=Math.round(w*r);cv.height=Math.round(h*r);const x=cv.getContext('2d');x.setTransform(r,0,0,r,0,0);return {x,w,h};}
+const MU0=4*Math.PI*1e-7;
+function cross(a,b){return[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];}
+function normalize(v){const m=Math.hypot(v[0],v[1],v[2])||1;return[v[0]/m,v[1]/m,v[2]/m];}
+function ellipKE(m){m=Math.min(Math.max(m,0),0.9999999);let a=1,b=Math.sqrt(1-m),c=Math.sqrt(m),s=0.5*c*c,p=0.5;for(let n=0;n<40;n++){const an=(a+b)/2,bn=Math.sqrt(a*b);c=(a-b)/2;p*=2;s+=p*c*c;a=an;b=bn;if(c<1e-15)break;}const K=Math.PI/(2*a);return {K,E:K*(1-s)};}
+function loopB(aR,NI,r,z){if(Math.abs(r)<1e-9)r=1e-9;const ar=Math.abs(r);const al2=aR*aR+ar*ar+z*z-2*aR*ar,be2=aR*aR+ar*ar+z*z+2*aR*ar,be=Math.sqrt(be2);const {K,E}=ellipKE(4*aR*ar/be2),C=MU0*NI/Math.PI;const Bz=C/(2*al2*be)*((aR*aR-ar*ar-z*z)*E+al2*K);let Br=C*z/(2*al2*be*ar)*((aR*aR+ar*ar+z*z)*E-al2*K);if(r<0)Br=-Br;return {Bz,Br};}
+function coilB(co,p){const rel=[p[0]-co.cc[0],p[1]-co.cc[1],p[2]-co.cc[2]];const z=rel[0]*co.ax[0]+rel[1]*co.ax[1]+rel[2]*co.ax[2];const rad=[rel[0]-z*co.ax[0],rel[1]-z*co.ax[1],rel[2]-z*co.ax[2]],r=Math.hypot(rad[0],rad[1],rad[2]);const {Bz,Br}=loopB(co.R,co.NI,r,z);const rh=r>1e-12?[rad[0]/r,rad[1]/r,rad[2]/r]:[0,0,0];return [Bz*co.ax[0]+Br*rh[0],Bz*co.ax[1]+Br*rh[1],Bz*co.ax[2]+Br*rh[2]];}
+function B3(coils,p){let b=[0,0,0];for(const co of coils){const v=coilB(co,p);b[0]+=v[0];b[1]+=v[1];b[2]+=v[2];}return b;}
+function stream(coils,seed,ds,maxN,lim){
+  const fwd=[],bwd=[]; let p=seed.slice();
+  for(let i=0;i<maxN;i++){const b=B3(coils,p),m=Math.hypot(b[0],b[1],b[2])||1e-30;p=[p[0]+b[0]/m*ds,p[1]+b[1]/m*ds,p[2]+b[2]/m*ds];fwd.push(p.slice());if(Math.hypot(p[0],p[1],p[2])>lim)break;if(i>25&&Math.hypot(p[0]-seed[0],p[1]-seed[1],p[2]-seed[2])<ds)break;}
+  p=seed.slice();
+  for(let i=0;i<maxN;i++){const b=B3(coils,p),m=Math.hypot(b[0],b[1],b[2])||1e-30;p=[p[0]-b[0]/m*ds,p[1]-b[1]/m*ds,p[2]-b[2]/m*ds];bwd.push(p.slice());if(Math.hypot(p[0],p[1],p[2])>lim)break;if(i>25&&Math.hypot(p[0]-seed[0],p[1]-seed[1],p[2]-seed[2])<ds)break;}
+  return bwd.reverse().concat([seed.slice()],fwd);
+}
+
+let CUR=null;
+function buildCoils(){
+  const cfg=$('cfg').value, I=parseFloat($('I').value), coils=[]; let ext, lines=[], seeds, meta={};
+  if(cfg==='sol'){
+    const R=parseFloat($('solR').value)/100, L=parseFloat($('solL').value)/100, N=parseInt($('solN').value);
+    for(let m=0;m<N;m++){const z=N>1?-L/2+L*m/(N-1):0; coils.push({cc:[0,0,z],ax:[0,0,1],R,NI:I});}
+    ext=Math.max(R*2.2,L*0.62);
+    // field lines: seed on a disc ⊥ z inside, plus a couple outside
+    for(const fr of [0.0,0.45,0.8]) for(const ang of [0,Math.PI]){const r=fr*R; seeds=[r*Math.cos(ang),r*Math.sin(ang),0]; lines.push(stream(coils,seeds,R/16,520,ext*2.2));}
+    lines.push(stream(coils,[1.4*R,0,0],R/16,520,ext*2.2));
+    meta={R,L,N,n:N/L,Bin:B3(coils,[0,0,0])[2]};
+  } else if(cfg==='tor'){
+    const Rt=parseFloat($('torRt').value)/100, a=parseFloat($('tora').value)/100, N=parseInt($('torN').value);
+    for(let m=0;m<N;m++){const ph=2*Math.PI*m/N; coils.push({cc:[Rt*Math.cos(ph),Rt*Math.sin(ph),0],ax:[-Math.sin(ph),Math.cos(ph),0],R:a,NI:I});}
+    ext=Rt+a*1.4;
+    // azimuthal field lines inside the tube
+    for(const dr of [-a*0.5,0,a*0.5]) for(const dz of [0,a*0.4]){ lines.push(stream(coils,[Rt+dr,0,dz],Rt/26,900,ext*1.6)); }
+    meta={Rt,a,N,Bin:Math.hypot(...B3(coils,[Rt,0,0]))};
+  } else {
+    const Rc=parseFloat($('colRc').value)/100, rho=parseFloat($('colrho').value)/100, Nc=parseInt($('colNc').value);
+    for(let k=0;k<Nc;k++){const ph=2*Math.PI*k/Nc; coils.push({cc:[Rc*Math.cos(ph),Rc*Math.sin(ph),0],ax:[-Math.sin(ph),Math.cos(ph),0],R:rho,NI:I});}
+    ext=Rc+rho*1.1;
+    for(const dz of [0,rho*0.4,-rho*0.4]){ lines.push(stream(coils,[Rc,0,dz],Rc/26,900,ext*1.6)); }
+    meta={Rc,rho,Nc,Bin:Math.hypot(...B3(coils,[Rc,0,0]))};
+  }
+  CUR={cfg,coils,I,ext,lines,meta};
+  return CUR;
+}
+function fmtB(T){const a=Math.abs(T);if(a<1e-6)return (T*1e9).toFixed(1);if(a<1e-3)return (T*1e6).toFixed(a<1e-5?2:1);return (T*1e3).toFixed(3);}
+function unitB(T){const a=Math.abs(T);return a<1e-6?'nT':a<1e-3?'µT':'mT';}
+
+let _az=0.8,_el=0.5;
+function recompute(){
+  // value labels
+  $('Iv').textContent=parseFloat($('I').value).toFixed(1)+' A';
+  $('solRv').textContent=$('solR').value+' cm';$('solLv').textContent=$('solL').value+' cm';$('solNv').textContent=$('solN').value;
+  $('torRtv').textContent=$('torRt').value+' cm';$('torav').textContent=$('tora').value+' cm';$('torNv').textContent=$('torN').value;
+  $('colRcv').textContent=$('colRc').value+' cm';$('colrhov').textContent=$('colrho').value+' cm';$('colNcv').textContent=$('colNc').value;
+  const c=buildCoils(), m=c.meta;
+  // metrics + formula per config
+  const set=(i,k,v,u)=>{$('m'+i+'k').textContent=t(k);$('m'+i).textContent=v;$('m'+i+'u').textContent=u;};
+  $('formula').innerHTML=t('f.'+c.cfg);
+  if(c.cfg==='sol'){ set(1,'mm.bin',fmtB(m.Bin),unitB(m.Bin)); set(2,'mm.n',m.n.toFixed(0),t('mm.tpm')); set(3,'mm.tot',m.N+' × '+c.I.toFixed(1)+' A',''); }
+  else if(c.cfg==='tor'){ set(1,'mm.btube',fmtB(m.Bin),unitB(m.Bin)); set(2,'mm.NI',(m.N*c.I).toFixed(0),'A·t'); set(3,'mm.conf',t('mm.confv'),''); }
+  else { const ripple=colRipple(c); set(1,'mm.btor',fmtB(m.Bin),unitB(m.Bin)); set(2,'mm.nc',m.Nc,t('mm.coils')); set(3,'mm.rip','±'+ripple.toFixed(1),'%'); }
+  draw3D(); drawProf(c);
+}
+function colRipple(c){ // azimuthal field ripple at r=Rc
+  const Rc=c.meta.Rc; let mn=1e9,mx=0;
+  for(let k=0;k<120;k++){const ph=2*Math.PI*k/120;const p=[Rc*Math.cos(ph),Rc*Math.sin(ph),0];const b=B3(c.coils,p);const bphi=Math.abs(-b[0]*Math.sin(ph)+b[1]*Math.cos(ph));mn=Math.min(mn,bphi);mx=Math.max(mx,bphi);}
+  return mx+mn>0?100*(mx-mn)/(mx+mn):0;
+}
+function setConfig(){
+  const cfg=$('cfg').value;
+  document.querySelectorAll('.grp-sol').forEach(e=>e.style.display=cfg==='sol'?'':'none');
+  document.querySelectorAll('.grp-tor').forEach(e=>e.style.display=cfg==='tor'?'':'none');
+  document.querySelectorAll('.grp-col').forEach(e=>e.style.display=cfg==='col'?'':'none');
+  recompute();
+}
+
+function proj(c,px,py,pz,w,h){
+  const sc=Math.min(w,h)/(2.5*c.ext), cx=w/2, cy=h/2+8;
+  const ca=Math.cos(_az),sa=Math.sin(_az),ce=Math.cos(_el),se=Math.sin(_el);
+  let X=px*ca-py*sa,Y=px*sa+py*ca,Z=pz;const Y2=Y*ce-Z*se,Z2=Y*se+Z*ce;
+  return {sx:cx+X*sc,sy:cy-Z2*sc,d:Y2};
+}
+function draw3D(){
+  const c=CUR; if(!c)return; const cv=$('cv_3d'); cv.style.height='380px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const items=[];
+  c.lines.forEach(line=>{if(line.length<3)return;const pr=line.map(p=>proj(c,p[0],p[1],p[2],w,h));let d=0;pr.forEach(q=>d+=q.d);items.push({d:d/pr.length,type:'line',pts:pr});});
+  c.coils.forEach(co=>{const a=co.ax,e1=normalize(cross(a,Math.abs(a[2])<0.9?[0,0,1]:[1,0,0])),e2=cross(a,e1),pr=[];let d=0;
+    for(let k=0;k<=40;k++){const t2=2*Math.PI*k/40;const pt=[co.cc[0]+co.R*(Math.cos(t2)*e1[0]+Math.sin(t2)*e2[0]),co.cc[1]+co.R*(Math.cos(t2)*e1[1]+Math.sin(t2)*e2[1]),co.cc[2]+co.R*(Math.cos(t2)*e1[2]+Math.sin(t2)*e2[2])];const q=proj(c,pt[0],pt[1],pt[2],w,h);pr.push(q);d+=q.d;}
+    items.push({d:d/pr.length,type:'coil',pts:pr});});
+  items.sort((p,q)=>p.d-q.d);
+  for(const it of items){
+    if(it.type==='line'){x.strokeStyle='rgba(13,148,136,.5)';x.lineWidth=1.3;x.beginPath();it.pts.forEach((p,i)=>i?x.lineTo(p.sx,p.sy):x.moveTo(p.sx,p.sy));x.stroke();}
+    else{x.strokeStyle='#b45309';x.lineWidth=c.cfg==='sol'?2:2.2;x.beginPath();it.pts.forEach((p,i)=>i?x.lineTo(p.sx,p.sy):x.moveTo(p.sx,p.sy));x.closePath();x.stroke();}
+  }
+  x.fillStyle='#0f766e';x.font='11px sans-serif';x.textAlign='left';x.fillText(LANG==='fr'?'lignes de champ':'field lines',12,18);
+  x.fillStyle='#b45309';x.fillText(LANG==='fr'?'bobinage':'winding',12,33);
+}
+function drawProf(c){
+  const cv=$('cv_prof'); cv.style.height='380px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const pad=46,x0=pad,x1=w-12,y0=h-30,y1=18;
+  let xs=[],ys=[],xlab,sub,xc=[];
+  if(c.cfg==='sol'){ // B_z on axis vs z
+    const L=c.meta.L; for(let i=0;i<=200;i++){const z=-1.1*L/2+2.2*L/2*i/200;xs.push(z);ys.push(B3(c.coils,[0,0,z])[2]);} xlab='z (cm)'; $('prof_t').textContent=t('p.profSol');$('prof_s').textContent=t('p.profSol.s');
+  } else if(c.cfg==='tor'){ // |B| vs r along x at z=0
+    const Rt=c.meta.Rt,a=c.meta.a; for(let i=0;i<=200;i++){const r=(Rt+a*1.6)*i/200;const b=B3(c.coils,[r,0,0]);xs.push(r);ys.push(Math.hypot(b[0],b[1],b[2]));} xlab='r (cm)'; $('prof_t').textContent=t('p.profTor');$('prof_s').textContent=t('p.profTor.s');
+  } else { // |B_phi| vs azimuth at r=Rc (ripple)
+    const Rc=c.meta.Rc; for(let i=0;i<=240;i++){const ph=2*Math.PI*i/240;const p=[Rc*Math.cos(ph),Rc*Math.sin(ph),0];const b=B3(c.coils,p);xs.push(ph*180/Math.PI);ys.push(Math.abs(-b[0]*Math.sin(ph)+b[1]*Math.cos(ph)));} xlab='φ (°)'; $('prof_t').textContent=t('p.profCol');$('prof_s').textContent=t('p.profCol.s');
+  }
+  const xmin=xs[0],xmax=xs[xs.length-1]; let ymax=0;ys.forEach(v=>ymax=Math.max(ymax,v));ymax*=1.12; if(ymax<=0)ymax=1;
+  const uB=ymax<1e-6?1e9:ymax<1e-3?1e6:1e3, uL=ymax<1e-6?'nT':ymax<1e-3?'µT':'mT';
+  const sx=v=>x0+(v-xmin)/(xmax-xmin)*(x1-x0), sy=v=>y0-v/ymax*(y0-y1);
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='right';
+  for(let f=0;f<=1.001;f+=0.25){const v=ymax*f;x.fillText((v*uB).toFixed(v*uB<10?2:0),x0-4,sy(v)+3);x.strokeStyle='#f1f5f9';x.beginPath();x.moveTo(x0,sy(v));x.lineTo(x1,sy(v));x.stroke();}
+  x.textAlign='center';for(let k=0;k<=4;k++){const v=xmin+(xmax-xmin)*k/4;x.fillText(c.cfg==='sol'||c.cfg==='tor'?(v*100).toFixed(0):v.toFixed(0),sx(v),y0+13);}
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.fillText(xlab,(x0+x1)/2,h-6);
+  x.save();x.translate(12,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText((c.cfg==='sol'?'B_z':'|B|')+' ('+uL+')',0,0);x.restore();
+  // mark coil extent (toroid/collider tube)
+  if(c.cfg==='tor'){const Rt=c.meta.Rt,a=c.meta.a;x.fillStyle='rgba(180,83,9,.10)';x.fillRect(sx(Rt-a),y1,sx(Rt+a)-sx(Rt-a),y0-y1);}
+  if(c.cfg==='col'){x.fillStyle='#94a3b8';x.font='9px sans-serif';x.textAlign='left';x.fillText('N_c='+c.meta.Nc,x0+6,y1+8);}
+  x.strokeStyle='#0d9488';x.lineWidth=2.4;x.beginPath();
+  for(let i=0;i<xs.length;i++){const X=sx(xs[i]),Y=sy(Math.min(Math.abs(ys[i]),ymax));i?x.lineTo(X,Y):x.moveTo(X,Y);}x.stroke();
+}
+
+/* i18n */
+const I18N={
+ 'back.hub':{fr:"EMtools",en:"EMtools"},
+ 'title':{fr:"Solénoïde & toroïdes",en:"Solenoid & toroids"},
+ 'tag':{fr:"Champ magnétique d'un solénoïde, d'une hélice toroïde et d'un toroïde de collisionneur : lignes de champ 3D, profil et confinement.",
+        en:"Magnetic field of a solenoid, a toroidal helix and a collider toroid: 3D field lines, profile and confinement."},
+ 'intro':{fr:"<b>Principe —</b> en sommant le champ exact de chaque spire (intégrales elliptiques), on visualise trois géométries emblématiques : le <b>solénoïde</b> (champ axial uniforme à l'intérieur, ≈ nul dehors), l'<b>hélice toroïde</b> (champ <b>azimutal confiné dans le tube</b>, B = µ₀NI/2πr) et le <b>toroïde de collisionneur</b> (quelques grandes bobines, champ toroïdal dans le grand volume avec une <b>ondulation</b> liée à leur nombre).",
+          en:"<b>Principle —</b> by summing the exact field of each turn (elliptic integrals), three iconic geometries are shown: the <b>solenoid</b> (uniform axial field inside, ≈ zero outside), the <b>toroidal helix</b> (<b>azimuthal field confined in the tube</b>, B = µ₀NI/2πr) and the <b>collider toroid</b> (a few large coils, toroidal field in the large bore with a <b>ripple</b> set by their number)."},
+ 'cfg':{fr:"Configuration",en:"Configuration"},'type':{fr:"Géométrie",en:"Geometry"},
+ 't.sol':{fr:"Solénoïde",en:"Solenoid"},'t.tor':{fr:"Hélice toroïde",en:"Toroidal helix"},'t.col':{fr:"Toroïde de collisionneur",en:"Collider toroid"},
+ 'I':{fr:"Courant I",en:"Current I"},
+ 'sol.R':{fr:"Rayon R",en:"Radius R"},'sol.L':{fr:"Longueur L",en:"Length L"},'sol.N':{fr:"Spires N",en:"Turns N"},
+ 'tor.Rt':{fr:"Rayon majeur R_t",en:"Major radius R_t"},'tor.a':{fr:"Rayon du tube a",en:"Tube radius a"},'tor.N':{fr:"Spires N",en:"Turns N"},
+ 'col.Rc':{fr:"Rayon des bobines R_c",en:"Coil radius R_c"},'col.rho':{fr:"Demi-hauteur bobine ρ",en:"Coil half-height ρ"},'col.Nc':{fr:"Nombre de bobines N_c",en:"Number of coils N_c"},
+ 'res':{fr:"Champ caractéristique",en:"Characteristic field"},
+ 'f.sol':{fr:"Solénoïde : à l'intérieur le champ est <b>axial et uniforme</b>, <b>B = µ₀·n·I</b> (n = N/L spires par mètre) ; à l'extérieur il est quasi nul.",en:"Solenoid: inside, the field is <b>axial and uniform</b>, <b>B = µ₀·n·I</b> (n = N/L turns per metre); outside it is nearly zero."},
+ 'f.tor':{fr:"Hélice toroïde : le champ est <b>azimutal et confiné dans le tube</b>, <b>B = µ₀·N·I / (2π·r)</b> (plus fort côté intérieur) ; quasi nul dans le trou et à l'extérieur.",en:"Toroidal helix: the field is <b>azimuthal and confined in the tube</b>, <b>B = µ₀·N·I / (2π·r)</b> (stronger on the inner side); nearly zero in the hole and outside."},
+ 'f.col':{fr:"Toroïde de collisionneur : N_c grandes bobines créent un champ <b>toroïdal</b> dans le grand volume, <b>B ≈ µ₀·N_c·I / (2π·r)</b>, avec une <b>ondulation</b> (ripple) d'autant plus faible que N_c est grand.",en:"Collider toroid: N_c large coils create a <b>toroidal</b> field in the large bore, <b>B ≈ µ₀·N_c·I / (2π·r)</b>, with a <b>ripple</b> that shrinks as N_c grows."},
+ 'mm.bin':{fr:"Champ intérieur B",en:"Inside field B"},'mm.n':{fr:"Densité de spires n",en:"Turn density n"},'mm.tpm':{fr:"spires/m",en:"turns/m"},'mm.tot':{fr:"Ampères-tours",en:"Ampere-turns"},
+ 'mm.btube':{fr:"Champ au centre du tube",en:"Field at tube centre"},'mm.NI':{fr:"Ampères-tours N·I",en:"Ampere-turns N·I"},'mm.conf':{fr:"Champ extérieur",en:"Outside field"},'mm.confv':{fr:"≈ 0 (confiné)",en:"≈ 0 (confined)"},
+ 'mm.btor':{fr:"Champ toroïdal (r=R_c)",en:"Toroidal field (r=R_c)"},'mm.nc':{fr:"Bobines",en:"Coils"},'mm.coils':{fr:"bobines",en:"coils"},'mm.rip':{fr:"Ondulation (ripple)",en:"Ripple"},
+ 'viz':{fr:"Visualisation",en:"Visualisation"},
+ 'p.3d':{fr:"Vue 3D — bobinage & lignes de champ",en:"3D view — winding & field lines"},'p.3d.sub':{fr:"Glisse pour tourner.",en:"Drag to rotate."},
+ 'p.prof':{fr:"Profil du champ",en:"Field profile"},'p.prof.sub':{fr:"Coupe du champ.",en:"Field cut."},
+ 'p.profSol':{fr:"Champ axial B_z(z)",en:"Axial field B_z(z)"},'p.profSol.s':{fr:"Plateau uniforme à l'intérieur, chute aux extrémités.",en:"Uniform plateau inside, drop at the ends."},
+ 'p.profTor':{fr:"|B|(r) — coupe radiale",en:"|B|(r) — radial cut"},'p.profTor.s':{fr:"Champ confiné dans le tube (zone orange), décroît en 1/r.",en:"Field confined in the tube (orange band), decays as 1/r."},
+ 'p.profCol':{fr:"|B_φ|(φ) — ondulation",en:"|B_φ|(φ) — ripple"},'p.profCol.s':{fr:"N_c bosses : l'ondulation diminue quand N_c augmente.",en:"N_c bumps: the ripple decreases as N_c increases."},
+ 'disclaimer':{fr:"<b>Outil pédagogique —</b> champ exact d'une spire circulaire (intégrales elliptiques) sommé sur le bobinage ; spires supposées filiformes. Le toroïde de collisionneur est modélisé par N_c bobines circulaires en plans méridiens (modèle simplifié des bobines « racetrack » type ATLAS). Sans tenir compte des matériaux magnétiques, des pertes ni de la forme réelle des conducteurs.",
+               en:"<b>Educational tool —</b> exact circular-loop field (elliptic integrals) summed over the winding; filamentary turns. The collider toroid is modelled by N_c circular coils in meridional planes (a simplified model of ATLAS-type racetrack coils). Ignores magnetic materials, losses and the real conductor shape."},
+ 'footer.lic':{fr:'© 2026 Hakeim Talleb · EMtools · Code sous licence <a href="LICENSE">MIT</a>',en:'© 2026 Hakeim Talleb · EMtools · Code under the <a href="LICENSE">MIT</a> license'},
+ 'footer.home':{fr:"← Tous les outils EMtools",en:"← All EMtools tools"},
+};
+let LANG=localStorage.getItem('emtools_lang')||'fr';
+function t(k){const e=I18N[k];return e?(e[LANG]||e.fr):k;}
+function applyLang(){
+  document.documentElement.lang=LANG;
+  document.querySelectorAll('[data-i18n]').forEach(el=>{const e=I18N[el.dataset.i18n];if(e)el.textContent=e[LANG]||e.fr;});
+  document.querySelectorAll('[data-i18n-html]').forEach(el=>{const e=I18N[el.dataset.i18nHtml];if(e)el.innerHTML=e[LANG]||e.fr;});
+  const b=$('lang-toggle');if(b)b.textContent=LANG==='fr'?'EN':'FR';
+}
+function toggleLang(){LANG=LANG==='fr'?'en':'fr';localStorage.setItem('emtools_lang',LANG);applyLang();recompute();}
+applyLang(); setConfig();
+window.addEventListener('resize',()=>{if(CUR){draw3D();drawProf(CUR);}});
+(function(){const cv=$('cv_3d'); if(!cv)return; let drag=false,px=0,py=0;
+  cv.addEventListener('pointerdown',e=>{drag=true;px=e.clientX;py=e.clientY;cv.style.cursor='grabbing';cv.setPointerCapture(e.pointerId);});
+  cv.addEventListener('pointermove',e=>{if(!drag||!CUR)return;_az+=(e.clientX-px)*0.01;_el-=(e.clientY-py)*0.01;_el=Math.max(-1.45,Math.min(1.45,_el));px=e.clientX;py=e.clientY;draw3D();});
+  const up=()=>{drag=false;cv.style.cursor='grab';}; cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
+})();
+</script>
+</body>
+</html>
