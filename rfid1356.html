@@ -171,6 +171,24 @@ table.frames code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8
   </div>
 
   <div class="panel">
+    <div class="ptitle" data-i18n="res.t">Modèle résonant &amp; charge de la puce</div>
+    <div data-i18n-html="res.intro"></div>
+    <div class="controls" style="margin-top:.9rem">
+      <div class="ctrl">
+        <label><span data-i18n="rchip">Charge puce R_chip (en //)</span> · <span id="rchipv" class="val">2.0 kΩ</span></label>
+        <input id="rchip" type="range" min="0.2" max="20" step="0.1" value="2" oninput="recompute()">
+      </div>
+    </div>
+    <div class="metrics" style="margin-top:1rem">
+      <div class="metric"><div class="k" data-i18n="res.rs">r_s (série, pertes bobine)</div><div class="v" id="m_rs">—</div><div class="u">Ω</div></div>
+      <div class="metric"><div class="k" data-i18n="res.rp">R_p équiv. (// , = Q²·r_s)</div><div class="v" id="m_rp">—</div><div class="u">Ω</div></div>
+      <div class="metric"><div class="k" data-i18n="res.ql">Q chargé (avec puce)</div><div class="v" id="m_qload">—</div><div class="u"></div></div>
+      <div class="metric hl"><div class="k" data-i18n="res.vt">Tension tank chargée (avant écrêtage)</div><div class="v" id="m_vtank">—</div><div class="u">V</div></div>
+    </div>
+    <div class="warn" id="res-note" style="margin-top:.7rem"></div>
+  </div>
+
+  <div class="panel">
     <div class="ptitle" data-i18n="viz">Visualisation</div>
     <div class="plots">
       <div class="plotbox">
@@ -311,19 +329,26 @@ function compute(){
   const Vtag=Q*Voc;                                  // unloaded resonant peak (Q·e)
   const Vtag0=Q*W0*Mgeo*I1;                          // unloaded peak at α=0 (for the angle plot)
   const VCLAMP=5;                                    // representative chip regulation voltage (limiter)
-  const Vchip=Math.min(Vtag,VCLAMP);                 // what the chip actually sees (excess is shunted)
+  // ── resonant tank loaded by the chip (parallel R_chip) ──
+  const XL=W0*L2;                                    // tag coil reactance ωL2 (= X_C at resonance)
+  const rs=XL/Q;                                     // series loss resistance r_s = ωL2/Q
+  const Rp=XL*XL/rs;                                 // parallel-equivalent coil loss = Q²·r_s
+  const Rchip=parseFloat($('rchip').value)*1000;     // chip load (parallel), Ω
+  const rtot=rs + XL*XL/Rchip;                        // total loop series resistance (coil + chip referred)
+  const Qload=XL/rtot;                                // loaded quality factor
+  const Vtank=Qload*Voc;                              // loaded tank voltage (incl. cos α via Voc)
+  const Vtank0=Qload*W0*Mgeo*I1;                      // loaded tank voltage at α=0 (for the angle plot)
+  const Vchip=Math.min(Vtank,VCLAMP);                // what the chip sees: loaded tank, then limiter
+  const I2=Voc/rtot;                                  // loaded loop current at resonance = e/r_tot
   // read range: largest z where H(z) ≥ HMIN
   const arg=Math.pow(N1*I1*a*a/(2*HMIN),2/3)-a*a;
   const range=arg>0?Math.sqrt(arg):0;               // m
-  // ── load modulation / reflected impedance ──
+  // ── load modulation / reflected impedance (uses the unloaded series loss r_s) ──
   const Q1=35;                                       // assumed reader-antenna quality factor
-  const Rtag=W0*L2/Q;                                // tag equivalent series resistance at resonance
-  const XL=W0*L2;                                    // tag coil reactance ωL2 (= X_C at resonance)
-  const I2=Voc/Rtag;                                 // tag loop current at resonance = e/R2 (unloaded)
   const R1=W0*L1/Q1;                                 // reader-antenna resistance
   const wM=W0*M;                                     // effective mutual reactance ωM
-  const Zref=wM*wM/Rtag;                             // reflected resistance (ωM)²/Z_tag
-  const ZrefMod=wM*wM/(2*Rtag);                      // modulation state: tag Q halved → Rtag doubled
+  const Zref=wM*wM/rs;                               // reflected resistance (ωM)²/Z_tag
+  const ZrefMod=wM*wM/(2*rs);                        // modulation state: tag Q halved → r_s doubled
   const modDepth=(Zref-ZrefMod)/(R1+Zref);           // relative voltage change seen by the reader
   // ── SAR in tissue (implanted tag) : eddy currents from the reader's B field ──
   const ti=TISSUE[$('sar-tissue').value]||TISSUE.muscle, sig=ti.s, rhoT=ti.rho;
@@ -334,7 +359,7 @@ function compute(){
   const SARlim=$('sar-pop').value==='worker'?10:2;   // ICNIRP 2020 local 10 g limit
   const Hmax=Math.sqrt(8*rhoT*SARlim/sig)/(W0*MU0*rT);// max H before reaching the SAR limit (A/m)
   CUR={a,N1,I1,b,N2,Q,z,shape,A2,angDeg,cosA,H,B,Mgeo,M,L1,L2,k,C2,Voc,Vtag,Vtag0,VCLAMP,Vchip,XL,I2,range,Zref,modDepth,
-       sig,rhoT,rT,Eind,SAR,SARlim,Hmax};
+       rs,Rp,Rchip,rtot,Qload,Vtank,Vtank0,sig,rhoT,rT,Eind,SAR,SARlim,Hmax};
   return CUR;
 }
 
@@ -356,6 +381,7 @@ function recompute(){
   $('zv').textContent=parseFloat($('z').value).toFixed(1)+' cm';
   $('angv').textContent=$('ang').value+'°';
   $('sar-rv').textContent=parseFloat($('sar-r').value).toFixed(1)+' cm';
+  $('rchipv').textContent=parseFloat($('rchip').value).toFixed(1)+' kΩ';
   const c=compute();
   const hEl=$('m_h');
   hEl.textContent=fmtSI(c.H);
@@ -369,6 +395,18 @@ function recompute(){
   $('m_vchip').textContent=fmtSI(c.Vchip);
   $('m_i2').textContent=fmtSI(c.I2);
   $('m_cap').textContent=(c.C2*1e12).toFixed(0);
+  // resonant model / chip load
+  $('m_rs').textContent=fmtSI(c.rs);
+  $('m_rp').textContent=c.Rp>=1000?(c.Rp/1000).toFixed(2)+' k':fmtSI(c.Rp);
+  $('m_qload').textContent=c.Qload.toFixed(1);
+  const vtEl=$('m_vtank'); vtEl.textContent=fmtSI(c.Vtank);
+  vtEl.className='v '+(c.Vtank>=c.VCLAMP?'ok':(c.Vtank>=2.5?'':'bad'));
+  let rn;
+  if(c.Vtank>=c.VCLAMP) rn=t('res.ok'); else if(c.Vtank>=2.5) rn=t('res.low'); else rn=t('res.under');
+  $('res-note').innerHTML=rn.replace(/{vt}/g,fmtSI(c.Vtank)).replace(/{ql}/g,c.Qload.toFixed(1)).replace(/{qu}/g,c.Q).replace(/{vc}/g,c.VCLAMP);
+  $('res-note').style.background=c.Vtank>=c.VCLAMP?'#ecfdf5':(c.Vtank>=2.5?'#fffbeb':'#fef2f2');
+  $('res-note').style.borderColor=c.Vtank>=c.VCLAMP?'#a7f3d0':(c.Vtank>=2.5?'#fde68a':'#fecaca');
+  $('res-note').style.color=c.Vtank>=c.VCLAMP?'#065f46':(c.Vtank>=2.5?'#854d0e':'#991b1b');
   $('m_zref').textContent=fmtSI(c.Zref);
   $('m_mod').textContent=(c.modDepth*100).toFixed(1);
   // ISO note
@@ -573,9 +611,9 @@ function drawAngle(c){
   const cv=$('cv_angle'); cv.style.height='300px'; const {x,w,h}=dpr(cv);
   x.clearRect(0,0,w,h);
   const fr=LANG==='fr', pad=44,x0=pad,x1=w-14,y0=h-28,y1=24;
-  const V0=c.Vtag0, vc=c.VCLAMP;
-  // focus the scale on the operating range; the raw peak may go off-scale (annotated)
-  const capped=V0>vc*3.2, yTop=capped? vc*3.2 : Math.max(V0*1.08, vc*1.2);
+  const Vu=c.Vtag0, Vl=c.Vtank0, vc=c.VCLAMP;          // unloaded peak, loaded tank peak, clamp
+  // scale focuses on the loaded + clamp operating range; the unloaded peak may go off-scale
+  const yTop=Math.max(Vl*1.15, vc*1.45), cappedU=Vu>yTop;
   const sx=a=>x0+a/90*(x1-x0), sy=v=>y0-Math.min(v,yTop)/yTop*(y0-y1);
   x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
   x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='right';
@@ -587,29 +625,29 @@ function drawAngle(c){
   if(vc<yTop){x.fillStyle='rgba(13,148,136,.09)';x.fillRect(x0,sy(vc),x1-x0,y0-sy(vc));
     x.strokeStyle='#0d9488';x.setLineDash([5,3]);x.lineWidth=1.2;x.beginPath();x.moveTo(x0,sy(vc));x.lineTo(x1,sy(vc));x.stroke();x.setLineDash([]);
     x.fillStyle='#0f766e';x.font='10px sans-serif';x.textAlign='left';x.fillText((fr?'écrêtage puce ≈ ':'chip clamp ≈ ')+vc+' V',x0+6,sy(vc)-5);}
-  // raw unloaded peak V₀·cos α — theoretical, faint dashed, clipped at yTop
+  // unloaded crête V_u·cos α — theoretical reference, faint dashed, clipped at yTop
   x.strokeStyle='#c4b5fd';x.lineWidth=1.6;x.setLineDash([4,3]);x.beginPath();
-  for(let i=0;i<=180;i++){const a=90*i/180,v=V0*Math.cos(a*Math.PI/180),X=sx(a),Y=sy(v);i?x.lineTo(X,Y):x.moveTo(X,Y);}
+  for(let i=0;i<=180;i++){const a=90*i/180,v=Vu*Math.cos(a*Math.PI/180),X=sx(a),Y=sy(v);i?x.lineTo(X,Y):x.moveTo(X,Y);}
   x.stroke();x.setLineDash([]);
-  // chip voltage = min(V₀·cos α, V_clamp) — the realistic operating voltage, bold
+  // loaded tank voltage V_l·cos α — what the chip really gets, then clamped: min(·, vc), bold
   x.strokeStyle='#0d9488';x.lineWidth=2.8;x.beginPath();
-  for(let i=0;i<=180;i++){const a=90*i/180,v=Math.min(V0*Math.cos(a*Math.PI/180),vc),X=sx(a),Y=sy(Math.max(v,0));i?x.lineTo(X,Y):x.moveTo(X,Y);}
+  for(let i=0;i<=180;i++){const a=90*i/180,v=Math.min(Vl*Math.cos(a*Math.PI/180),vc),X=sx(a),Y=sy(Math.max(v,0));i?x.lineTo(X,Y):x.moveTo(X,Y);}
   x.stroke();
-  // drop-off angle: where the unloaded peak falls below the clamp → tag leaves regulation
-  if(V0>vc){const acrit=Math.acos(vc/V0)*180/Math.PI;
+  // drop-off angle: where the LOADED tank voltage falls below the clamp → tag leaves regulation
+  if(Vl>vc){const acrit=Math.acos(vc/Vl)*180/Math.PI;
     x.strokeStyle='#94a3b8';x.setLineDash([2,3]);x.lineWidth=1;x.beginPath();x.moveTo(sx(acrit),sy(vc));x.lineTo(sx(acrit),y0);x.stroke();x.setLineDash([]);
     x.fillStyle='#64748b';x.font='9px sans-serif';x.textAlign='center';x.fillText((fr?'décrochage α≈':'drop-off α≈')+acrit.toFixed(0)+'°',sx(acrit),y0-4);}
   // current angle marker on the chip curve
-  const ax=sx(c.angDeg), ay=sy(Math.min(c.Vtag,vc));
+  const ax=sx(c.angDeg), ay=sy(Math.min(c.Vtank,vc));
   x.strokeStyle='#d97706';x.setLineDash([3,3]);x.lineWidth=1.2;x.beginPath();x.moveTo(ax,y0);x.lineTo(ax,ay);x.stroke();x.setLineDash([]);
   x.fillStyle='#d97706';x.beginPath();x.arc(ax,ay,4,0,7);x.fill();
   // off-scale note + legend
   x.textAlign='left';x.font='10px sans-serif';
-  if(capped){x.fillStyle='#7c3aed';x.fillText((fr?'crête à vide α=0 : ':'open-circ. peak α=0: ')+fmtSI(V0,'V')+(fr?' (hors échelle)':' (off scale)'),x0+6,y1-9);}
-  x.strokeStyle='#0d9488';x.lineWidth=2.8;x.beginPath();x.moveTo(x1-150,y1-13);x.lineTo(x1-132,y1-13);x.stroke();
-  x.fillStyle='#475569';x.fillText(fr?'tension puce':'chip voltage',x1-128,y1-10);
-  x.strokeStyle='#c4b5fd';x.lineWidth=1.6;x.setLineDash([4,3]);x.beginPath();x.moveTo(x1-150,y1+1);x.lineTo(x1-132,y1+1);x.stroke();x.setLineDash([]);
-  x.fillStyle='#475569';x.fillText(fr?'crête à vide':'open-circ. peak',x1-128,y1+4);
+  if(cappedU){x.fillStyle='#7c3aed';x.fillText((fr?'crête à vide α=0 : ':'open-circ. peak α=0: ')+fmtSI(Vu,'V')+(fr?' (hors échelle)':' (off scale)'),x0+6,y1-9);}
+  x.strokeStyle='#0d9488';x.lineWidth=2.8;x.beginPath();x.moveTo(x1-170,y1-13);x.lineTo(x1-152,y1-13);x.stroke();
+  x.fillStyle='#475569';x.fillText(fr?'tension puce (chargée)':'chip voltage (loaded)',x1-148,y1-10);
+  x.strokeStyle='#c4b5fd';x.lineWidth=1.6;x.setLineDash([4,3]);x.beginPath();x.moveTo(x1-170,y1+1);x.lineTo(x1-152,y1+1);x.stroke();x.setLineDash([]);
+  x.fillStyle='#475569';x.fillText(fr?'crête à vide':'open-circ. peak',x1-148,y1+4);
 }
 
 /* i18n */
@@ -647,6 +685,20 @@ const I18N={
             en:"⚠️ The <b>open-circuit peak</b> (Q·e) is <b>theoretical</b>. At resonance X_L and X_C cancel: the loop only sees its small resistance R₂ = ωL₂/Q, so the emf e drives a non-negligible current <b>I₂ = e/R₂</b> (see metric), and the voltage across the capacitor is <b>V = X_C·I₂ = Q·e</b> (resonant rise). But the chip never sees this peak: its <b>limiter clamps it</b> (~5 V, dissipating the excess) and the current it draws <b>collapses the loaded Q</b> (hence I₂ and V). The physically meaningful value is the <b>“chip voltage”</b>."},
  'm.vchip':{fr:"Tension puce (écrêtée)",en:"Chip voltage (clamped)"},
  'm.i2':{fr:"Courant boucle tag I₂ (à vide)",en:"Tag loop current I₂ (unloaded)"},
+ 'res.t':{fr:"Modèle résonant & charge de la puce",en:"Resonant model & chip load"},
+ 'res.intro':{fr:"À la résonance le couple L‖C s'annule. Vu des <b>bornes</b>, le tank est une résistance parallèle <b>R_p = Q²·r_s</b> (modèle //) ; vue de la <b>maille</b>, la f.é.m. ne voit que <b>r_s = R_p/Q²</b> (modèle série). La <b>puce se met en // de C</b> : sa résistance R_chip amortit le tank → le <b>Q chargé</b> chute, donc la tension de résonance s'effondre <i>bien avant</i> l'écrêtage. C'est le vrai mécanisme qui ramène les centaines de volts « à vide » à quelques volts.",
+              en:"At resonance L‖C cancels. Seen from the <b>terminals</b>, the tank is a parallel resistance <b>R_p = Q²·r_s</b> (parallel model); seen from the <b>loop</b>, the emf only sees <b>r_s = R_p/Q²</b> (series model). The <b>chip sits across C</b>: its R_chip damps the tank → the <b>loaded Q</b> drops, so the resonant voltage collapses <i>well before</i> clamping. This is the real mechanism that brings the hundreds of unloaded volts down to a few volts."},
+ 'rchip':{fr:"Charge puce R_chip (en //)",en:"Chip load R_chip (parallel)"},
+ 'res.rs':{fr:"r_s (série, pertes bobine)",en:"r_s (series, coil loss)"},
+ 'res.rp':{fr:"R_p équiv. (// , = Q²·r_s)",en:"R_p equiv. (parallel, = Q²·r_s)"},
+ 'res.ql':{fr:"Q chargé (avec puce)",en:"Loaded Q (with chip)"},
+ 'res.vt':{fr:"Tension tank chargée (avant écrêtage)",en:"Loaded tank voltage (before clamp)"},
+ 'res.ok':{fr:"✅ <b>Tension tank chargée {vt} V ≥ {vc} V</b> : avec R_chip, le Q chargé tombe à <b>{ql}</b> (vs {qu} à vide), mais il reste assez de tension — le limiteur écrête à {vc} V. La puce est alimentée.",
+           en:"✅ <b>Loaded tank voltage {vt} V ≥ {vc} V</b>: with R_chip the loaded Q drops to <b>{ql}</b> (vs {qu} unloaded), but there is still enough voltage — the limiter clamps at {vc} V. The chip is powered."},
+ 'res.low':{fr:"⚠️ <b>Tension tank chargée {vt} V</b> : Q chargé = <b>{ql}</b> (vs {qu} à vide). On est tout juste au-dessus du minimum d'alimentation — marge faible (rapproche le tag, réduis la charge R_chip, ou augmente le couplage).",
+            en:"⚠️ <b>Loaded tank voltage {vt} V</b>: loaded Q = <b>{ql}</b> (vs {qu} unloaded). Just above the minimum supply — low margin (move the tag closer, lighten the load R_chip, or increase coupling)."},
+ 'res.under':{fr:"⛔ <b>Tension tank chargée {vt} V &lt; {vc} V</b> : le Q chargé ({ql}) est trop bas — la puce n'atteint pas sa tension d'alimentation, le tag ne démarre pas. Augmente R_chip (charge plus légère), le couplage ou le nombre de spires.",
+              en:"⛔ <b>Loaded tank voltage {vt} V &lt; {vc} V</b>: the loaded Q ({ql}) is too low — the chip never reaches its supply voltage, the tag won't start. Increase R_chip (lighter load), the coupling or the turns."},
  'sch.t':{fr:"Schéma de la liaison",en:"Link schematic"},
  'sch.side':{fr:"Vue de côté — alignement",en:"Side view — alignment"},
  'sch.frontt':{fr:"Vue de face — géométrie des bobines",en:"Front view — coil geometry"},
@@ -685,7 +737,7 @@ const I18N={
  'p.sig':{fr:"Signal temporel — rétro-modulation",en:"Time-domain signal — load modulation"},
  'p.sig.sub':{fr:"Descente ASK 100 % ; remontée par sous-porteuse 847,5 kHz.",en:"Downlink 100 % ASK; uplink via 847.5 kHz subcarrier."},
  'p.ang':{fr:"Tension récupérable vs angle α",en:"Recoverable voltage vs angle α"},
- 'p.ang.sub':{fr:"Tension puce (écrêtée) en gras ; crête à vide en pointillé. Décrochage quand cos α fait passer le pic sous l'écrêtage.",en:"Chip voltage (clamped) in bold; open-circuit peak dashed. Drop-off when cos α brings the peak below the clamp."},
+ 'p.ang.sub':{fr:"Tension puce chargée (écrêtée) en gras ; crête à vide en pointillé. Décrochage quand cos α fait passer la tension chargée sous l'écrêtage.",en:"Loaded chip voltage (clamped) in bold; open-circuit peak dashed. Drop-off when cos α brings the loaded voltage below the clamp."},
  'sar.t':{fr:"DAS dans les tissus — tag implanté",en:"SAR in tissue — implanted tag"},
  'sar.intro':{fr:"<b>RFID biomédical —</b> pour alimenter un tag <b>implanté</b>, le champ doit rester assez fort à l'intérieur du corps (≥ 1,5 A/m au tag) ; mais ce même champ magnétique induit des <b>courants de Foucault</b> dans les tissus conducteurs (E ∝ ω·B·r), donc un <b>échauffement (DAS)</b>. C'est tout l'enjeu : trouver le niveau de champ qui alimente la puce <i>sans</i> dépasser la limite de DAS. Modèle : cylindre homogène, E induit = ω·B·r/2 au rayon r, DAS = σ(ωBr)²/(8ρ).",
               en:"<b>Biomedical RFID —</b> to power an <b>implanted</b> tag, the field must stay strong enough inside the body (≥ 1.5 A/m at the tag); but that same magnetic field induces <b>eddy currents</b> in conductive tissue (E ∝ ω·B·r), hence <b>heating (SAR)</b>. That is the whole tension: find the field level that powers the chip <i>without</i> exceeding the SAR limit. Model: homogeneous cylinder, induced E = ω·B·r/2 at radius r, SAR = σ(ωBr)²/(8ρ)."},
