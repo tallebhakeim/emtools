@@ -154,6 +154,18 @@ table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
     </div>
   </div>
 
+  <div class="panel grp-ind">
+    <div class="ptitle" data-i18n="split.t">Dédoublement de fréquence (sur-couplage)</div>
+    <div data-i18n-html="split.intro"></div>
+    <div class="metrics" style="margin:.9rem 0">
+      <div class="metric hl"><div class="k" data-i18n="split.reg">Régime de couplage</div><div class="v" id="split-reg" style="font-size:1rem">—</div><div class="u" data-i18n="split.vskc">k vs k_crit</div></div>
+      <div class="metric"><div class="k" data-i18n="split.kc">Couplage critique k_crit = 1/Q</div><div class="v" id="split-kc">—</div><div class="u"></div></div>
+      <div class="metric"><div class="k" data-i18n="split.f">Fréquences de transfert max</div><div class="v" id="split-f" style="font-size:.95rem">—</div><div class="u" data-i18n="split.fu">× f₀</div></div>
+    </div>
+    <canvas id="cv_split" width="900" height="320"></canvas>
+    <div class="warn" id="split-note" data-i18n-html="split.note" style="margin-top:.7rem"></div>
+  </div>
+
   <div class="panel">
     <div class="ptitle" data-i18n="valid">Validation &amp; repères</div>
     <table class="valid">
@@ -236,7 +248,7 @@ function recompute(){
   $('m2k').textContent=c.mode==='ind'?t('m.kq'):t('m.fspl'); $('m2').textContent=c.m2; $('m2u').textContent=c.m2u;
   if(isFinite(c.tch)){const h=c.tch; $('m_tc').textContent=h<1?(h*60).toFixed(0):h.toFixed(1); $('m_tcu').textContent=h<1?'min':'h';}
   else {$('m_tc').textContent='∞';$('m_tcu').textContent='';}
-  drawDist(c); drawKQ(c);
+  drawDist(c); drawKQ(c); drawSplit();
 }
 function setMode(){
   const m=$('mode').value;
@@ -303,6 +315,48 @@ function drawKQ(c){
     x.fillStyle='#d97706';x.beginPath();x.arc(sx(c.U),sy(c.etaCoil),4,0,7);x.fill();x.font='10px sans-serif';x.textAlign='left';x.fillText('kQ='+c.U.toFixed(1)+' → '+(c.etaCoil*100).toFixed(0)+'%',Math.min(sx(c.U)+6,x1-110),sy(c.etaCoil)-5);}
   else if(c.mode==='rad'){x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='center';x.fillText(LANG==='fr'?'(mode radiatif : voir Friis)':'(radiative mode: see Friis)',(x0+x1)/2,(y0+y1)/2);}
 }
+// normalized power transfer of two identical coupled resonators vs f/f0 (shows frequency splitting)
+function transferP(fr,k,Q){
+  const x=Q*(fr-1/fr);            // normalized detuning Qδ
+  const u=k*Q*fr;                 // ωM/R' = kQ·(f/f0)
+  const reZZ=1-x*x, imZZ=2*x;     // (1+jx)²
+  const reD=reZZ+u*u, imD=imZZ;
+  return u*u/(reD*reD+imD*imD);
+}
+function drawSplit(){
+  const c=CUR; if(!c||c.mode!=='ind')return;
+  const k=c.k, Q=parseFloat($('Q').value), kc=1/Q, U=k*Q;
+  // metrics
+  $('split-kc').textContent=kc.toFixed(4);
+  const reg = U<0.7?'under' : U<1.6?'crit' : 'over';
+  $('split-reg').textContent=t('split.'+reg); $('split-reg').className='v '+(reg==='crit'?'ok':(reg==='over'?'bad':''));
+  // split frequencies f± = 1/√(1±k)
+  const fp=1/Math.sqrt(1+k), fm=1/Math.sqrt(Math.max(1-k,1e-6));
+  $('split-f').textContent = U>1.2 ? fp.toFixed(3)+' & '+fm.toFixed(3) : '1.000 (f₀)';
+  const cv=$('cv_split'); cv.style.height='320px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const pad=46,x0=pad,x1=w-12,y0=h-30,y1=18, fL=0.6,fR=1.6;
+  // normalize each curve to global max for display
+  function maxOf(kk){let m=0;for(let i=0;i<=300;i++){const fr=fL+(fR-fL)*i/300;m=Math.max(m,transferP(fr,kk,Q));}return m;}
+  const mCur=maxOf(k)||1;
+  const sx=fr=>x0+(fr-fL)/(fR-fL)*(x1-x0), sy=p=>y0-p*(y0-y1);
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='right';for(let f=0;f<=1.001;f+=0.25){x.fillText((f*100).toFixed(0),x0-4,sy(f)+3);x.strokeStyle='#f1f5f9';x.beginPath();x.moveTo(x0,sy(f));x.lineTo(x1,sy(f));x.stroke();}
+  x.textAlign='center';for(let fr=0.6;fr<=1.61;fr+=0.2)x.fillText(fr.toFixed(1),sx(fr),y0+13);
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.fillText('f / f₀',(x0+x1)/2,h-6);
+  x.save();x.translate(12,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText(LANG==='fr'?'transfert normalisé':'normalised transfer',0,0);x.restore();
+  // f0 line
+  x.strokeStyle='#94a3b8';x.setLineDash([3,3]);x.lineWidth=1;x.beginPath();x.moveTo(sx(1),y1);x.lineTo(sx(1),y0);x.stroke();x.setLineDash([]);x.fillStyle='#64748b';x.font='9px sans-serif';x.textAlign='center';x.fillText('f₀',sx(1),y1+9);
+  // reference curves: critical (kQ=1) and a strong over-coupling, faint
+  [[1/Q,'#cbd5e1',t('split.crit')],[3/Q,'#ddd6fe',t('split.over')]].forEach(([kk,col])=>{const mm=maxOf(kk)||1;x.strokeStyle=col;x.lineWidth=1.4;x.beginPath();for(let i=0;i<=300;i++){const fr=fL+(fR-fL)*i/300;const Y=sy(transferP(fr,kk,Q)/mm);i?x.lineTo(sx(fr),Y):x.moveTo(sx(fr),Y);}x.stroke();});
+  // current curve (bold teal)
+  x.strokeStyle='#0d9488';x.lineWidth=2.6;x.beginPath();for(let i=0;i<=300;i++){const fr=fL+(fR-fL)*i/300;const Y=sy(transferP(fr,k,Q)/mCur);i?x.lineTo(sx(fr),Y):x.moveTo(sx(fr),Y);}x.stroke();
+  // mark split peaks if over-coupled
+  if(U>1.2){[fp,fm].forEach(ff=>{if(ff>=fL&&ff<=fR){x.fillStyle='#d97706';x.beginPath();x.arc(sx(ff),sy(transferP(ff,k,Q)/mCur),4,0,7);x.fill();}});
+    x.fillStyle='#b45309';x.font='10px sans-serif';x.textAlign='center';x.fillText('f₋',sx(fm),sy(transferP(fm,k,Q)/mCur)-7);x.fillText('f₊',sx(fp),sy(transferP(fp,k,Q)/mCur)-7);}
+  // legend
+  x.font='9px sans-serif';x.textAlign='left';[[t('split.cur'),'#0d9488'],[t('split.crit'),'#cbd5e1'],[t('split.over'),'#ddd6fe']].forEach((l,i)=>{x.strokeStyle=l[1];x.lineWidth=2;x.beginPath();x.moveTo(x1-120,y1+6+i*12);x.lineTo(x1-102,y1+6+i*12);x.stroke();x.fillStyle='#475569';x.fillText(l[0],x1-98,y1+9+i*12);});
+}
 
 /* i18n */
 const I18N={
@@ -333,6 +387,15 @@ const I18N={
  'viz':{fr:"Rendement",en:"Efficiency"},
  'p.dist':{fr:"Rendement total vs distance",en:"Total efficiency vs distance"},'p.dist.sub':{fr:"Le couplage chute avec la distance → le rendement s'effondre.",en:"Coupling drops with distance → efficiency collapses."},
  'p.kq':{fr:"Rendement bobine-bobine vs k·Q",en:"Coil-coil efficiency vs k·Q"},'p.kq.sub':{fr:"Courbe universelle : il faut k·Q ≫ 1 pour un bon rendement.",en:"Universal curve: k·Q ≫ 1 is needed for good efficiency."},
+ 'split.t':{fr:"Dédoublement de fréquence (sur-couplage)",en:"Frequency splitting (over-coupling)"},
+ 'split.intro':{fr:"<b>Quand le couplage est trop fort —</b> deux résonateurs identiques accordés sur f₀ et fortement couplés ne résonnent plus à f₀ : le pic de transfert se <b>dédouble</b> en deux fréquences f₊ et f₋ (modes pair/impair). À f₀, le transfert <b>chute</b> ! Trois régimes selon k face au couplage critique <b>k_crit = 1/Q</b> : <b>sous-couplé</b> (loin, pic faible à f₀), <b>critique</b> (transfert max à f₀), <b>sur-couplé</b> (proche, pic dédoublé). C'est pourquoi les systèmes résonants (type WiTricity) <b>suivent la fréquence</b> au lieu de rester sur f₀.",
+                en:"<b>When coupling is too strong —</b> two identical resonators tuned to f₀ and strongly coupled no longer resonate at f₀: the transfer peak <b>splits</b> into two frequencies f₊ and f₋ (even/odd modes). At f₀ the transfer <b>drops</b>! Three regimes vs the critical coupling <b>k_crit = 1/Q</b>: <b>under-coupled</b> (far, weak peak at f₀), <b>critical</b> (max transfer at f₀), <b>over-coupled</b> (close, split peak). This is why resonant systems (WiTricity-style) <b>track the frequency</b> instead of staying at f₀."},
+ 'split.reg':{fr:"Régime de couplage",en:"Coupling regime"},'split.vskc':{fr:"k vs k_crit",en:"k vs k_crit"},
+ 'split.kc':{fr:"Couplage critique k_crit = 1/Q",en:"Critical coupling k_crit = 1/Q"},
+ 'split.f':{fr:"Fréquences de transfert max",en:"Max-transfer frequencies"},'split.fu':{fr:"× f₀",en:"× f₀"},
+ 'split.under':{fr:"sous-couplé",en:"under-coupled"},'split.crit':{fr:"critique",en:"critical"},'split.over':{fr:"sur-couplé",en:"over-coupled"},'split.cur':{fr:"config actuelle",en:"current config"},
+ 'split.note':{fr:"💡 En <b>sur-couplage</b> (rapproche les bobines), les deux pics s'écartent (f± ≈ 1/√(1±k)) et le creux à f₀ s'accentue. Pour garder le maximum d'efficacité, l'électronique doit se <b>recaler sur f₊ ou f₋</b> (suivi de fréquence) — sinon rester à f₀ ferait perdre beaucoup de puissance malgré un k·Q élevé.",
+              en:"💡 Under <b>over-coupling</b> (bring the coils closer), the two peaks separate (f± ≈ 1/√(1±k)) and the dip at f₀ deepens. To keep maximum efficiency the electronics must <b>re-tune to f₊ or f₋</b> (frequency tracking) — otherwise staying at f₀ would waste much power despite a high k·Q."},
  'valid':{fr:"Validation & repères",en:"Validation & benchmarks"},
  'v.case':{fr:"Cas",en:"Case"},'v.tool':{fr:"Cet outil",en:"This tool"},'v.ref':{fr:"Repère",en:"Benchmark"},
  'v.qi':{fr:"Chargeur Qi (~5–10 cm, kQ qq. unités)",en:"Qi charger (~5–10 cm, kQ a few units)"},'v.qiref':{fr:"rendement bobine ~70–90 %",en:"coil efficiency ~70–90 %"},
@@ -353,7 +416,7 @@ function applyLang(){
 }
 function toggleLang(){LANG=LANG==='fr'?'en':'fr';localStorage.setItem('emtools_lang',LANG);applyLang();recompute();}
 applyLang(); setMode();
-window.addEventListener('resize',()=>{if(CUR){drawDist(CUR);drawKQ(CUR);}});
+window.addEventListener('resize',()=>{if(CUR){drawDist(CUR);drawKQ(CUR);drawSplit();}});
 </script>
 </body>
 </html>
