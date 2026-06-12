@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EMtools — Bobines de Helmholtz</title>
+<meta name="description" content="EMtools — bobines de Helmholtz : champ d'une bobine seule puis de deux bobines, condition d'uniformité (d = R), carte de champ, dimensionnement (spires, R, L) et compensation réactive série à f0. Par Hakeim Talleb.">
+<style>
+:root{--navy:#1a2e4a;--teal:#0d9488;--teal2:#0f766e;--teal-light:#e6f7f5;--gold:#d97706;
+  --text:#1e293b;--text2:#64748b;--border:#e2e8f0;--bg:#f8fafc;--bg2:#f0fdf9;--white:#fff;--radius:14px;--shadow:0 2px 14px rgba(26,46,74,.08);}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--text);background:var(--bg);line-height:1.6}
+a{color:var(--teal2)}
+.wrap{max-width:980px;margin:0 auto;padding:0 1.25rem}
+#lang-toggle{position:fixed;top:14px;right:16px;z-index:50;background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.45);border-radius:8px;padding:5px 12px;font-size:13px;font-weight:700;cursor:pointer;backdrop-filter:blur(4px)}
+header{background:linear-gradient(135deg,#1a2e4a,#0f3a4d);color:#fff;padding:2.4rem 0 2rem}
+header .wrap{display:flex;flex-direction:column;gap:.4rem}
+header .back{font-size:.82rem;color:#94a3b8;text-decoration:none}
+header .back:hover{color:#cbd5e1}
+header h1{font-size:1.7rem;font-weight:800;letter-spacing:-.02em}
+header .tag{font-size:1rem;color:#cbd5e1;max-width:700px}
+main{padding:2rem 0 3rem}
+.intro{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius);padding:1rem 1.2rem;font-size:.9rem;margin-bottom:1.6rem}
+.intro b{color:var(--navy)}
+.panel{background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.3rem 1.4rem;margin-bottom:1.4rem}
+.ptitle{font-size:.78rem;font-weight:700;color:var(--teal2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:1rem}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem 1.4rem}
+.ctrl{display:flex;flex-direction:column;gap:.3rem}
+.ctrl label{font-size:.82rem;font-weight:600;color:var(--text2)}
+.ctrl input,.ctrl select{font:inherit;font-size:.92rem;padding:.45rem .55rem;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--text)}
+.ctrl input[type=range]{padding:0}
+.ctrl .val{font-size:.8rem;color:var(--teal2);font-weight:700}
+.row-btns{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.4rem}
+.pbtn{font:inherit;font-size:.82rem;font-weight:700;color:var(--teal2);background:var(--teal-light);border:1px solid #99e6dc;border-radius:7px;padding:.35rem .7rem;cursor:pointer}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.9rem}
+.metric{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:.8rem .9rem}
+.metric .k{font-size:.74rem;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.metric .v{font-size:1.25rem;font-weight:800;color:var(--navy);margin-top:.15rem}
+.metric .u{font-size:.78rem;color:var(--text2);font-weight:600}
+.metric.hl{background:var(--teal-light);border-color:#99e6dc}.metric.hl .v{color:var(--teal2)}
+.metric .v.ok{color:#15803d}.metric .v.bad{color:#b45309}
+.plots{display:grid;grid-template-columns:1fr 1fr;gap:1.4rem}
+.plotbox{display:flex;flex-direction:column;gap:.4rem}
+.plotbox h4{font-size:.86rem;font-weight:700;color:var(--navy)}
+.plotbox .sub{font-size:.74rem;color:var(--text2)}
+canvas{width:100%;height:auto;background:#fff;border:1px solid var(--border);border-radius:10px}
+@media(max-width:760px){.plots{grid-template-columns:1fr}}
+.warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:10px;padding:.7rem .9rem;font-size:.83rem;margin-top:1rem}
+footer{border-top:1px solid var(--border);padding:1.5rem 0;font-size:.8rem;color:var(--text2);margin-top:1rem}
+footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+footer a{color:var(--text2)}
+table.valid{width:100%;border-collapse:collapse;font-size:.84rem;margin-top:.4rem}
+table.valid th,table.valid td{border:1px solid var(--border);padding:.35rem .55rem;text-align:left}
+table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
+</style>
+</head>
+<body>
+<button id="lang-toggle" onclick="toggleLang()">EN</button>
+
+<header><div class="wrap">
+  <a class="back" href="index.html">← <span data-i18n="back.hub">EMtools</span></a>
+  <h1>🧲 <span data-i18n="title">Bobines de Helmholtz</span></h1>
+  <div class="tag" data-i18n="tag">Champ magnétique d'une bobine seule puis de deux bobines : condition d'uniformité d = R, carte de champ, et dimensionnement électrique avec compensation réactive série à f₀.</div>
+</div></header>
+
+<main class="wrap">
+  <div class="intro" data-i18n-html="intro">
+    <b>Principe —</b> une bobine circulaire (rayon R, N spires, courant I) crée sur son axe un champ
+    <b>B(z) = µ₀·N·I·R² / [2(R²+z²)<sup>3/2</sup>]</b> : maximal au centre, qui décroît de part et d'autre.
+    En plaçant <b>deux bobines coaxiales identiques</b> séparées de d, le champ se cumule. Pour
+    <b>d = R</b> (configuration de <b>Helmholtz</b>), la courbure s'annule au centre (B″ = 0) : on obtient
+    une <b>région de champ très uniforme</b>. C'est la méthode de référence pour générer un champ contrôlé
+    (étalonnage de capteurs, annulation du champ terrestre, biologie…).
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="cfg">Géométrie des bobines</div>
+    <div class="controls">
+      <div class="ctrl">
+        <label><span data-i18n="R">Rayon R</span> · <span id="Rv" class="val">20 cm</span></label>
+        <input id="R" type="range" min="2" max="50" step="0.5" value="20" oninput="recompute()">
+      </div>
+      <div class="ctrl">
+        <label><span data-i18n="I">Courant I (RMS)</span> · <span id="Iv" class="val">1.0 A</span></label>
+        <input id="I" type="range" min="0.1" max="10" step="0.1" value="1" oninput="recompute()">
+      </div>
+      <div class="ctrl">
+        <label><span data-i18n="N">Spires N (par bobine)</span> · <span id="Nv" class="val">100</span></label>
+        <input id="N" type="range" min="1" max="400" step="1" value="100" oninput="recompute()">
+      </div>
+      <div class="ctrl">
+        <label><span data-i18n="dR">Séparation d / R</span> · <span id="dRv" class="val">1.00</span></label>
+        <input id="dR" type="range" min="0.2" max="2.5" step="0.01" value="1" oninput="recompute()">
+      </div>
+    </div>
+    <div class="row-btns">
+      <button class="pbtn" onclick="preset('one')" data-i18n="p.one">Une seule bobine</button>
+      <button class="pbtn" onclick="preset('helm')" data-i18n="p.helm">Helmholtz (d = R)</button>
+      <button class="pbtn" onclick="preset('close')" data-i18n="p.close">Trop rapprochées</button>
+      <button class="pbtn" onclick="preset('far')" data-i18n="p.far">Trop écartées</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="res">Champ &amp; uniformité</div>
+    <div class="metrics">
+      <div class="metric hl"><div class="k" data-i18n="m.bc">Champ au centre B₀</div><div class="v" id="m_bc">—</div><div class="u" id="m_bcu">mT</div></div>
+      <div class="metric"><div class="k" data-i18n="m.hc">H au centre</div><div class="v" id="m_hc">—</div><div class="u">A/m</div></div>
+      <div class="metric"><div class="k" data-i18n="m.oe">soit</div><div class="v" id="m_oe">—</div><div class="u">Oe</div></div>
+      <div class="metric"><div class="k" data-i18n="m.uni">Zone uniforme à ±1 %</div><div class="v" id="m_uni">—</div><div class="u" data-i18n="m.axial">± cm (axe)</div></div>
+      <div class="metric"><div class="k" data-i18n="m.cfg">Configuration</div><div class="v" id="m_cfg" style="font-size:.95rem">—</div><div class="u">d/R</div></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="viz">Allure du champ</div>
+    <div class="plots">
+      <div class="plotbox">
+        <h4 data-i18n="p.ax">Champ sur l'axe B(z)</h4>
+        <div class="sub" data-i18n="p.ax.sub">Une bobine (pointillé) vs deux bobines (plein) ; plateau si d = R.</div>
+        <canvas id="cv_ax" width="440" height="360"></canvas>
+      </div>
+      <div class="plotbox">
+        <h4 data-i18n="p.map">Carte d'uniformité (plan axial)</h4>
+        <div class="sub" data-i18n="p.map.sub">Écart au champ central ; vert = très homogène.</div>
+        <canvas id="cv_map" width="440" height="360"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="elec">Dimensionnement &amp; compensation réactive</div>
+    <div data-i18n-html="elec.intro"></div>
+    <div class="controls" style="margin-top:.9rem">
+      <div class="ctrl">
+        <label><span data-i18n="f0">Fréquence de travail f₀</span> · <span id="f0v" class="val">150 kHz</span></label>
+        <input id="f0" type="range" min="10" max="500" step="1" value="150" oninput="recompute()">
+      </div>
+      <div class="ctrl">
+        <label><span data-i18n="aw">Section fil</span> · <span id="awv" class="val">1.5 mm²</span></label>
+        <input id="aw" type="range" min="0.2" max="6" step="0.1" value="1.5" oninput="recompute()">
+      </div>
+      <div class="ctrl">
+        <label><span data-i18n="vr">Tension nominale condo</span> · <span id="vrv" class="val">250 V</span></label>
+        <input id="vr" type="range" min="50" max="1000" step="10" value="250" oninput="recompute()">
+      </div>
+      <div class="ctrl">
+        <label><span data-i18n="mg">Marge de sécurité</span> · <span id="mgv" class="val">1.5</span></label>
+        <input id="mg" type="range" min="1" max="3" step="0.1" value="1.5" oninput="recompute()">
+      </div>
+    </div>
+    <div class="metrics" style="margin-top:1rem">
+      <div class="metric"><div class="k" data-i18n="m.ntar">N pour 1 Oe (Helmholtz)</div><div class="v" id="m_ntar">—</div><div class="u" data-i18n="m.turns">spires</div></div>
+      <div class="metric"><div class="k" data-i18n="m.rc">Résistance bobine (DC)</div><div class="v" id="m_rc">—</div><div class="u">Ω</div></div>
+      <div class="metric"><div class="k" data-i18n="m.L">Inductance L</div><div class="v" id="m_L">—</div><div class="u">mH</div></div>
+      <div class="metric hl"><div class="k" data-i18n="m.cc">C compensation (série) à f₀</div><div class="v" id="m_cc">—</div><div class="u">nF</div></div>
+      <div class="metric"><div class="k" data-i18n="m.xc">|X| = ω₀L = 1/ω₀C</div><div class="v" id="m_xc">—</div><div class="u">Ω</div></div>
+      <div class="metric"><div class="k" data-i18n="m.vc">Tension sur C à f₀ (crête)</div><div class="v" id="m_vc">—</div><div class="u">V</div></div>
+      <div class="metric"><div class="k" data-i18n="m.ns">Condos en série (min)</div><div class="v" id="m_ns">—</div><div class="u" data-i18n="m.caps">condos</div></div>
+      <div class="metric"><div class="k" data-i18n="m.ceach">C unitaire si identiques</div><div class="v" id="m_ceach">—</div><div class="u">nF</div></div>
+    </div>
+    <div class="plots" style="margin-top:1.2rem">
+      <div class="plotbox">
+        <h4 data-i18n="p.imz">Compensation : Im(Z) vs f</h4>
+        <div class="sub" data-i18n="p.imz.sub">Im(Z_total) = 0 à f₀ (réactance annulée).</div>
+        <canvas id="cv_imz" width="440" height="300"></canvas>
+      </div>
+      <div class="plotbox">
+        <h4 data-i18n="p.vc">Tension sur le condensateur vs f</h4>
+        <div class="sub" data-i18n="p.vc.sub">Courant imposé I ; surtension à la résonance.</div>
+        <canvas id="cv_vc" width="440" height="300"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="valid">Validation</div>
+    <table class="valid">
+      <thead><tr><th data-i18n="v.case">Cas</th><th data-i18n="v.tool">Cet outil</th><th data-i18n="v.ref">Théorie</th></tr></thead>
+      <tbody>
+        <tr><td data-i18n="v.center">Champ au centre d'une bobine (z=0)</td><td id="vr1">—</td><td>B = µ₀·N·I / (2R)</td></tr>
+        <tr><td data-i18n="v.helm">Centre Helmholtz (d = R)</td><td id="vr2">—</td><td>B = (4/5)<sup>3/2</sup>·µ₀·N·I / R</td></tr>
+        <tr><td data-i18n="v.flat">d = R annule la courbure</td><td data-i18n="v.flatok">B″(0) = 0 (plateau)</td><td data-i18n="v.flatth">condition Helmholtz</td></tr>
+        <tr><td data-i18n="v.comp">Annulation de Im(Z) à f₀</td><td id="vr3">—</td><td>C = 1/(ω₀²L)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="warn" data-i18n-html="disclaimer"><b>Outil pédagogique —</b> champ exact d'une spire (intégrales elliptiques) sommé pour deux bobines minces coaxiales ; bobines supposées filiformes (épaisseur négligée). R_coil en modèle continu (DC, sans effet de peau ni ESR). Inductance par formule approchée L = µ₀·N²·π·R·(1 + 1/(2√2)). Pour un dimensionnement réel (échauffement, peau, blindage), utiliser un calcul complet.</div>
+</main>
+
+<footer><div class="wrap">
+  <span data-i18n-html="footer.lic">© 2026 Hakeim Talleb · EMtools · Code sous licence <a href="LICENSE">MIT</a></span>
+  <span><a href="index.html" data-i18n="footer.home">← Tous les outils EMtools</a></span>
+</div></footer>
+
+<script>
+function $(id){return document.getElementById(id);}
+function dpr(cv){const r=window.devicePixelRatio||1;const w=cv.clientWidth||parseFloat(cv.style.width)||cv.width;const h=parseFloat(cv.style.height)||cv.clientHeight||cv.height;cv.width=Math.round(w*r);cv.height=Math.round(h*r);const x=cv.getContext('2d');x.setTransform(r,0,0,r,0,0);return {x,w,h};}
+const MU0=4*Math.PI*1e-7, OE=79.5774715;   // 1 Oe = 79.577 A/m
+
+// complete elliptic integrals K(m), E(m) via AGM (m = k²)
+function ellipKE(m){
+  m=Math.min(Math.max(m,0),0.9999999);
+  let a=1,b=Math.sqrt(1-m),c=Math.sqrt(m), s=0.5*c*c, p=0.5;
+  for(let n=0;n<40;n++){const an=(a+b)/2,bn=Math.sqrt(a*b);c=(a-b)/2;p*=2;s+=p*c*c;a=an;b=bn;if(c<1e-15)break;}
+  const K=Math.PI/(2*a); return {K,E:K*(1-s)};
+}
+// field of one loop (radius aR, NI ampere-turns) at (r,z): returns {Bz,Br}
+function loopB(aR,NI,r,z){
+  if(Math.abs(r)<1e-9)r=1e-9;
+  const ar=Math.abs(r);
+  const al2=aR*aR+ar*ar+z*z-2*aR*ar, be2=aR*aR+ar*ar+z*z+2*aR*ar, be=Math.sqrt(be2);
+  const {K,E}=ellipKE(4*aR*ar/be2), C=MU0*NI/Math.PI;
+  const Bz=C/(2*al2*be)*((aR*aR-ar*ar-z*z)*E+al2*K);
+  let Br=C*z/(2*al2*be*ar)*((aR*aR+ar*ar+z*z)*E-al2*K);
+  if(r<0)Br=-Br;
+  return {Bz,Br};
+}
+// on-axis (exact, fast): single loop
+function axOne(aR,NI,z){ return MU0*NI*aR*aR/(2*Math.pow(aR*aR+z*z,1.5)); }
+// on-axis two coils at ±d/2
+function axTwo(aR,NI,d,z){ return axOne(aR,NI,d/2-z)+axOne(aR,NI,d/2+z); }
+
+let CUR=null;
+function compute(){
+  const R=parseFloat($('R').value)/100, I=parseFloat($('I').value), N=parseInt($('N').value);
+  const dR=parseFloat($('dR').value), d=dR*R, NI=N*I;
+  const f0=parseFloat($('f0').value)*1e3, Aw=parseFloat($('aw').value)*1e-6;
+  const Vr=parseFloat($('vr').value), mg=parseFloat($('mg').value), w0=2*Math.PI*f0;
+  // field at centre (two coils) and single coil
+  const B0=axTwo(R,NI,d,0), Bone=axOne(R,NI,0), H0=B0/MU0;
+  // ±1% uniform half-extent on axis
+  let zu=0; const dz=R/400;
+  for(let z=0;z<2.5*R;z+=dz){ if(Math.abs(axTwo(R,NI,d,z)/B0-1)>0.01){zu=z;break;} zu=z; }
+  // config status
+  let cfg; if(Math.abs(dR-1)<0.05)cfg='helm'; else if(dR<1)cfg='close'; else cfg='far';
+  // ── electrical (from the MATLAB workflow) ──
+  const HcPerTurn=Math.pow(4/5,1.5)*I/R;            // A/m per turn at Helmholtz centre
+  const Ntarget=Math.max(1,Math.round(OE/HcPerTurn));
+  const Lwire=Math.PI*2*R*N;                         // wire length (one coil, N turns)
+  const Rcoil=(1/5.8e7)*Lwire/Aw;                    // DC resistance
+  const L=MU0*N*N*Math.PI*R*(1+1/(2*Math.SQRT2));    // inductance (approx, per the MATLAB)
+  const Ccomp=1/(w0*w0*L);                           // series compensation cap
+  const Xc0=w0*L;                                    // = 1/(w0 C) at f0
+  const VrmsC=I*Xc0, VpeakC=Math.SQRT2*VrmsC;
+  const Vallow=Vr/mg, Nseries=Math.max(1,Math.ceil(VpeakC/Vallow)), Ceach=Nseries*Ccomp;
+  CUR={R,I,N,dR,d,NI,f0,w0,Aw,Vr,mg,B0,Bone,H0,zu,cfg,HcPerTurn,Ntarget,Rcoil,L,Ccomp,Xc0,VrmsC,VpeakC,Vallow,Nseries,Ceach};
+  return CUR;
+}
+
+function fmtB(T){ const a=Math.abs(T); if(a<1e-3) return (T*1e6).toFixed(a<1e-5?2:1); return (T*1e3).toFixed(3); }
+function recompute(){
+  $('Rv').textContent=parseFloat($('R').value).toFixed(1)+' cm';
+  $('Iv').textContent=parseFloat($('I').value).toFixed(1)+' A';
+  $('Nv').textContent=$('N').value;
+  $('dRv').textContent=parseFloat($('dR').value).toFixed(2);
+  $('f0v').textContent=$('f0').value+' kHz';
+  $('awv').textContent=parseFloat($('aw').value).toFixed(1)+' mm²';
+  $('vrv').textContent=$('vr').value+' V';
+  $('mgv').textContent=parseFloat($('mg').value).toFixed(1);
+  const c=compute();
+  const a=Math.abs(c.B0);
+  $('m_bc').textContent=fmtB(c.B0); $('m_bcu').textContent=a<1e-3?'µT':'mT';
+  $('m_hc').textContent=c.H0.toFixed(c.H0<100?2:0);
+  $('m_oe').textContent=(c.H0/OE).toFixed(3);
+  $('m_uni').textContent=(c.zu*100).toFixed(1);
+  $('m_cfg').textContent=t('cfg.'+c.cfg)+' ('+c.dR.toFixed(2)+')';
+  // electrical
+  $('m_ntar').textContent=c.Ntarget;
+  $('m_rc').textContent=c.Rcoil.toFixed(c.Rcoil<10?3:1);
+  $('m_L').textContent=(c.L*1e3).toFixed(c.L*1e3<10?3:1);
+  $('m_cc').textContent=(c.Ccomp*1e9).toFixed(c.Ccomp*1e9<10?3:1);
+  $('m_xc').textContent=c.Xc0.toFixed(c.Xc0<100?1:0);
+  $('m_vc').textContent=c.VpeakC.toFixed(c.VpeakC<100?1:0);
+  $('m_ns').textContent=c.Nseries;
+  $('m_ceach').textContent=(c.Ceach*1e9).toFixed(c.Ceach*1e9<10?3:1);
+  // validation
+  $('vr1').textContent=fmtB(c.Bone)+(Math.abs(c.Bone)<1e-3?' µT':' mT')+'  (= '+fmtB(MU0*c.NI/(2*c.R))+')';
+  $('vr2').textContent=fmtB(axTwo(c.R,c.NI,c.R,0))+(Math.abs(axTwo(c.R,c.NI,c.R,0))<1e-3?' µT':' mT')+'  (= '+fmtB(Math.pow(4/5,1.5)*MU0*c.NI/c.R)+')';
+  $('vr3').textContent=(c.Ccomp*1e9).toFixed(2)+' nF  (Im≈0)';
+  drawAxial(c); drawMap(c); drawImZ(c); drawVc(c);
+}
+function preset(p){
+  if(p==='one'){$('dR').value=2.5;}        // far apart → each bell is one coil's field
+  else if(p==='helm'){$('dR').value=1;}
+  else if(p==='close'){$('dR').value=0.45;}
+  else if(p==='far'){$('dR').value=1.8;}
+  recompute();
+}
+const _onlyOne=false;
+
+/* ---------- field plots ---------- */
+function drawAxial(c){
+  const cv=$('cv_ax'); cv.style.height='360px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const pad=46,x0=pad,x1=w-12,y0=h-30,y1=18, zMax=Math.max(1.6*c.R, c.d*0.7+c.R);
+  // sample
+  const NP=400, zL=-zMax, zR=zMax;
+  let ymax=0; const two=[],one=[],cA=[],cB=[];
+  for(let i=0;i<=NP;i++){const z=zL+(zR-zL)*i/NP;
+    const t2=axTwo(c.R,c.NI,c.d,z), o1=axOne(c.R,c.NI,z);
+    const a=axOne(c.R,c.NI,c.d/2-z), b=axOne(c.R,c.NI,c.d/2+z);
+    two.push(t2);one.push(o1);cA.push(a);cB.push(b);
+    ymax=Math.max(ymax,t2,o1);}
+  ymax*=1.12;
+  const sx=z=>x0+(z-zL)/(zR-zL)*(x1-x0), sy=B=>y0-B/ymax*(y0-y1);
+  // axes
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  const uB=ymax<1e-3?1e6:1e3, uL=ymax<1e-3?'µT':'mT';
+  x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='right';
+  for(let f=0;f<=1.001;f+=0.25){const B=ymax*f;x.fillText((B*uB).toFixed(ymax*uB<10?2:0),x0-4,sy(B)+3);x.strokeStyle='#f1f5f9';x.beginPath();x.moveTo(x0,sy(B));x.lineTo(x1,sy(B));x.stroke();}
+  x.textAlign='center';for(let zc=-Math.floor(zMax*100/10)*10;zc<=zMax*100;zc+=10){const z=zc/100;if(z>=zL&&z<=zR)x.fillText(zc,sx(z),y0+14);}
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.fillText('position sur l\'axe z (cm)',(x0+x1)/2,h-6);
+  x.save();x.translate(12,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText('B ('+uL+')',0,0);x.restore();
+  // coil positions
+  [-c.d/2,c.d/2].forEach(zc=>{x.strokeStyle='#94a3b8';x.setLineDash([3,3]);x.lineWidth=1;x.beginPath();x.moveTo(sx(zc),y1);x.lineTo(sx(zc),y0);x.stroke();x.setLineDash([]);});
+  // individual coil contributions (faint)
+  if(!_onlyOne){[cA,cB].forEach(arr=>{x.strokeStyle='#cbd5e1';x.lineWidth=1.2;x.beginPath();for(let i=0;i<=NP;i++){const z=zL+(zR-zL)*i/NP;const X=sx(z),Y=sy(arr[i]);i?x.lineTo(X,Y):x.moveTo(X,Y);}x.stroke();});}
+  // single coil (dashed)
+  x.strokeStyle='#d97706';x.lineWidth=1.8;x.setLineDash([5,3]);x.beginPath();
+  for(let i=0;i<=NP;i++){const z=zL+(zR-zL)*i/NP;const X=sx(z),Y=sy(one[i]);i?x.lineTo(X,Y):x.moveTo(X,Y);}x.stroke();x.setLineDash([]);
+  // two coils (solid)
+  if(!_onlyOne){x.strokeStyle='#0d9488';x.lineWidth=2.6;x.beginPath();
+    for(let i=0;i<=NP;i++){const z=zL+(zR-zL)*i/NP;const X=sx(z),Y=sy(two[i]);i?x.lineTo(X,Y):x.moveTo(X,Y);}x.stroke();}
+  // ±1% band
+  if(c.zu>0&&!_onlyOne){x.fillStyle='rgba(16,185,129,.10)';x.fillRect(sx(-c.zu),y1,sx(c.zu)-sx(-c.zu),y0-y1);}
+  // legend
+  x.font='10px sans-serif';x.textAlign='left';
+  x.strokeStyle='#d97706';x.setLineDash([5,3]);x.lineWidth=1.8;x.beginPath();x.moveTo(x1-150,y1+6);x.lineTo(x1-132,y1+6);x.stroke();x.setLineDash([]);
+  x.fillStyle='#475569';x.fillText(LANG==='fr'?'1 bobine':'1 coil',x1-128,y1+9);
+  if(!_onlyOne){x.strokeStyle='#0d9488';x.lineWidth=2.6;x.beginPath();x.moveTo(x1-150,y1+20);x.lineTo(x1-132,y1+20);x.stroke();
+    x.fillStyle='#475569';x.fillText(LANG==='fr'?'2 bobines':'2 coils',x1-128,y1+23);}
+}
+function devColor(dev){ // |B/B0-1| → colour bands
+  const a=Math.abs(dev);
+  if(a<0.005)return '#047857'; if(a<0.01)return '#10b981'; if(a<0.02)return '#6ee7b7';
+  if(a<0.05)return '#fde047'; if(a<0.1)return '#fb923c'; if(a<0.2)return '#ef4444'; return '#7f1d1d';
+}
+function drawMap(c){
+  const cv=$('cv_map'); cv.style.height='360px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const pad=40,x0=pad,x1=w-14,y0=h-30,y1=14;
+  const zMax=Math.max(1.3*c.R,c.d*0.6+0.6*c.R), rMax=1.05*c.R;
+  const sx=z=>x0+(z+zMax)/(2*zMax)*(x1-x0), sy=r=>(y0+y1)/2 - r/rMax*((y0-y1)/2);
+  const B0=c.B0;
+  // grid of cells
+  const NX=66, NY=44, cw=(x1-x0)/NX, ch=(y0-y1)/NY;
+  for(let i=0;i<NX;i++)for(let jj=0;jj<NY;jj++){
+    const z=-zMax+2*zMax*(i+0.5)/NX, r=-rMax+2*rMax*(jj+0.5)/NY;
+    const A=loopB(c.R,c.NI,r,z-c.d/2), Bc=loopB(c.R,c.NI,r,z+c.d/2);
+    const Bz=A.Bz+Bc.Bz, Br=A.Br+Bc.Br, Bm=Math.sqrt(Bz*Bz+Br*Br);
+    x.fillStyle=devColor(Bm/Math.abs(B0)-1);
+    x.fillRect(x0+i*cw, y1+jj*ch, cw+1, ch+1);
+  }
+  // coils (two short bars at z=±d/2, radial extent ±R)
+  [-c.d/2,c.d/2].forEach(zc=>{x.strokeStyle='#1e293b';x.lineWidth=3;x.beginPath();x.moveTo(sx(zc),sy(c.R));x.lineTo(sx(zc),sy(0.12*c.R));x.moveTo(sx(zc),sy(-0.12*c.R));x.lineTo(sx(zc),sy(-c.R));x.stroke();});
+  // axes labels
+  x.fillStyle='#475569';x.font='10px sans-serif';x.textAlign='center';
+  x.fillText('z (axe) →',(x0+x1)/2,h-6);
+  x.save();x.translate(12,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText('r (radial)',0,0);x.restore();
+  // legend bands
+  const labs=[['<0.5%','#047857'],['<1%','#10b981'],['<2%','#6ee7b7'],['<5%','#fde047'],['>5%','#fb923c']];
+  x.textAlign='left';x.font='9px sans-serif';
+  labs.forEach((l,i)=>{x.fillStyle=l[1];x.fillRect(x0+4+i*58,y1+4,12,9);x.fillStyle='#1e293b';x.fillText(l[0],x0+18+i*58,y1+12);});
+}
+
+/* ---------- electrical plots (around f0) ---------- */
+function drawImZ(c){
+  const cv=$('cv_imz'); cv.style.height='300px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const pad=46,x0=pad,x1=w-12,y0=h-28,y1=16;
+  const fmin=Math.max(1e3,c.f0-100e3), fmax=c.f0+100e3, NP=200;
+  let ymax=0; const imL=[],imC=[],imT=[];
+  for(let i=0;i<=NP;i++){const f=fmin+(fmax-fmin)*i/NP, ww=2*Math.PI*f;
+    const a=ww*c.L, b=-1/(ww*c.Ccomp); imL.push(a);imC.push(b);imT.push(a+b);ymax=Math.max(ymax,Math.abs(a),Math.abs(b));}
+  ymax*=1.05;
+  const sx=f=>x0+(f-fmin)/(fmax-fmin)*(x1-x0), sy=v=>(y0+y1)/2 - v/ymax*((y0-y1)/2);
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,sy(0));x.lineTo(x1,sy(0));x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='center';
+  for(let f=fmin;f<=fmax+1;f+=(fmax-fmin)/4){x.fillText((f/1e3).toFixed(0),sx(f),y0+12);}
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.fillText('f (kHz)',(x0+x1)/2,h-5);
+  // f0 line
+  x.strokeStyle='#0f766e';x.setLineDash([4,3]);x.lineWidth=1.2;x.beginPath();x.moveTo(sx(c.f0),y1);x.lineTo(sx(c.f0),y0);x.stroke();x.setLineDash([]);
+  x.fillStyle='#0f766e';x.textAlign='left';x.font='10px sans-serif';x.fillText('f₀',sx(c.f0)+3,y1+9);
+  const cur=[[imL,'#2563eb'],[imC,'#d97706'],[imT,'#0d9488']];
+  cur.forEach(([arr,col],idx)=>{x.strokeStyle=col;x.lineWidth=idx===2?2.4:1.5;x.beginPath();for(let i=0;i<=NP;i++){const f=fmin+(fmax-fmin)*i/NP;const Y=sy(Math.max(Math.min(arr[i],ymax),-ymax));i?x.lineTo(sx(f),Y):x.moveTo(sx(f),Y);}x.stroke();});
+  // legend
+  x.font='10px sans-serif';const lg=[['Im(Z_L)','#2563eb'],['Im(Z_C)','#d97706'],['Im(Z_tot)','#0d9488']];
+  lg.forEach((l,i)=>{x.strokeStyle=l[1];x.lineWidth=2;x.beginPath();x.moveTo(x0+8,y1+8+i*13);x.lineTo(x0+24,y1+8+i*13);x.stroke();x.fillStyle='#475569';x.textAlign='left';x.fillText(l[0],x0+28,y1+11+i*13);});
+}
+function drawVc(c){
+  const cv=$('cv_vc'); cv.style.height='300px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const pad=48,x0=pad,x1=w-12,y0=h-28,y1=16;
+  const fmin=Math.max(1e3,c.f0-100e3), fmax=c.f0+100e3, NP=200;
+  let ymax=0; const vr=[],vp=[];
+  for(let i=0;i<=NP;i++){const f=fmin+(fmax-fmin)*i/NP, ww=2*Math.PI*f, Xc=1/(ww*c.Ccomp);
+    const r=c.I*Xc, p=Math.SQRT2*r; vr.push(r);vp.push(p);ymax=Math.max(ymax,p);}
+  ymax*=1.08;
+  const sx=f=>x0+(f-fmin)/(fmax-fmin)*(x1-x0), sy=v=>y0-v/ymax*(y0-y1);
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='right';
+  for(let f=0;f<=1.001;f+=0.25){const v=ymax*f;x.fillText(v.toFixed(0),x0-4,sy(v)+3);x.strokeStyle='#f1f5f9';x.beginPath();x.moveTo(x0,sy(v));x.lineTo(x1,sy(v));x.stroke();}
+  x.textAlign='center';for(let f=fmin;f<=fmax+1;f+=(fmax-fmin)/4){x.fillText((f/1e3).toFixed(0),sx(f),y0+12);}
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.fillText('f (kHz)',(x0+x1)/2,h-5);
+  x.save();x.translate(12,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText('V sur C (V)',0,0);x.restore();
+  x.strokeStyle='#0f766e';x.setLineDash([4,3]);x.lineWidth=1.2;x.beginPath();x.moveTo(sx(c.f0),y1);x.lineTo(sx(c.f0),y0);x.stroke();x.setLineDash([]);
+  x.fillStyle='#0f766e';x.textAlign='left';x.font='10px sans-serif';x.fillText('f₀',sx(c.f0)+3,y1+9);
+  [[vr,'#2563eb','V_rms'],[vp,'#0d9488','V_crête']].forEach(([arr,col],idx)=>{x.strokeStyle=col;x.lineWidth=idx?2.2:1.6;x.beginPath();for(let i=0;i<=NP;i++){const f=fmin+(fmax-fmin)*i/NP;const Y=sy(Math.min(arr[i],ymax));i?x.lineTo(sx(f),Y):x.moveTo(sx(f),Y);}x.stroke();});
+  x.font='10px sans-serif';[['V_rms','#2563eb'],['V_crête','#0d9488']].forEach((l,i)=>{x.strokeStyle=l[1];x.lineWidth=2;x.beginPath();x.moveTo(x0+8,y1+8+i*13);x.lineTo(x0+24,y1+8+i*13);x.stroke();x.fillStyle='#475569';x.textAlign='left';x.fillText(LANG==='fr'?l[0]:l[0].replace('crête','peak'),x0+28,y1+11+i*13);});
+}
+
+/* i18n */
+const I18N={
+ 'back.hub':{fr:"EMtools",en:"EMtools"},
+ 'title':{fr:"Bobines de Helmholtz",en:"Helmholtz coils"},
+ 'tag':{fr:"Champ magnétique d'une bobine seule puis de deux bobines : condition d'uniformité d = R, carte de champ, et dimensionnement électrique avec compensation réactive série à f₀.",
+        en:"Magnetic field of one coil then two coils: uniformity condition d = R, field map, and electrical sizing with series reactive compensation at f₀."},
+ 'intro':{fr:"<b>Principe —</b> une bobine circulaire (rayon R, N spires, courant I) crée sur son axe un champ <b>B(z) = µ₀·N·I·R² / [2(R²+z²)<sup>3/2</sup>]</b> : maximal au centre, qui décroît de part et d'autre. En plaçant <b>deux bobines coaxiales identiques</b> séparées de d, le champ se cumule. Pour <b>d = R</b> (configuration de <b>Helmholtz</b>), la courbure s'annule au centre (B″ = 0) : on obtient une <b>région de champ très uniforme</b>. C'est la méthode de référence pour générer un champ contrôlé (étalonnage de capteurs, annulation du champ terrestre, biologie…).",
+          en:"<b>Principle —</b> a circular coil (radius R, N turns, current I) produces on its axis a field <b>B(z) = µ₀·N·I·R² / [2(R²+z²)<sup>3/2</sup>]</b>: maximal at the centre, decaying on either side. Placing <b>two identical coaxial coils</b> separated by d, the fields add. For <b>d = R</b> (the <b>Helmholtz</b> configuration) the curvature vanishes at the centre (B″ = 0): a <b>very uniform field region</b> results. It is the reference method for a controlled field (sensor calibration, Earth-field cancellation, biology…)."},
+ 'cfg':{fr:"Géométrie des bobines",en:"Coil geometry"},
+ 'R':{fr:"Rayon R",en:"Radius R"},'I':{fr:"Courant I (RMS)",en:"Current I (RMS)"},
+ 'N':{fr:"Spires N (par bobine)",en:"Turns N (per coil)"},'dR':{fr:"Séparation d / R",en:"Separation d / R"},
+ 'p.one':{fr:"Une seule bobine",en:"Single coil"},'p.helm':{fr:"Helmholtz (d = R)",en:"Helmholtz (d = R)"},
+ 'p.close':{fr:"Trop rapprochées",en:"Too close"},'p.far':{fr:"Trop écartées",en:"Too far apart"},
+ 'res':{fr:"Champ & uniformité",en:"Field & uniformity"},
+ 'm.bc':{fr:"Champ au centre B₀",en:"Centre field B₀"},'m.hc':{fr:"H au centre",en:"Centre H"},
+ 'm.oe':{fr:"soit",en:"i.e."},'m.uni':{fr:"Zone uniforme à ±1 %",en:"±1 % uniform zone"},
+ 'm.axial':{fr:"± cm (axe)",en:"± cm (axis)"},'m.cfg':{fr:"Configuration",en:"Configuration"},
+ 'cfg.helm':{fr:"Helmholtz ✓",en:"Helmholtz ✓"},'cfg.close':{fr:"rapprochées",en:"too close"},'cfg.far':{fr:"écartées",en:"too far"},
+ 'viz':{fr:"Allure du champ",en:"Field shape"},
+ 'p.ax':{fr:"Champ sur l'axe B(z)",en:"On-axis field B(z)"},
+ 'p.ax.sub':{fr:"Une bobine (pointillé) vs deux bobines (plein) ; plateau si d = R.",en:"One coil (dashed) vs two coils (solid); plateau when d = R."},
+ 'p.map':{fr:"Carte d'uniformité (plan axial)",en:"Uniformity map (axial plane)"},
+ 'p.map.sub':{fr:"Écart au champ central ; vert = très homogène.",en:"Deviation from centre field; green = very uniform."},
+ 'elec':{fr:"Dimensionnement & compensation réactive",en:"Sizing & reactive compensation"},
+ 'elec.intro':{fr:"<b>Côté électrique —</b> à la fréquence de travail f₀, la bobine est inductive (Z = R<sub>coil</sub> + jω₀L). On ajoute un <b>condensateur en série</b> pour annuler la réactance : <b>C = 1/(ω₀²L)</b>. À courant imposé, la tension aux bornes de C atteint <b>V = I·ω₀L</b> (surtension), d'où le besoin éventuel de plusieurs condos en série. (Reprend la démarche du code MATLAB.)",
+               en:"<b>Electrical side —</b> at the working frequency f₀ the coil is inductive (Z = R<sub>coil</sub> + jω₀L). A <b>series capacitor</b> cancels the reactance: <b>C = 1/(ω₀²L)</b>. At imposed current the voltage across C reaches <b>V = I·ω₀L</b> (resonant rise), hence possibly several capacitors in series. (Follows the MATLAB workflow.)"},
+ 'f0':{fr:"Fréquence de travail f₀",en:"Working frequency f₀"},'aw':{fr:"Section fil",en:"Wire section"},
+ 'vr':{fr:"Tension nominale condo",en:"Capacitor voltage rating"},'mg':{fr:"Marge de sécurité",en:"Safety margin"},
+ 'm.ntar':{fr:"N pour 1 Oe (Helmholtz)",en:"N for 1 Oe (Helmholtz)"},'m.turns':{fr:"spires",en:"turns"},
+ 'm.rc':{fr:"Résistance bobine (DC)",en:"Coil resistance (DC)"},'m.L':{fr:"Inductance L",en:"Inductance L"},
+ 'm.cc':{fr:"C compensation (série) à f₀",en:"Compensation C (series) at f₀"},
+ 'm.xc':{fr:"|X| = ω₀L = 1/ω₀C",en:"|X| = ω₀L = 1/ω₀C"},
+ 'm.vc':{fr:"Tension sur C à f₀ (crête)",en:"Voltage on C at f₀ (peak)"},
+ 'm.ns':{fr:"Condos en série (min)",en:"Capacitors in series (min)"},'m.caps':{fr:"condos",en:"caps"},
+ 'm.ceach':{fr:"C unitaire si identiques",en:"Unit C if identical"},
+ 'p.imz':{fr:"Compensation : Im(Z) vs f",en:"Compensation: Im(Z) vs f"},
+ 'p.imz.sub':{fr:"Im(Z_total) = 0 à f₀ (réactance annulée).",en:"Im(Z_total) = 0 at f₀ (reactance cancelled)."},
+ 'p.vc':{fr:"Tension sur le condensateur vs f",en:"Capacitor voltage vs f"},
+ 'p.vc.sub':{fr:"Courant imposé I ; surtension à la résonance.",en:"Imposed current I; resonant rise."},
+ 'valid':{fr:"Validation",en:"Validation"},
+ 'v.case':{fr:"Cas",en:"Case"},'v.tool':{fr:"Cet outil",en:"This tool"},'v.ref':{fr:"Théorie",en:"Theory"},
+ 'v.center':{fr:"Champ au centre d'une bobine (z=0)",en:"Single-coil centre field (z=0)"},
+ 'v.helm':{fr:"Centre Helmholtz (d = R)",en:"Helmholtz centre (d = R)"},
+ 'v.flat':{fr:"d = R annule la courbure",en:"d = R cancels the curvature"},
+ 'v.flatok':{fr:"B″(0) = 0 (plateau)",en:"B″(0) = 0 (plateau)"},'v.flatth':{fr:"condition Helmholtz",en:"Helmholtz condition"},
+ 'v.comp':{fr:"Annulation de Im(Z) à f₀",en:"Im(Z) cancelled at f₀"},
+ 'disclaimer':{fr:"<b>Outil pédagogique —</b> champ exact d'une spire (intégrales elliptiques) sommé pour deux bobines minces coaxiales ; bobines supposées filiformes (épaisseur négligée). R_coil en modèle continu (DC, sans effet de peau ni ESR). Inductance par formule approchée L = µ₀·N²·π·R·(1 + 1/(2√2)). Pour un dimensionnement réel (échauffement, peau, blindage), utiliser un calcul complet.",
+               en:"<b>Educational tool —</b> exact single-loop field (elliptic integrals) summed for two thin coaxial coils; coils assumed filamentary (thickness ignored). R_coil is a DC model (no skin effect or ESR). Inductance via the approximate formula L = µ₀·N²·π·R·(1 + 1/(2√2)). For real design (heating, skin effect, shielding), use a full computation."},
+ 'footer.lic':{fr:'© 2026 Hakeim Talleb · EMtools · Code sous licence <a href="LICENSE">MIT</a>',en:'© 2026 Hakeim Talleb · EMtools · Code under the <a href="LICENSE">MIT</a> license'},
+ 'footer.home':{fr:"← Tous les outils EMtools",en:"← All EMtools tools"},
+};
+let LANG=localStorage.getItem('emtools_lang')||'fr';
+function t(k){const e=I18N[k];return e?(e[LANG]||e.fr):k;}
+function applyLang(){
+  document.documentElement.lang=LANG;
+  document.querySelectorAll('[data-i18n]').forEach(el=>{const e=I18N[el.dataset.i18n];if(e)el.textContent=e[LANG]||e.fr;});
+  document.querySelectorAll('[data-i18n-html]').forEach(el=>{const e=I18N[el.dataset.i18nHtml];if(e)el.innerHTML=e[LANG]||e.fr;});
+  const b=$('lang-toggle');if(b)b.textContent=LANG==='fr'?'EN':'FR';
+}
+function toggleLang(){LANG=LANG==='fr'?'en':'fr';localStorage.setItem('emtools_lang',LANG);applyLang();recompute();}
+applyLang(); recompute();
+window.addEventListener('resize',()=>{const c=CUR||compute();drawAxial(c);drawMap(c);drawImZ(c);drawVc(c);});
+</script>
+</body>
+</html>
