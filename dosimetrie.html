@@ -2678,7 +2678,7 @@ const IMPCASES={
         lbl:'tête (onde plane 0,9 GHz, propagation +z, E∥x)'},
   slab:{ef:'slab_efield_09GHz.txt',sar:'slab_sar10g_09GHz.txt',stl:null,axis:1,pos:0,grid:4,pAxis:1,pDir:'auto',pMode:'line',
         lbl:'dalle (onde plane 0,9 GHz, sans STL → tissu = SAR>0)'},
-  trunk:{ef:'trunk_sar10g_09GHz.txt',sar:null,stl:null,axis:2,pos:0,grid:4,pAxis:2,pDir:'auto',pMode:'plane',stack:'trunk',
+  trunk:{ef:'trunk_sar10g_09GHz.txt',sar:null,stl:null,axis:1,pos:0,grid:4,pAxis:2,pDir:'auto',pMode:'plane',stack:'trunk',
         lbl:'tronc multicouche (peau/graisse/muscle/foie ; SAR importé, profil vs empilement TMM)'}
 };
 async function impLoadCase(){
@@ -3003,6 +3003,11 @@ function impGridFromTissue(F,tissue3d,ca,pos,h){
   const near=(arr,val)=>{let b=0;for(let k=0;k<arr.length;k++)if(Math.abs(arr[k]-val)<Math.abs(arr[b]-val))b=k;return b;};
   for(let iv=0;iv<nv;iv++)for(let iu=0;iu<nu;iu++){const u=u0+iu*h,v=v0+iv*h;const c=[0,0,0];c[ca]=kp;c[ia]=near(U,u);c[ib]=near(V,v);
     if(tissue3d[idx3(c[0],c[1],c[2])])inside[iv*nu+iu]=1;}
+  // boucher les trous internes : le tissu profond à SAR≈0 (champ absorbé) est exclu par « SAR>0 » → flood-fill de l'air depuis le bord
+  {const air=new Uint8Array(nu*nv),st=[];const push=(iu,iv)=>{if(iu<0||iu>=nu||iv<0||iv>=nv)return;const id=iv*nu+iu;if(!inside[id]&&!air[id]){air[id]=1;st.push(id);}};
+   for(let iu=0;iu<nu;iu++){push(iu,0);push(iu,nv-1);} for(let iv=0;iv<nv;iv++){push(0,iv);push(nu-1,iv);}
+   while(st.length){const id=st.pop(),iu=id%nu,iv=(id-iu)/nu;push(iu-1,iv);push(iu+1,iv);push(iu,iv-1);push(iu,iv+1);}
+   for(let i=0;i<nu*nv;i++)if(!air[i])inside[i]=1;}
   // contour = arêtes entre cellule intérieure et extérieure
   const segs=[];
   for(let iv=0;iv<nv;iv++)for(let iu=0;iu<nu;iu++){if(!inside[iv*nu+iu])continue;
