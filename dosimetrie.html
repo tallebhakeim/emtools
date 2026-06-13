@@ -2816,18 +2816,36 @@ function impTransient2D(G,Q,prm,opt){
 // — Colormap jet —
 function impJet(t){t=Math.max(0,Math.min(1,t));const r=Math.max(0,Math.min(1,1.5-Math.abs(4*t-3)));const g=Math.max(0,Math.min(1,1.5-Math.abs(4*t-2)));const b=Math.max(0,Math.min(1,1.5-Math.abs(4*t-1)));return[r*255|0,g*255|0,b*255|0];}
 
-// — Rendu d'une carte scalaire sur canvas —
+// — Rendu d'une carte scalaire sur canvas — shading bilinéaire (lissé entre centres de cellules) —
 function impDrawMap(cv,vals,G,sol,segs,vmin,vmax){
   const {u0,v0,h,nu,nv}=G; const ctx=cv.getContext('2d');
   ctx.clearRect(0,0,cv.width,cv.height);
   const Wmm=nu*h,Hmm=nv*h,sc=Math.min(cv.width/Wmm,cv.height/Hmm);
   const ox=(cv.width-Wmm*sc)/2,oy=(cv.height-Hmm*sc)/2;
   const px2=(u)=>ox+(u-u0)*sc, py2=(v)=>cv.height-oy-(v-v0)*sc; // v vers le haut
-  const rng=(vmax-vmin)||1;
-  for(let n=0;n<sol.N;n++){const id=sol.cells[n],iu=id%nu,iv=(id-iu)/nu;
-    const c=impJet((vals[n]-vmin)/rng); ctx.fillStyle='rgb('+c[0]+','+c[1]+','+c[2]+')';
-    const x=ox+(iu*h)*sc, y=cv.height-oy-((iv+1)*h)*sc;
-    ctx.fillRect(Math.floor(x),Math.floor(y),Math.ceil(h*sc)+1,Math.ceil(h*sc)+1);}
+  const rng=(vmax-vmin)||1, hs=h*sc;
+  // grille de valeurs + masque intérieur (indexés iv*nu+iu)
+  const V=new Float64Array(nu*nv), ins=new Uint8Array(nu*nv);
+  for(let n=0;n<sol.N;n++){const id=sol.cells[n]; V[id]=vals[n]; ins[id]=1;}
+  // interpolation bilinéaire par pixel ; on ne peint que si la cellule la plus proche est dans le tissu
+  const img=ctx.createImageData(cv.width,cv.height); const D=img.data;
+  const xa=Math.max(0,Math.floor(ox)),xb=Math.min(cv.width,Math.ceil(ox+Wmm*sc));
+  const ya=Math.max(0,Math.floor(oy)),yb=Math.min(cv.height,Math.ceil(oy+Hmm*sc));
+  for(let py=ya;py<yb;py++){
+    const fv=(cv.height-oy-py)/hs-0.5; const iv0=Math.floor(fv),ty=fv-iv0,ivN=Math.round(fv);
+    for(let px=xa;px<xb;px++){
+      const fu=(px-ox)/hs-0.5; const iu0=Math.floor(fu),tx=fu-iu0,iuN=Math.round(fu);
+      if(iuN<0||iuN>=nu||ivN<0||ivN>=nv||!ins[ivN*nu+iuN])continue;
+      let num=0,den=0;
+      for(let a=0;a<2;a++)for(let b=0;b<2;b++){const iu=iu0+a,iv=iv0+b;
+        if(iu<0||iu>=nu||iv<0||iv>=nv)continue; const id=iv*nu+iu; if(!ins[id])continue;
+        const wt=(a?tx:1-tx)*(b?ty:1-ty); num+=wt*V[id]; den+=wt;}
+      const val=den>0?num/den:V[ivN*nu+iuN];
+      const c=impJet((val-vmin)/rng); const o=(py*cv.width+px)*4;
+      D[o]=c[0];D[o+1]=c[1];D[o+2]=c[2];D[o+3]=255;
+    }
+  }
+  ctx.putImageData(img,0,0);
   ctx.strokeStyle='rgba(0,0,0,.55)';ctx.lineWidth=0.6;ctx.beginPath();
   for(const s of segs){ctx.moveTo(px2(s[0][0]),py2(s[0][1]));ctx.lineTo(px2(s[1][0]),py2(s[1][1]));}
   ctx.stroke();
