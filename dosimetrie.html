@@ -2678,8 +2678,8 @@ const IMPCASES={
         lbl:'tête (onde plane 0,9 GHz, propagation +z, E∥x)'},
   slab:{ef:'slab_efield_09GHz.txt',sar:'slab_sar10g_09GHz.txt',stl:null,axis:1,pos:0,grid:4,pAxis:1,pDir:'auto',pMode:'line',
         lbl:'dalle (onde plane 0,9 GHz, sans STL → tissu = SAR>0)'},
-  trunk:{ef:'trunk_sar10g_09GHz.txt',sar:null,stl:null,axis:1,pos:0,grid:4,pAxis:2,pDir:'auto',pMode:'plane',stack:'trunk',
-        lbl:'tronc multicouche (peau/graisse/muscle/foie ; SAR importé, profil vs empilement TMM)'}
+  trunk:{ef:'trunk_efield_09GHz.txt',sar:'trunk_sar10g_09GHz.txt',stl:null,axis:1,pos:0,grid:4,pAxis:2,pDir:'auto',pMode:'plane',stack:'trunk',
+        lbl:'tronc multicouche (peau/graisse/muscle/foie ; notre SAR σ unique vs SAR CST + profil vs empilement TMM)'}
 };
 async function impLoadCase(){
   const which=document.getElementById('imp-case').value, c=IMPCASES[which]||IMPCASES.head;
@@ -3167,7 +3167,7 @@ function impRun(){
             `Transitoire ${durMin} min : ΔT max=${(dTmax*1e3).toFixed(1)} mK (${c2(dTmax)} °C) · CEM43 max=${cemMax.toExponential(2)} min équiv. @43°C`);
 
   // profil 1D SAR(z) — disponible dès qu'on part d'un champ E
-  impLast = {E:impEfield,sar3d,tissue3d,sigma,rho};   // profil dispo aussi pour un import SAR direct (sar3d = SAR importé)
+  impLast = {E:impEfield,sar3d,tissue3d,sigma,rho,refOnE};   // refOnE = SAR CST de réf. (par couche) si fourni
   impDrawProfile();
 }
 
@@ -3176,7 +3176,8 @@ let impLast=null;
 function impDrawProfile(){
   const wrap=document.getElementById('imp-prof-wrap');
   if(!impLast){if(wrap)wrap.style.display='none';return;}
-  const {E,sar3d,tissue3d}=impLast;
+  const {E,tissue3d}=impLast;
+  const sar3d=impLast.refOnE||impLast.sar3d;   // courbe CST = SAR de réf. (par couche) si fourni, sinon SAR calculé
   const ax=parseInt(document.getElementById('imp-prof-axis').value);
   const tname=document.getElementById('imp-prof-tissue').value||'Brain';
   const f=parseFloat(document.getElementById('freq').value)||9e8;
