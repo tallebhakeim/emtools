@@ -803,6 +803,7 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
     <div class="field"><label>Plan de coupe</label><select id="imp-axis"><option value="0">x = const</option><option value="1">y = const</option><option value="2">z = const</option></select></div>
     <div class="field"><label>Position (mm)</label><input type="number" id="imp-pos" step="any" value="0"></div>
     <div class="field"><label>Affichage SAR</label><select id="imp-sarmode"><option value="point">Point (local)</option><option value="10g">psSAR 10g</option></select></div>
+    <div class="field"><label>Carte CEM43</label><select id="imp-cem-mode" onchange="if(impEfield)impRun()"><option value="abs">Absolu (T réelle)</option><option value="em">Dû à l'EM seul</option></select></div>
   </div>
 
   <div class="stitle">Thermique — Pennes 2D</div>
@@ -827,6 +828,22 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
     <div style="flex:1;min-width:240px"><div class="stitle" style="border-top:none;padding-top:0">ΔT induit par l'EM [mK]</div><canvas id="imp-dt-map" width="600" height="600" style="width:100%;height:auto;border-radius:8px;border:.5px solid var(--border);background:#fff"></canvas></div>
     <div style="flex:1;min-width:240px"><div class="stitle" style="border-top:none;padding-top:0">Dose thermique CEM43 [min]</div><canvas id="imp-cem-map" width="600" height="600" style="width:100%;height:auto;border-radius:8px;border:.5px solid var(--border);background:#fff"></canvas></div>
   </div>
+
+  <details style="margin-top:.75rem;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:10px 14px;font-size:11.5px;color:#7c2d12;line-height:1.6">
+    <summary style="cursor:pointer;font-weight:700;color:#9a3412">Comprendre le CEM43 (dose thermique) — pourquoi deux cartes ?</summary>
+    <div style="margin-top:.5rem">
+      <p style="margin:.2rem 0"><b>L'idée.</b> Un dommage thermique ne dépend pas que de la température <i>pic</i> mais du <b>couple température × durée</b>. Le <b>CEM43</b> (<i>Cumulative Equivalent Minutes at 43 °C</i>) ramène tout un historique T(t) à une <b>durée équivalente passée à 43 °C</b> :</p>
+      <p style="margin:.35rem 0;text-align:center;font-size:13px"><b>CEM43 = Σ R<sup>(43 − T)</sup> · Δt</b> &nbsp; avec R = 0,5 si T ≥ 43 °C, &nbsp; R = 0,25 si T &lt; 43 °C</p>
+      <p style="margin:.2rem 0">(loi de <b>Sapareto-Dewey, 1984</b>). Règle pratique : <b>+1 °C ≈ ×2</b> la vitesse de dommage au-dessus de 43 °C, et <b>÷4 par °C</b> en dessous. C'est pourquoi 43 °C est le pivot : la nocivité s'effondre dès qu'on descend sous ce seuil.</p>
+      <p style="margin:.2rem 0"><b>Repères de lésion</b> (tissu sain) : ~<b>10–240 min</b> CEM43 selon le tissu pour un dommage net ; tissus sensibles (cerveau, œil, testicule) dès <b>quelques minutes</b>. En radiofréquence « grand public/travailleur », on reste des <b>ordres de grandeur en dessous</b> (dose ≈ 0).</p>
+      <p style="margin:.4rem 0 .15rem"><b>Pourquoi deux cartes ?</b> Le CEM43 dépend de la <b>température absolue</b>, et l'exponentielle l'amplifie énormément :</p>
+      <ul style="margin:.15rem 0 .2rem 1.1rem;padding:0">
+        <li><b>Absolu (T réelle)</b> = dose sur la vraie température du tissu : <b>perfusion</b> qui verrouille le cœur à 37 °C + <b>convection</b> qui refroidit la peau sous 37 °C + montée EM. C'est la grandeur <b>réglementaire/clinique</b>. Aux niveaux RF usuels la montée EM (ici ~0,07 °C) est négligeable devant le gradient physiologique → la carte montre surtout que <b>le centre est le plus chaud</b> (37 °C), pas l'effet du champ.</li>
+        <li><b>Dû à l'EM seul</b> = <b>excès</b> de dose au-dessus de la référence 37 °C (= CEM43 à 37 °C+ΔT_EM moins CEM43 à 37 °C). Vaut <b>0 là où le champ ne chauffe pas</b> et croît là où il dépose de l'énergie → carte <b>directionnelle</b>, calée sur le SAR et le ΔT. C'est la dose thermique <b>attribuable à l'exposition</b>.</li>
+      </ul>
+      <p style="margin:.2rem 0">Aux niveaux d'exposition normaux, <b>les deux donnent une dose infime</b> (sécurité large). Le CEM43 ne devient discriminant qu'en <b>hyperthermie</b> (ablation, traitement local, T → 43 °C), régime pour lequel cet indicateur a été conçu.</p>
+    </div>
+  </details>
 
   <div id="imp-valid-wrap" style="display:none;margin-top:1.25rem;border-top:1px solid var(--border);padding-top:1rem">
     <div class="stitle0">Validation — notre SAR (calculé depuis le champ E) vs SAR CST de référence</div>
@@ -2831,7 +2848,7 @@ function impTransient2D(G,Q,prm,opt){
       v+=nBndA[n]*hc*hm*x[n]; out[n]=v;}
   };
   let T=opt.baseline?opt.baseline.slice():new Float64Array(N).fill(Tart);
-  const cem=new Float64Array(N), dtm=opt.dt/60;
+  const cem=new Float64Array(N), cemEM=new Float64Array(N), dtm=opt.dt/60, base=opt.baseline;
   const r=new Float64Array(N),z=new Float64Array(N),p=new Float64Array(N),Ap=new Float64Array(N),b=new Float64Array(N);
   for(let it=0;it<opt.nt;it++){
     for(let n=0;n<N;n++)b[n]=bS[n]+cap*T[n];     // second membre = source + capacité·T^n
@@ -2845,9 +2862,14 @@ function impTransient2D(G,Q,prm,opt){
       if(rz2<1e-14)break; const bt=rz2/rz; for(let n=0;n<N;n++)p[n]=z[n]+bt*p[n]; rz=rz2;
     }
     T=x;
-    for(let n=0;n<N;n++){const R=T[n]<43?0.25:0.5; cem[n]+=Math.pow(R,43-T[n])*dtm;}  // CEM43
+    for(let n=0;n<N;n++){
+      const R=T[n]<43?0.25:0.5; cem[n]+=Math.pow(R,43-T[n])*dtm;                      // CEM43 absolu (T réelle)
+      // CEM43 dû à l'EM seul = EXCÈS de dose au-dessus de la réf. 37°C (0 sans EM, >0 où le champ chauffe)
+      const Tem=37+(T[n]-(base?base[n]:37)); const Re=Tem<43?0.25:0.5;
+      cemEM[n]+=(Math.pow(Re,43-Tem)-Math.pow(0.25,6))*dtm;
+    }
   }
-  return{T,cem,cells,idx,N};
+  return{T,cem,cemEM,cells,idx,N};
 }
 
 // — Colormap jet —
@@ -2999,8 +3021,10 @@ function impRun(){
   // transitoire : part de l'état pré-exposition (baseline), EM allumé sur durMin
   const nt=150, dt=durMin*60/nt;
   const tr=impTransient2D(G,Qs,prm,{rho_c:rho*cTh,dt,nt,baseline:solBase.T});
+  const cemMode=document.getElementById('imp-cem-mode').value;
+  const cemArr=cemMode==='em'?tr.cemEM:tr.cem;
   const dT=new Float64Array(N); let dTmax=-1e9, cemMax=0;
-  for(let n=0;n<N;n++){dT[n]=tr.T[n]-solBase.T[n];dTmax=Math.max(dTmax,dT[n]);cemMax=Math.max(cemMax,tr.cem[n]);}
+  for(let n=0;n<N;n++){dT[n]=tr.T[n]-solBase.T[n];dTmax=Math.max(dTmax,dT[n]);cemMax=Math.max(cemMax,cemArr[n]);}
 
   // Carte SAR : point ou psSAR 10g (échantillonné sur la coupe), normalisée
   const mode=document.getElementById('imp-sarmode').value;
@@ -3012,7 +3036,7 @@ function impRun(){
   impDrawMap(document.getElementById('imp-sar-map'),SARd,G,solSteady,segs,0,sarDispMax||1);
   const dTmK=new Float64Array(N);for(let n=0;n<N;n++)dTmK[n]=dT[n]*1e3;
   impDrawMap(document.getElementById('imp-dt-map'),dTmK,G,solSteady,segs,0,dTmax*1e3||1);
-  impDrawMap(document.getElementById('imp-cem-map'),tr.cem,G,solSteady,segs,0,cemMax||1);
+  impDrawMap(document.getElementById('imp-cem-map'),cemArr,G,solSteady,segs,0,cemMax||1);
 
   // ── Validation : notre SAR (depuis le champ E) vs SAR CST de référence (si fourni) ──
   const vw=document.getElementById('imp-valid-wrap');
