@@ -123,6 +123,9 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
   <button class="tab" onclick="switchTab('diel')"><span class="tab-dot" style="background:#9F3FAE"></span><span data-i18n="tab.diel">Propriétés des tissus</span></button>
   <button class="tab" onclick="switchTab('limits')"><span class="tab-dot" style="background:#d97706"></span><span data-i18n="tab.limits">Limites &amp; normes</span></button>
   <button class="tab" onclick="switchTab('valid')"><span class="tab-dot" style="background:#16a34a"></span><span data-i18n="tab.valid">Validation</span></button>
+  <span class="tab-sep"></span>
+  <span class="tab-grp">Avancé</span>
+  <button class="tab" onclick="switchTab('import')"><span class="tab-dot" style="background:#6366f1"></span>Import CST</button>
 </div>
 
 
@@ -768,6 +771,55 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
     <code>validation/validate_tmm.js</code>.<br><br>
     <b>Références —</b> C. Gabriel (1996) ; IT'IS Tissue Properties Database V5.0 ; ICNIRP 2020 ;
     analogie ligne de transmission / TMM (validation standard des codes FDTD aux interfaces planes).
+  </div>
+</div>
+
+<!-- ═══ IMPORT CST / CARTOGRAPHIE 2D ═══ -->
+<div id="tab-import" class="panel">
+  <div class="stitle0">Import CST → SAR → Cartographie thermique 2D</div>
+  <div style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;padding:10px 14px;margin:0 0 .75rem;font-size:11.5px;color:#3730a3;line-height:1.55">
+    <strong>ℹ Module données volumiques externes</strong> — charge un export de champ E (grille 3D régulière, format CST ASCII <code>x y z ExRe ExIm EyRe EyIm EzRe EzIm</code>) et le STL du modèle. Calcule SAR = σ|E|²/(2ρ), découpe un plan, résout la bio-chaleur de Pennes 2D sur la coupe. Complémentaire de la méthode analytique TMM (1D) : ici la source vient d'une simulation 3D.
+  </div>
+
+  <div class="row">
+    <div class="field"><label>Export champ E (.txt)</label><input type="file" id="imp-efield" accept=".txt"></div>
+    <div class="field"><label>Maillage STL (.stl)</label><input type="file" id="imp-stl" accept=".stl"></div>
+  </div>
+
+  <div class="stitle">Matériau (tissu équivalent)</div>
+  <div class="row">
+    <div class="field"><label>Tissu (Cole-Cole)</label><select id="imp-tissue" onchange="impSyncProps()"></select></div>
+    <div class="field"><label style="display:flex;align-items:center;gap:5px;text-transform:none;letter-spacing:0"><input type="checkbox" id="imp-manual" onchange="impSyncProps()"> Saisie manuelle</label></div>
+  </div>
+  <div class="row">
+    <div class="field"><label>σ (S/m)</label><input type="number" id="imp-sigma" step="any" value="0.99"></div>
+    <div class="field"><label>ε_r</label><input type="number" id="imp-eps" step="any" value="42"></div>
+    <div class="field"><label>ρ (kg/m³)</label><input type="number" id="imp-rho" step="any" value="1000"></div>
+  </div>
+  <div class="row">
+    <div class="field"><label>Champ exporté</label><select id="imp-conv"><option value="peak">Crête (amplitude)</option><option value="rms">RMS</option></select></div>
+    <div class="field"><label>Plan de coupe</label><select id="imp-axis"><option value="0">x = const</option><option value="1">y = const</option><option value="2">z = const</option></select></div>
+    <div class="field"><label>Position (mm)</label><input type="number" id="imp-pos" step="any" value="0"></div>
+  </div>
+
+  <div class="stitle">Thermique — Pennes 2D</div>
+  <div class="row">
+    <div class="field"><label>k (W/m/K)</label><input type="number" id="imp-k" step="any" value="0.5"></div>
+    <div class="field"><label>Perfusion (ml/min/kg)</label><input type="number" id="imp-perf" step="any" value="37"></div>
+    <div class="field"><label>h conv. (W/m²/K)</label><input type="number" id="imp-h" step="any" value="10"></div>
+    <div class="field"><label>T ambiante (°C)</label><input type="number" id="imp-tamb" step="any" value="25"></div>
+  </div>
+  <div class="row">
+    <div class="field"><label>Pas grille therm. (mm)</label><input type="number" id="imp-grid" step="any" value="2"></div>
+    <div class="field"><label>Normalisation SAR crête (W/kg)</label><input type="number" id="imp-sarref" step="any" value="1"></div>
+  </div>
+
+  <button onclick="impRun()" style="background:#6366f1;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-weight:700;cursor:pointer;margin:.5rem 0">Calculer SAR + Température</button>
+  <div id="imp-status" style="font-size:12px;color:var(--text2);margin:.3rem 0;white-space:pre-line"></div>
+
+  <div class="row" style="margin-top:.5rem">
+    <div style="flex:1;min-width:280px"><div class="stitle" style="border-top:none;padding-top:0">SAR sur la coupe [W/kg]</div><canvas id="imp-sar-map" width="600" height="600" style="width:100%;height:auto;border-radius:8px;border:.5px solid var(--border);background:#fff"></canvas></div>
+    <div style="flex:1;min-width:280px"><div class="stitle" style="border-top:none;padding-top:0">ΔT induit par l'EM [mK]</div><canvas id="imp-dt-map" width="600" height="600" style="width:100%;height:auto;border-radius:8px;border:.5px solid var(--border);background:#fff"></canvas></div>
   </div>
 </div>
 
@@ -1501,7 +1553,7 @@ function exportCSV(){
 
 // ── Diélectriques ─────────────────────────────────────────────────────────────
 function switchTab(name){
-  const names=['source','results','therm','onde','diel','limits','valid'];
+  const names=['source','results','therm','onde','diel','limits','valid','import'];
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',names[i]===name));
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
@@ -2533,6 +2585,237 @@ setTimeout(ondeLambda,130);
 // Applique la langue stockée (rien à faire si FR par défaut)
 if(LANG!=='fr'){ setTimeout(applyLang,160); } else { const _b=document.getElementById('lang-toggle'); if(_b)_b.textContent='EN'; }
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  IMPORT CST → SAR → Pennes 2D  (module données volumiques externes)
+// ═══════════════════════════════════════════════════════════════════════════
+let impEfield=null, impSTL=null;
+
+function impStatus(msg){ document.getElementById('imp-status').textContent=msg; }
+
+// — Synchronise σ,ε,ρ depuis le tissu Cole-Cole (ou laisse en manuel) —
+function impSyncProps(){
+  const manual=document.getElementById('imp-manual').checked;
+  const sel=document.getElementById('imp-tissue');
+  ['imp-sigma','imp-eps','imp-rho'].forEach(id=>document.getElementById(id).disabled=!manual);
+  document.getElementById('imp-tissue').disabled=manual;
+  if(!manual && sel.value){
+    const f=parseFloat(document.getElementById('freq').value)||9e8;
+    const lp=layerParams(f,sel.value);
+    document.getElementById('imp-sigma').value=lp.sigmaEff.toFixed(4);
+    document.getElementById('imp-eps').value=lp.eps.re.toFixed(2);
+    document.getElementById('imp-rho').value=lp.rho.toFixed(0);
+  }
+}
+
+// — Parse export champ E (grille 3D régulière) → grille de |E|² —
+function impParseEfield(txt){
+  const lines=txt.split(/\r?\n/); const X=[],Y=[],Z=[],E2=[];
+  for(let i=0;i<lines.length;i++){
+    const p=lines[i].trim().split(/\s+/).map(Number);
+    if(p.length<9||!isFinite(p[0])||!isFinite(p[8]))continue;
+    X.push(p[0]);Y.push(p[1]);Z.push(p[2]);
+    E2.push(p[3]*p[3]+p[4]*p[4]+p[5]*p[5]+p[6]*p[6]+p[7]*p[7]+p[8]*p[8]);
+  }
+  if(!X.length)return null;
+  const uniq=a=>{const s=Array.from(new Set(a.map(v=>Math.round(v*1e3)/1e3)));s.sort((u,v)=>u-v);return s;};
+  const xs=uniq(X),ys=uniq(Y),zs=uniq(Z);
+  const nx=xs.length,ny=ys.length,nz=zs.length;
+  const dx=xs[1]-xs[0],dy=ys[1]-ys[0],dz=zs[1]-zs[0];
+  const g=new Float64Array(nx*ny*nz);
+  for(let i=0;i<X.length;i++){
+    const ix=Math.round((X[i]-xs[0])/dx),iy=Math.round((Y[i]-ys[0])/dy),iz=Math.round((Z[i]-zs[0])/dz);
+    if(ix>=0&&ix<nx&&iy>=0&&iy<ny&&iz>=0&&iz<nz) g[(ix*ny+iy)*nz+iz]=E2[i];
+  }
+  return{xs,ys,zs,nx,ny,nz,dx,dy,dz,g};
+}
+
+// — Interpolation trilinéaire de |E|² (hors grille → 0) —
+function impInterpE2(F,px,py,pz){
+  const {xs,ys,zs,nx,ny,nz,dx,dy,dz,g}=F;
+  const fx=(px-xs[0])/dx,fy=(py-ys[0])/dy,fz=(pz-zs[0])/dz;
+  const ix=Math.floor(fx),iy=Math.floor(fy),iz=Math.floor(fz);
+  if(ix<0||ix>=nx-1||iy<0||iy>=ny-1||iz<0||iz>=nz-1)return 0;
+  const tx=fx-ix,ty=fy-iy,tz=fz-iz;
+  const V=(a,b,c)=>g[((ix+a)*ny+(iy+b))*nz+(iz+c)];
+  const c00=V(0,0,0)*(1-tx)+V(1,0,0)*tx,c01=V(0,0,1)*(1-tx)+V(1,0,1)*tx;
+  const c10=V(0,1,0)*(1-tx)+V(1,1,0)*tx,c11=V(0,1,1)*(1-tx)+V(1,1,1)*tx;
+  return (c00*(1-tz)+c01*tz)*(1-ty)+(c10*(1-tz)+c11*tz)*ty;
+}
+
+// — Parse STL ASCII → liste de triangles —
+function impParseSTL(txt){
+  const m=txt.match(/vertex\s+(\S+)\s+(\S+)\s+(\S+)/g);
+  if(!m||m.length<3)return null;
+  const tris=[];
+  for(let i=0;i+2<m.length;i+=3){
+    const v=k=>{const q=m[i+k].trim().split(/\s+/);return [parseFloat(q[1]),parseFloat(q[2]),parseFloat(q[3])];};
+    tris.push([v(0),v(1),v(2)]);
+  }
+  return tris;
+}
+
+// — Coupe du STL par un plan (ca=0:x,1:y,2:z) → segments dans le plan (u,v) —
+function impCutSTL(tris,ca,pos){
+  const IA={0:2,1:2,2:0},IB={0:1,1:0,2:1}; const ia=IA[ca],ib=IB[ca];
+  const segs=[]; const E=[[0,1],[1,2],[2,0]];
+  for(const t of tris){
+    const s=[t[0][ca]-pos,t[1][ca]-pos,t[2][ca]-pos];
+    if((s[0]>0&&s[1]>0&&s[2]>0)||(s[0]<0&&s[1]<0&&s[2]<0))continue;
+    const pts=[];
+    for(const e of E){const a=e[0],b=e[1],sa=s[a],sb=s[b];
+      if(sa===0)pts.push([t[a][ia],t[a][ib]]);
+      if((sa<0)!==(sb<0)&&sa!==sb){const r=sa/(sa-sb);
+        pts.push([t[a][ia]+r*(t[b][ia]-t[a][ia]),t[a][ib]+r*(t[b][ib]-t[a][ib])]);}
+    }
+    if(pts.length>=2)segs.push([pts[0],pts[1]]);
+  }
+  return{segs,ia,ib};
+}
+
+// — Grille 2D + masque intérieur (rastérisation + flood-fill) —
+function impGridMask(segs,h){
+  let umin=1e9,umax=-1e9,vmin=1e9,vmax=-1e9;
+  for(const s of segs)for(const p of s){umin=Math.min(umin,p[0]);umax=Math.max(umax,p[0]);vmin=Math.min(vmin,p[1]);vmax=Math.max(vmax,p[1]);}
+  const pad=2,u0=umin-pad*h,v0=vmin-pad*h;
+  const nu=Math.ceil((umax-umin+2*pad*h)/h)+1,nv=Math.ceil((vmax-vmin+2*pad*h)/h)+1;
+  const wall=new Uint8Array(nu*nv);
+  for(const s of segs){const a=s[0],b=s[1];
+    const n=Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/(0.4*h))+2;
+    for(let k=0;k<n;k++){const t=k/(n-1),uu=a[0]+t*(b[0]-a[0]),vv=a[1]+t*(b[1]-a[1]);
+      const iu=Math.round((uu-u0)/h),iv=Math.round((vv-v0)/h);
+      if(iu>=0&&iu<nu&&iv>=0&&iv<nv)wall[iv*nu+iu]=1;}
+  }
+  const out=new Uint8Array(nu*nv),st=[];
+  const push=(iu,iv)=>{if(iu<0||iu>=nu||iv<0||iv>=nv)return;const id=iv*nu+iu;if(!wall[id]&&!out[id]){out[id]=1;st.push(id);}};
+  for(let iu=0;iu<nu;iu++){push(iu,0);push(iu,nv-1);}
+  for(let iv=0;iv<nv;iv++){push(0,iv);push(nu-1,iv);}
+  while(st.length){const id=st.pop(),iu=id%nu,iv=(id-iu)/nu;push(iu-1,iv);push(iu+1,iv);push(iu,iv-1);push(iu,iv+1);}
+  const inside=new Uint8Array(nu*nv);
+  for(let i=0;i<inside.length;i++)inside[i]=out[i]?0:1;
+  return{u0,v0,h,nu,nv,inside};
+}
+
+// — Pennes 2D stationnaire (volumes finis, gradient conjugué Jacobi) —
+function impPennes2D(G,Q,prm){
+  const {nu,nv,h,inside}=G; const hm=h*1e-3;
+  const idx=new Int32Array(nu*nv).fill(-1); const cells=[];
+  for(let iv=0;iv<nv;iv++)for(let iu=0;iu<nu;iu++){const id=iv*nu+iu;if(inside[id]){idx[id]=cells.length;cells.push(id);}}
+  const N=cells.length; if(!N)return null;
+  const k=prm.k,perf=prm.perf,hc=prm.hconv,Tamb=prm.Tamb,Tart=prm.Tart;
+  const nb=[[-1,0],[1,0],[0,-1],[0,1]];
+  const diag=new Float64Array(N),b=new Float64Array(N);
+  for(let n=0;n<N;n++){const id=cells[n],iu=id%nu,iv=(id-iu)/nu;let d=perf*hm*hm,nBnd=0;
+    for(const e of nb){const ju=iu+e[0],jv=iv+e[1];
+      if(ju>=0&&ju<nu&&jv>=0&&jv<nv&&inside[jv*nu+ju])d+=k; else nBnd++;}
+    d+=nBnd*hc*hm; diag[n]=d;
+    b[n]=(Q[n]+perf*Tart)*hm*hm+nBnd*hc*hm*Tamb;
+  }
+  const applyA=(x,out)=>{
+    for(let n=0;n<N;n++){const id=cells[n],iu=id%nu,iv=(id-iu)/nu;let v=perf*hm*hm*x[n];let nBnd=0;
+      for(const e of nb){const ju=iu+e[0],jv=iv+e[1];
+        if(ju>=0&&ju<nu&&jv>=0&&jv<nv&&inside[jv*nu+ju]){v+=k*(x[n]-x[idx[jv*nu+ju]]);}else nBnd++;}
+      v+=nBnd*hc*hm*x[n]; out[n]=v;}
+  };
+  // CG préconditionné Jacobi
+  const T=new Float64Array(N).fill(Tart),r=new Float64Array(N),z=new Float64Array(N),p=new Float64Array(N),Ap=new Float64Array(N);
+  applyA(T,Ap); for(let n=0;n<N;n++){r[n]=b[n]-Ap[n];z[n]=r[n]/diag[n];p[n]=z[n];}
+  let rz=0; for(let n=0;n<N;n++)rz+=r[n]*z[n];
+  const tol=1e-10*rz||1e-12;
+  for(let it=0;it<5000;it++){
+    applyA(p,Ap); let pAp=0; for(let n=0;n<N;n++)pAp+=p[n]*Ap[n];
+    const a=rz/pAp; let rr=0;
+    for(let n=0;n<N;n++){T[n]+=a*p[n];r[n]-=a*Ap[n];rr+=r[n]*r[n];}
+    if(rr<1e-14)break;
+    let rz2=0; for(let n=0;n<N;n++){z[n]=r[n]/diag[n];rz2+=r[n]*z[n];}
+    const bt=rz2/rz; for(let n=0;n<N;n++)p[n]=z[n]+bt*p[n]; rz=rz2;
+    if(rz<tol)break;
+  }
+  return{T,cells,idx,N};
+}
+
+// — Colormap jet —
+function impJet(t){t=Math.max(0,Math.min(1,t));const r=Math.max(0,Math.min(1,1.5-Math.abs(4*t-3)));const g=Math.max(0,Math.min(1,1.5-Math.abs(4*t-2)));const b=Math.max(0,Math.min(1,1.5-Math.abs(4*t-1)));return[r*255|0,g*255|0,b*255|0];}
+
+// — Rendu d'une carte scalaire sur canvas —
+function impDrawMap(cv,vals,G,sol,segs,vmin,vmax){
+  const {u0,v0,h,nu,nv}=G; const ctx=cv.getContext('2d');
+  ctx.clearRect(0,0,cv.width,cv.height);
+  const Wmm=nu*h,Hmm=nv*h,sc=Math.min(cv.width/Wmm,cv.height/Hmm);
+  const ox=(cv.width-Wmm*sc)/2,oy=(cv.height-Hmm*sc)/2;
+  const px2=(u)=>ox+(u-u0)*sc, py2=(v)=>cv.height-oy-(v-v0)*sc; // v vers le haut
+  const rng=(vmax-vmin)||1;
+  for(let n=0;n<sol.N;n++){const id=sol.cells[n],iu=id%nu,iv=(id-iu)/nu;
+    const c=impJet((vals[n]-vmin)/rng); ctx.fillStyle='rgb('+c[0]+','+c[1]+','+c[2]+')';
+    const x=ox+(iu*h)*sc, y=cv.height-oy-((iv+1)*h)*sc;
+    ctx.fillRect(Math.floor(x),Math.floor(y),Math.ceil(h*sc)+1,Math.ceil(h*sc)+1);}
+  ctx.strokeStyle='rgba(0,0,0,.55)';ctx.lineWidth=0.6;ctx.beginPath();
+  for(const s of segs){ctx.moveTo(px2(s[0][0]),py2(s[0][1]));ctx.lineTo(px2(s[1][0]),py2(s[1][1]));}
+  ctx.stroke();
+}
+
+// — Orchestrateur —
+function impRun(){
+  if(!impEfield){impStatus('⚠ Charge d\'abord l\'export champ E (.txt).');return;}
+  if(!impSTL){impStatus('⚠ Le STL est requis pour définir le domaine de la coupe 2D.');return;}
+  const sigma=parseFloat(document.getElementById('imp-sigma').value);
+  const rho=parseFloat(document.getElementById('imp-rho').value);
+  const conv=document.getElementById('imp-conv').value;
+  const ca=parseInt(document.getElementById('imp-axis').value);
+  const pos=parseFloat(document.getElementById('imp-pos').value);
+  const h=parseFloat(document.getElementById('imp-grid').value);
+  const sarref=parseFloat(document.getElementById('imp-sarref').value);
+  const sarCoef=(conv==='peak'?0.5:1.0)*sigma/rho;     // SAR = coef*|E|²
+  impStatus('Calcul en cours…');
+
+  const {segs,ia,ib}=impCutSTL(impSTL,ca,pos);
+  if(segs.length<3){impStatus('⚠ La coupe ne traverse pas le STL (vérifie axe/position).');return;}
+  const G=impGridMask(segs,h);
+
+  // SAR sur la coupe (les axes en-plan ia,ib placés en (x,y,z) pour interpoler)
+  const cells=[];
+  for(let iv=0;iv<G.nv;iv++)for(let iu=0;iu<G.nu;iu++){const id=iv*G.nu+iu;if(G.inside[id])cells.push(id);}
+  const N=cells.length;
+  const SAR=new Float64Array(N),Q=new Float64Array(N);
+  for(let n=0;n<N;n++){const id=cells[n],iu=id%G.nu,iv=(id-iu)/G.nu;
+    const u=G.u0+iu*G.h,v=G.v0+iv*G.h; const P=[0,0,0];P[ca]=pos;P[ia]=u;P[ib]=v;
+    const e2=impInterpE2(impEfield,P[0],P[1],P[2]);
+    SAR[n]=sarCoef*e2; Q[n]=SAR[n]*rho;
+  }
+  let sarMax=0; for(let n=0;n<N;n++)sarMax=Math.max(sarMax,SAR[n]);
+  const factor=sarMax>0?sarref/sarMax:1;
+
+  // Thermique : ΔT = T(Q) − T(0), normalisé
+  const prm={k:parseFloat(document.getElementById('imp-k').value),
+             perf:1050*3617*(parseFloat(document.getElementById('imp-perf').value)*rho*1e-6/60),
+             hconv:parseFloat(document.getElementById('imp-h').value),
+             Tamb:parseFloat(document.getElementById('imp-tamb').value),Tart:37};
+  const Qs=new Float64Array(N);for(let n=0;n<N;n++)Qs[n]=Q[n]*factor;
+  const solEM=impPennes2D(G,Qs,prm), solBase=impPennes2D(G,new Float64Array(N),prm);
+  const dT=new Float64Array(N);let dTmax=-1e9;
+  for(let n=0;n<N;n++){dT[n]=solEM.T[n]-solBase.T[n];dTmax=Math.max(dTmax,dT[n]);}
+
+  const SARn=new Float64Array(N);for(let n=0;n<N;n++)SARn[n]=SAR[n]*factor;
+  impDrawMap(document.getElementById('imp-sar-map'),SARn,G,solEM,segs,0,sarref);
+  const dTmK=new Float64Array(N);for(let n=0;n<N;n++)dTmK[n]=dT[n]*1e3;
+  impDrawMap(document.getElementById('imp-dt-map'),dTmK,G,solEM,segs,0,dTmax*1e3);
+
+  impStatus(`✓ grille ${G.nu}×${G.nv}, ${N} cellules · SAR brut max=${sarMax.toExponential(3)} W/kg\n`+
+            `Normalisé à ${sarref} W/kg crête (×${factor.toExponential(2)}) → ΔT_EM max = ${(dTmax*1e3).toFixed(1)} mK (${dTmax.toFixed(4)} °C)`);
+}
+
+// — Init du module —
+(function impInit(){
+  const sel=document.getElementById('imp-tissue');
+  if(sel&&typeof TNAMES!=='undefined'){TNAMES.forEach(n=>{const o=document.createElement('option');o.textContent=n;o.value=n;sel.appendChild(o);});
+    sel.value=(TNAMES.indexOf('Muscle')>=0?'Muscle':TNAMES[0]);}
+  const ef=document.getElementById('imp-efield');
+  if(ef)ef.addEventListener('change',()=>{const f=ef.files[0];if(!f)return;const r=new FileReader();
+    r.onload=()=>{impEfield=impParseEfield(r.result);impStatus(impEfield?`✓ Champ E : grille ${impEfield.nx}×${impEfield.ny}×${impEfield.nz}`:'⚠ Format champ E non reconnu.');};r.readAsText(f);});
+  const st=document.getElementById('imp-stl');
+  if(st)st.addEventListener('change',()=>{const f=st.files[0];if(!f)return;const r=new FileReader();
+    r.onload=()=>{impSTL=impParseSTL(r.result);impStatus(impSTL?`✓ STL : ${impSTL.length} triangles`:'⚠ STL non reconnu (ASCII attendu).');};r.readAsText(f);});
+  impSyncProps();
+})();
 
 </script>
 </body>
