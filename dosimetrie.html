@@ -778,12 +778,13 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
 <div id="tab-import" class="panel">
   <div class="stitle0">Import CST → SAR → Cartographie thermique 2D</div>
   <div style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;padding:10px 14px;margin:0 0 .75rem;font-size:11.5px;color:#3730a3;line-height:1.55">
-    <strong>ℹ Module données volumiques externes</strong> — charge un export de champ E (grille 3D régulière, format CST ASCII <code>x y z ExRe ExIm EyRe EyIm EzRe EzIm</code>) et le STL du modèle. Calcule SAR = σ|E|²/(2ρ), découpe un plan, résout la bio-chaleur de Pennes 2D sur la coupe. Complémentaire de la méthode analytique TMM (1D) : ici la source vient d'une simulation 3D.
+    <strong>ℹ Module données volumiques externes</strong> — charge un export de champ E (grille 3D régulière, format CST ASCII <code>x y z ExRe ExIm EyRe EyIm EzRe EzIm</code>, ou magnitudes <code>x y z |Ex| |Ey| |Ez|</code>, ou SAR direct <code>x y z SAR</code>) et le STL du modèle. Calcule SAR = σ|E|²/(2ρ), découpe un plan, résout la bio-chaleur de Pennes 2D sur la coupe. Complémentaire de la méthode analytique TMM (1D) : ici la source vient d'une simulation 3D. <strong>Validation</strong> : charge en plus un export <em>SAR CST de référence</em> — l'outil recalcule le SAR depuis le champ E, le moyenne sur 10 g et le compare voxel à voxel à la référence (corrélation, écart RMS, σ déduit).
   </div>
 
   <div class="row">
     <div class="field"><label>Export champ E ou SAR (.txt)</label><input type="file" id="imp-efield" accept=".txt"></div>
     <div class="field"><label>Maillage STL (.stl)</label><input type="file" id="imp-stl" accept=".stl"></div>
+    <div class="field"><label>SAR CST de référence — validation (.txt, option.)</label><input type="file" id="imp-sarref-file" accept=".txt"></div>
   </div>
 
   <div class="stitle">Matériau (tissu équivalent)</div>
@@ -824,6 +825,17 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
     <div style="flex:1;min-width:240px"><div class="stitle" style="border-top:none;padding-top:0">SAR sur la coupe [W/kg]</div><canvas id="imp-sar-map" width="600" height="600" style="width:100%;height:auto;border-radius:8px;border:.5px solid var(--border);background:#fff"></canvas></div>
     <div style="flex:1;min-width:240px"><div class="stitle" style="border-top:none;padding-top:0">ΔT induit par l'EM [mK]</div><canvas id="imp-dt-map" width="600" height="600" style="width:100%;height:auto;border-radius:8px;border:.5px solid var(--border);background:#fff"></canvas></div>
     <div style="flex:1;min-width:240px"><div class="stitle" style="border-top:none;padding-top:0">Dose thermique CEM43 [min]</div><canvas id="imp-cem-map" width="600" height="600" style="width:100%;height:auto;border-radius:8px;border:.5px solid var(--border);background:#fff"></canvas></div>
+  </div>
+
+  <div id="imp-valid-wrap" style="display:none;margin-top:1.25rem;border-top:1px solid var(--border);padding-top:1rem">
+    <div class="stitle0">Validation — notre SAR (calculé depuis le champ E) vs SAR CST de référence</div>
+    <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:10px 14px;margin:0 0 .6rem;font-size:12px;color:#065f46;line-height:1.6;white-space:pre-line" id="imp-valid-stats"></div>
+    <div class="row">
+      <div style="flex:1;min-width:220px"><div class="stitle" style="border-top:none;padding-top:0">Notre psSAR 10g [W/kg]</div><canvas id="imp-cmp-ours" width="600" height="600" style="width:100%;height:auto;border-radius:8px;border:.5px solid var(--border);background:#fff"></canvas></div>
+      <div style="flex:1;min-width:220px"><div class="stitle" style="border-top:none;padding-top:0">SAR CST 10g (réf.) [W/kg]</div><canvas id="imp-cmp-cst" width="600" height="600" style="width:100%;height:auto;border-radius:8px;border:.5px solid var(--border);background:#fff"></canvas></div>
+      <div style="flex:1;min-width:220px"><div class="stitle" style="border-top:none;padding-top:0">Écart relatif (nous − CST) / CST [%]</div><canvas id="imp-cmp-diff" width="600" height="600" style="width:100%;height:auto;border-radius:8px;border:.5px solid var(--border);background:#fff"></canvas></div>
+    </div>
+    <div style="font-size:11px;color:var(--text2);margin-top:.4rem;line-height:1.5" id="imp-valid-note"></div>
   </div>
 </div>
 
@@ -2592,7 +2604,7 @@ if(LANG!=='fr'){ setTimeout(applyLang,160); } else { const _b=document.getElemen
 // ═══════════════════════════════════════════════════════════════════════════
 //  IMPORT CST → SAR → Pennes 2D  (module données volumiques externes)
 // ═══════════════════════════════════════════════════════════════════════════
-let impEfield=null, impSTL=null;
+let impEfield=null, impSTL=null, impRefSAR=null;
 
 function impStatus(msg){ document.getElementById('imp-status').textContent=msg; }
 
@@ -2611,30 +2623,42 @@ function impSyncProps(){
   }
 }
 
-// — Parse export CST (grille 3D régulière) — auto-détecte champ E (≥9 col, → |E|²)
-//   ou SAR direct (4 col : x y z SAR). g contient |E|² (kind='efield') ou SAR (kind='sar').
+// — Parse export CST (grille 3D régulière) — détecte le format au nombre de colonnes.
+//   Lignes d'en-tête (texte) ignorées. Formats reconnus :
+//     ≥9 col : x y z ExRe ExIm EyRe EyIm EzRe EzIm  → |E|² = Σ(Re²+Im²)   (kind='efield')
+//      6 col : x y z |Ex| |Ey| |Ez|                 → |E|² = Σ|Eᵢ|²        (kind='efield')
+//      4 col : x y z SAR                            → SAR direct           (kind='sar')
+//   Tout autre compte (5,7,8) est ambigu → traité comme SAR(col4) AVEC avertissement (.note).
 function impParseField(txt){
   const rows=[]; let nc=0;
   for(const ln of txt.split(/\r?\n/)){
     const p=ln.trim().split(/\s+/).map(Number);
     if(p.length<4||!isFinite(p[0])||!isFinite(p[1])||!isFinite(p[2])||!isFinite(p[3]))continue;
-    if(!nc)nc=p.length; rows.push(p);
+    if(!nc)nc=p.length; if(p.length<nc)continue;       // ligne tronquée → ignorée
+    rows.push(p);
   }
   if(!rows.length)return null;
-  const kind=(nc>=9)?'efield':'sar';
+  let kind,note;
+  if(nc>=9){kind='efield';note='champ E complexe (Re/Im) → |E|²';}
+  else if(nc===6){kind='efieldmag';note='champ E (magnitudes) → |E|²';}
+  else if(nc===4){kind='sar';note='SAR direct';}
+  else{kind='sar';note='⚠ '+nc+' colonnes : format ambigu — colonne 4 lue comme SAR (vérifie l\'export)';}
   const X=[],Y=[],Z=[],val=[];
   for(const p of rows){X.push(p[0]);Y.push(p[1]);Z.push(p[2]);
-    val.push(kind==='efield'?(p[3]*p[3]+p[4]*p[4]+p[5]*p[5]+p[6]*p[6]+p[7]*p[7]+p[8]*p[8]):p[3]);}
+    val.push(kind==='efield'   ? (p[3]*p[3]+p[4]*p[4]+p[5]*p[5]+p[6]*p[6]+p[7]*p[7]+p[8]*p[8])
+           : kind==='efieldmag'? (p[3]*p[3]+p[4]*p[4]+p[5]*p[5])
+           : p[3]);}
+  if(kind==='efieldmag')kind='efield';                 // |E|² déjà calculé → traité comme efield en aval
   const uniq=a=>{const s=Array.from(new Set(a.map(v=>Math.round(v*1e3)/1e3)));s.sort((u,v)=>u-v);return s;};
   const xs=uniq(X),ys=uniq(Y),zs=uniq(Z);
   const nx=xs.length,ny=ys.length,nz=zs.length;
-  const dx=xs[1]-xs[0],dy=ys[1]-ys[0],dz=zs[1]-zs[0];
+  const dx=(xs[1]-xs[0])||1,dy=(ys[1]-ys[0])||1,dz=(zs[1]-zs[0])||1;
   const g=new Float64Array(nx*ny*nz);
   for(let i=0;i<X.length;i++){
     const ix=Math.round((X[i]-xs[0])/dx),iy=Math.round((Y[i]-ys[0])/dy),iz=Math.round((Z[i]-zs[0])/dz);
     if(ix>=0&&ix<nx&&iy>=0&&iy<ny&&iz>=0&&iz<nz) g[(ix*ny+iy)*nz+iz]=val[i];
   }
-  return{kind,xs,ys,zs,nx,ny,nz,dx,dy,dz,g};
+  return{kind,note,xs,ys,zs,nx,ny,nz,dx,dy,dz,g};
 }
 
 // — Interpolation trilinéaire de |E|² (hors grille → 0) —
@@ -2650,6 +2674,12 @@ function impInterpE2(F,px,py,pz){
   return (c00*(1-tz)+c01*tz)*(1-ty)+(c10*(1-tz)+c11*tz)*ty;
 }
 
+// — Index de grille le plus proche (robuste aux grilles non uniformes, contrairement à (v-x0)/dx) —
+function impNearestIdx(coords,v){
+  const hi=coords.length-1; if(v<=coords[0])return 0; if(v>=coords[hi])return hi;
+  let lo=0,h=hi; while(h-lo>1){const m=(lo+h)>>1; if(coords[m]<v)lo=m;else h=m;}
+  return (v-coords[lo]<=coords[h]-v)?lo:h;
+}
 // — Parse STL ASCII → liste de triangles —
 function impParseSTL(txt){
   const m=txt.match(/vertex\s+(\S+)\s+(\S+)\s+(\S+)/g);
@@ -2878,8 +2908,9 @@ function impRun(){
     const u=G.u0+iu*G.h,v=G.v0+iv*G.h; const P=[0,0,0];P[ca]=pos;P[ia]=u;P[ib]=v;
     SAR[n]=impInterpE2(Fsar,P[0],P[1],P[2]); Q[n]=SAR[n]*rho;
   }
-  let sarMax=0; for(let n=0;n<N;n++)sarMax=Math.max(sarMax,SAR[n]);
-  const factor=sarMax>0?sarref/sarMax:1;
+  let sarMax=0; for(let n=0;n<N;n++)sarMax=Math.max(sarMax,SAR[n]);    // pic SUR LA COUPE (affichage)
+  let sar3dMax=0; for(let i=0;i<sar3d.length;i++){if(tissue3d&&!tissue3d[i])continue; if(sar3d[i]>sar3dMax)sar3dMax=sar3d[i];}
+  const factor=sar3dMax>0?sarref/sar3dMax:1;                            // normalisation sur le pic 3D du tissu
 
   // psSAR 10g (3D) — moyenne cubique de masse ~10g sur le masque tissu
   const Lmm=Math.cbrt(0.01/rho)*1000, r10=Math.max(1,Math.round(Lmm/impEfield.dx/2));
@@ -2917,6 +2948,56 @@ function impRun(){
   impDrawMap(document.getElementById('imp-dt-map'),dTmK,G,solSteady,segs,0,dTmax*1e3||1);
   impDrawMap(document.getElementById('imp-cem-map'),tr.cem,G,solSteady,segs,0,cemMax||1);
 
+  // ── Validation : notre SAR (depuis le champ E) vs SAR CST de référence (si fourni) ──
+  const vw=document.getElementById('imp-valid-wrap');
+  if(impRefSAR && kind!=='sar'){
+    const E=impEfield, R=impRefSAR;
+    // SAR CST de réf. sur la grille du champ E. Grilles identiques (exports appariés) → index direct
+    // (l'interpolation par (v-x0)/dx dérive sur les grilles CST légèrement non uniformes).
+    const sameGrid = R.nx===E.nx&&R.ny===E.ny&&R.nz===E.nz&&Math.abs(R.xs[0]-E.xs[0])<1e-3&&Math.abs(R.ys[0]-E.ys[0])<1e-3&&Math.abs(R.zs[0]-E.zs[0])<1e-3;
+    let refOnE;
+    if(sameGrid){ refOnE=R.g; }
+    else { refOnE=new Float64Array(E.g.length);
+      for(let ix=0;ix<E.nx;ix++)for(let iy=0;iy<E.ny;iy++)for(let iz=0;iz<E.nz;iz++){
+        const jx=impNearestIdx(R.xs,E.xs[ix]),jy=impNearestIdx(R.ys,E.ys[iy]),jz=impNearestIdx(R.zs,E.zs[iz]);
+        refOnE[(ix*E.ny+iy)*E.nz+iz]=R.g[(jx*R.ny+jy)*R.nz+jz];
+      } }
+    // masque = voxels où la référence a du signal (indépendant du STL → robuste)
+    const refMask=new Uint8Array(refOnE.length); for(let i=0;i<refOnE.length;i++)refMask[i]=refOnE[i]>0?1:0;
+    // notre psSAR 10g calculé sur le MÊME masque que la référence (comparaison équitable)
+    const g10cmp=impAvg10g(sar3d,refMask,impEfield.nx,impEfield.ny,impEfield.nz,r10);
+    // métriques 3D sur le masque tissu
+    let n=0,so=0,sc=0; for(let i=0;i<refOnE.length;i++)if(refMask[i]){n++;so+=g10cmp[i];sc+=refOnE[i];}
+    const mo=so/n,mc=sc/n; let vo=0,vc=0,cov=0,se=0,sref=0,pO=0,pC=0,fxy=0,fxx=0;
+    for(let i=0;i<refOnE.length;i++)if(refMask[i]){const o=g10cmp[i],c=refOnE[i];
+      vo+=(o-mo)**2;vc+=(c-mc)**2;cov+=(o-mo)*(c-mc);se+=(o-c)**2;sref+=c*c;
+      pO=Math.max(pO,o);pC=Math.max(pC,c); const x2=sarCoef>0?o/sarCoef:0; fxy+=x2*c;fxx+=x2*x2;}
+    const rP=(vo>0&&vc>0)?cov/Math.sqrt(vo*vc):0, relRMS=sref>0?Math.sqrt(se/sref)*100:0, ratio=pC>0?pO/pC:0;
+    const sigFit=fxx>0?2*(fxy/fxx)*rho:0;   // σ effectif (conv. crête) que CST a utilisé
+    document.getElementById('imp-valid-stats').textContent=
+      `Corrélation Pearson r = ${rP.toFixed(4)}   ·   écart RMS relatif = ${relRMS.toFixed(1)} %   ·   ${n} voxels tissu\n`+
+      `Pic psSAR 10g : nous ${pO.toExponential(3)}  vs  CST ${pC.toExponential(3)} W/kg  (rapport ${ratio.toFixed(2)})\n`+
+      `σ effectif déduit du SAR CST ≈ ${sigFit.toFixed(3)} S/m  (σ saisi = ${sigma.toFixed(3)} S/m, ρ = ${rho.toFixed(0)} kg/m³)`;
+    document.getElementById('imp-valid-note').innerHTML=
+      'Notre SAR est calculé à partir du champ E exporté (SAR = σ|E|²/2ρ), puis moyenné sur 10 g comme la référence CST. '+
+      'Un <b>r proche de 1</b> et un <b>σ déduit cohérent</b> valident notre chaîne de calcul du SAR. '+
+      'Le rapport de pics ≠ 1 vient surtout de la <b>résolution de la grille exportée</b> ('+impEfield.dx.toFixed(1)+' mm → cube de moyennage ≈ '+cubeG.toFixed(0)+' g, pas exactement 10 g) : '+
+      'la <b>méthode analytique (TMM)</b> de l\'outil, elle, résout le profil SAR(z) de façon exacte et continue, sans cet artefact de maillage.';
+    // cartes sur la coupe : notre 10g, CST réf, écart relatif — échantillonnage par index le plus proche
+    const ourSl=new Float64Array(N),cstSl=new Float64Array(N),diffSl=new Float64Array(N);
+    let vmax=0; for(let nn=0;nn<N;nn++){const id=cells[nn],iu=id%G.nu,iv=(id-iu)/G.nu;const u=G.u0+iu*G.h,v=G.v0+iv*G.h;
+      const P=[0,0,0];P[ca]=pos;P[ia]=u;P[ib]=v;
+      const gi=(impNearestIdx(E.xs,P[0])*E.ny+impNearestIdx(E.ys,P[1]))*E.nz+impNearestIdx(E.zs,P[2]);
+      const o=g10cmp[gi], c=refOnE[gi];
+      ourSl[nn]=o;cstSl[nn]=c;vmax=Math.max(vmax,o,c); diffSl[nn]=c>0?(o-c)/c*100:0;}
+    impDrawMap(document.getElementById('imp-cmp-ours'),ourSl,G,solSteady,segs,0,vmax||1);
+    impDrawMap(document.getElementById('imp-cmp-cst'),cstSl,G,solSteady,segs,0,vmax||1);
+    let dmax=1; for(let nn=0;nn<N;nn++)dmax=Math.max(dmax,Math.abs(diffSl[nn]));
+    const diffShift=new Float64Array(N); for(let nn=0;nn<N;nn++)diffShift[nn]=diffSl[nn]+dmax;  // 0% → milieu (vert)
+    impDrawMap(document.getElementById('imp-cmp-diff'),diffShift,G,solSteady,segs,0,2*dmax);
+    vw.style.display='';
+  } else { vw.style.display='none'; }
+
   impStatus(`✓ coupe ${G.nu}×${G.nv}, ${N} cellules · affichage SAR : ${mode==='10g'?'psSAR 10g':'point'}\n`+
             `SAR point max=${sarMax.toExponential(3)} · psSAR 10g max=${sar10gMax.toExponential(3)} W/kg (cube ${cubeMM.toFixed(0)} mm ≈ ${cubeG.toFixed(0)} g)\n`+
             `Normalisé ${sarref} W/kg crête → psSAR 10g=${(sar10gMax*factor).toExponential(3)} W/kg · ΔT permanent=${(dTeq*1e3).toFixed(1)} mK\n`+
@@ -2930,7 +3011,10 @@ function impRun(){
     sel.value=(TNAMES.indexOf('Muscle')>=0?'Muscle':TNAMES[0]);}
   const ef=document.getElementById('imp-efield');
   if(ef)ef.addEventListener('change',()=>{const f=ef.files[0];if(!f)return;const r=new FileReader();
-    r.onload=()=>{impEfield=impParseField(r.result);impStatus(impEfield?`✓ ${impEfield.kind==='sar'?'Export SAR':'Champ E'} : grille ${impEfield.nx}×${impEfield.ny}×${impEfield.nz} (${impEfield.kind==='sar'?'tissu = SAR>0':'|E|² → SAR'})`:'⚠ Format non reconnu.');};r.readAsText(f);});
+    r.onload=()=>{impEfield=impParseField(r.result);impStatus(impEfield?`✓ Données : grille ${impEfield.nx}×${impEfield.ny}×${impEfield.nz} · pas ${impEfield.dx.toFixed(1)}×${impEfield.dy.toFixed(1)}×${impEfield.dz.toFixed(1)} mm · ${impEfield.note}`:'⚠ Format non reconnu.');};r.readAsText(f);});
+  const sr=document.getElementById('imp-sarref-file');
+  if(sr)sr.addEventListener('change',()=>{const f=sr.files[0];if(!f){impRefSAR=null;return;}const r=new FileReader();
+    r.onload=()=>{impRefSAR=impParseField(r.result);impStatus(impRefSAR?`✓ SAR CST de référence chargé : grille ${impRefSAR.nx}×${impRefSAR.ny}×${impRefSAR.nz} — la validation s'affichera après le calcul.`:'⚠ SAR de référence non reconnu.');};r.readAsText(f);});
   const st=document.getElementById('imp-stl');
   if(st)st.addEventListener('change',()=>{const f=st.files[0];if(!f)return;const r=new FileReader();
     r.onload=()=>{impSTL=impParseSTL(r.result);impStatus(impSTL?`✓ STL : ${impSTL.length} triangles`:'⚠ STL non reconnu (ASCII attendu).');};r.readAsText(f);});
