@@ -791,7 +791,7 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
   <div class="row">
     <div class="field"><label>Tissu (Cole-Cole)</label><select id="imp-tissue" onchange="impSyncProps()"></select></div>
     <div class="field"><label style="display:flex;align-items:center;gap:5px;text-transform:none;letter-spacing:0"><input type="checkbox" id="imp-manual" onchange="impSyncProps()"> Saisie manuelle</label></div>
-    <div class="field" style="display:flex;align-items:flex-end"><button type="button" onclick="impPresetCST()" style="background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:8px;padding:7px 12px;font-weight:600;cursor:pointer;font-size:12px">Cas test CST (liquide tête : ε=42, σ=0,99)</button></div>
+    <div class="field" style="display:flex;align-items:flex-end"><button type="button" onclick="impPresetCST()" style="background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:8px;padding:7px 12px;font-weight:600;cursor:pointer;font-size:12px">⤓ Charger le cas test CST (liquide tête : ε=42, σ=0,99 S/m, ρ=1000)</button></div>
   </div>
   <div class="row">
     <div class="field"><label>σ (S/m)</label><input type="number" id="imp-sigma" step="any" value="0.99"></div>
@@ -2635,8 +2635,8 @@ function impSyncProps(){
   }
 }
 
-// — Préréglage « cas test CST » : liquide équivalent tête (ε=42, σ=0,99, ρ=1000) en saisie manuelle —
-function impPresetCST(){
+// — Cas test CST : matériau du liquide équivalent tête (ε=42, σ=0,99, ρ=1000) + chargement des fichiers embarqués —
+async function impPresetCST(){
   document.getElementById('imp-manual').checked=true; impSyncProps();
   document.getElementById('imp-sigma').value=0.99;
   document.getElementById('imp-eps').value=42;
@@ -2645,7 +2645,19 @@ function impPresetCST(){
   const pt=document.getElementById('imp-prof-tissue'); if(pt)pt.value='__manual__';
   const pa=document.getElementById('imp-prof-axis'); if(pa)pa.value='2';        // propagation +z
   const pd=document.getElementById('imp-prof-dir'); if(pd)pd.value='fwd';       // entrée à z min (onde +z)
-  impStatus('Préréglage cas test CST appliqué : ε=42, σ=0,99 S/m, ρ=1000 · propagation +z (axe z), E∥x.');
+  document.getElementById('imp-axis').value='2'; document.getElementById('imp-pos').value=-191.3; document.getElementById('imp-grid').value=3;
+  impStatus('Cas test CST : chargement des fichiers embarqués…');
+  try{
+    const base='dosimetrie_cas_test/';
+    const get=n=>fetch(base+n).then(r=>{if(!r.ok)throw new Error(n);return r.text();});
+    const [ef,sr,st]=await Promise.all([get('efield_head_09GHz.txt'),get('sar10g_head_09GHz.txt'),get('head.stl')]);
+    impEfield=impParseField(ef); impRefSAR=impParseField(sr); impSTL=impParseSTL(st);
+    const fq=document.getElementById('freq'); if(fq)fq.value=9e8;
+    impStatus('✓ Cas test CST chargé (tête, liquide ε=42/σ=0,99, onde plane 0,9 GHz, propagation +z, E∥x). Calcul en cours…');
+    impRun();
+  }catch(e){
+    impStatus('Matériau cas test appliqué (ε=42, σ=0,99 S/m, ρ=1000). Fichiers embarqués introuvables — charge tes propres exports CST ci-dessus.');
+  }
 }
 
 // — Parse export CST (grille 3D régulière) — détecte le format au nombre de colonnes.
