@@ -804,10 +804,10 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
     <div class="field"><label>ρ (kg/m³)</label><input type="number" id="imp-rho" step="any" value="1000"></div>
   </div>
   <div class="row">
-    <div class="field"><label>Champ exporté</label><select id="imp-conv"><option value="peak">Crête (amplitude)</option><option value="rms">RMS</option></select></div>
-    <div class="field"><label>Plan de coupe</label><select id="imp-axis"><option value="0">x = const</option><option value="1">y = const</option><option value="2">z = const</option></select></div>
-    <div class="field"><label>Position (mm)</label><input type="number" id="imp-pos" step="any" value="0"></div>
-    <div class="field"><label>Affichage SAR</label><select id="imp-sarmode"><option value="point">Point (local)</option><option value="10g">psSAR 10g</option></select></div>
+    <div class="field"><label>Champ exporté</label><select id="imp-conv" onchange="if(impEfield)impRun()"><option value="peak">Crête (amplitude)</option><option value="rms">RMS</option></select></div>
+    <div class="field"><label>Plan de coupe</label><select id="imp-axis" onchange="if(impEfield)impRun()"><option value="0">x = const</option><option value="1">y = const</option><option value="2">z = const</option></select></div>
+    <div class="field"><label>Position (mm)</label><input type="number" id="imp-pos" step="any" value="0" onchange="if(impEfield)impRun()"></div>
+    <div class="field"><label>Affichage SAR</label><select id="imp-sarmode" onchange="if(impEfield)impRun()"><option value="point">Point (local)</option><option value="10g">psSAR 10g</option></select></div>
     <div class="field"><label>Carte CEM43</label><select id="imp-cem-mode" onchange="if(impEfield)impRun()"><option value="abs">Absolu (T réelle)</option><option value="em">Dû à l'EM seul</option></select></div>
   </div>
 
@@ -821,7 +821,7 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
   <div class="row">
     <div class="field"><label>c (J/kg/K)</label><input type="number" id="imp-c" step="any" value="3500"></div>
     <div class="field"><label>Durée exposition (min)</label><input type="number" id="imp-dur" step="any" value="30"></div>
-    <div class="field"><label>Pas grille therm. (mm)</label><input type="number" id="imp-grid" step="any" value="2"></div>
+    <div class="field"><label>Pas grille therm. (mm)</label><input type="number" id="imp-grid" step="any" value="2" onchange="if(impEfield)impRun()"></div>
     <div class="field"><label>Normalisation SAR crête (W/kg)</label><input type="number" id="imp-sarref" step="any" value="1"></div>
   </div>
 
