@@ -842,7 +842,7 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
     <div class="stitle0">Profil 1D — SAR vs profondeur : analytique (TMM) vs données CST</div>
     <div class="row">
       <div class="field"><label>Axe de propagation</label><select id="imp-prof-axis" onchange="impDrawProfile()"><option value="0">x</option><option value="1">y</option><option value="2" selected>z</option></select></div>
-      <div class="field" style="flex:2"><label>Tissu pour la TMM (Cole-Cole)</label><select id="imp-prof-tissue" onchange="impDrawProfile()"></select></div>
+      <div class="field" style="flex:2"><label>Matériau pour la TMM (σ/ε saisis ou tissu Cole-Cole)</label><select id="imp-prof-tissue" onchange="impDrawProfile()"></select></div>
       <div class="field"><label>Sens d'entrée</label><select id="imp-prof-dir" onchange="impDrawProfile()"><option value="auto">auto (depuis le pic)</option><option value="fwd">indices croissants</option><option value="bwd">indices décroissants</option></select></div>
     </div>
     <canvas id="imp-prof" width="900" height="320" style="width:100%;height:auto;border-radius:8px;border:.5px solid var(--border);background:#fff"></canvas>
@@ -3062,10 +3062,20 @@ function impDrawProfile(){
   const i0=seg[0].i, s0=seg[0].s||1;
   const cst=seg.map(p=>({z:Math.abs(p.i-i0)*step, r:p.s/s0}));
   const maxZ=Math.max(cst[cst.length-1].z, step);
-  // TMM : dalle semi-infinie du tissu choisi
-  const tmm=runTMM(f,1,[{t:tname,d:Math.max(maxZ+30,60)}]);
-  const ts0=tmm.sarArr[0]||1;
-  const lp0=layerParams(f,tname); const alpha=Math.abs(lp0.k.im); const deltaF=alpha>0?1/alpha*1000:0;
+  // TMM : dalle semi-infinie. Tissu Cole-Cole OU matériau saisi (σ/ε non dispersif, = liquide équiv. CST)
+  const tmmZ=[],tmmR=[]; let deltaF=0,tlabel='';
+  if(tname==='__manual__'){
+    const sg=parseFloat(document.getElementById('imp-sigma').value), er=parseFloat(document.getElementById('imp-eps').value);
+    const w=2*Math.PI*f, epp=sg/(w*EPS0); let k=csqrt({re:w*w*MU0*EPS0*er, im:-w*w*MU0*EPS0*epp}); if(k.im>0)k={re:k.re,im:-k.im};
+    const alpha=Math.abs(k.im); deltaF=alpha>0?1/alpha*1000:0;
+    for(let z=0;z<=maxZ;z+=maxZ/240){tmmZ.push(z);tmmR.push(Math.exp(-2*alpha*z/1000));}   // SAR ∝ e^{-2αz}
+    tlabel='liquide équiv. (σ='+sg.toFixed(2)+' S/m, ε='+er.toFixed(0)+')';
+  } else {
+    const tmm=runTMM(f,1,[{t:tname,d:Math.max(maxZ+30,60)}]); const ts0=tmm.sarArr[0]||1;
+    for(let k=0;k<tmm.zArr.length;k++){if(tmm.zArr[k]>maxZ)break;tmmZ.push(tmm.zArr[k]);tmmR.push(tmm.sarArr[k]/ts0);}
+    const lp0=layerParams(f,tname); const alpha=Math.abs(lp0.k.im); deltaF=alpha>0?1/alpha*1000:0;
+    tlabel='dalle semi-infinie de '+tname;
+  }
   // pénétration SAR ajustée sur CST (régression ln(r) vs z, partie décroissante)
   let fa=0,fb=0,fc=0,fd=0,fn=0; for(const p of cst){if(p.r>0.05&&p.r<=1.001&&p.z<=Math.max(2*deltaF,maxZ*0.6)){const ly=Math.log(p.r);fa+=p.z;fb+=ly;fc+=p.z*p.z;fd+=p.z*ly;fn++;}}
   const slope=fn>2?(fn*fd-fa*fb)/(fn*fc-fa*fa):0; const penCST=slope<0?-1/slope:0;
@@ -3084,8 +3094,8 @@ function impDrawProfile(){
   const penTMM=deltaF/2;
   if(penTMM>0&&penTMM<maxZ){x.strokeStyle='#16a34a';x.setLineDash([2,3]);x.lineWidth=1;x.beginPath();x.moveTo(sx(penTMM),y1);x.lineTo(sx(penTMM),y0);x.stroke();x.setLineDash([]);x.fillStyle='#16a34a';x.font='9px sans-serif';x.textAlign='center';x.fillText('δ_SAR',sx(penTMM),y1-2);}
   // TMM (teal, lisse)
-  x.strokeStyle='#0d9488';x.lineWidth=2.6;x.beginPath();let st=false;
-  for(let k=0;k<tmm.zArr.length;k++){const z=tmm.zArr[k];if(z>maxZ)break;const X=sx(z),Y=sy(tmm.sarArr[k]/ts0);st?x.lineTo(X,Y):x.moveTo(X,Y);st=true;}
+  x.strokeStyle='#0d9488';x.lineWidth=2.6;x.beginPath();
+  for(let k=0;k<tmmZ.length;k++){const X=sx(tmmZ[k]),Y=sy(tmmR[k]);k?x.lineTo(X,Y):x.moveTo(X,Y);}
   x.stroke();
   // CST (orange, marqueurs + ligne tiretée)
   x.strokeStyle='#d97706';x.lineWidth=1.4;x.setLineDash([4,3]);x.beginPath();cst.forEach((p,k)=>{const X=sx(p.z),Y=sy(p.r);k?x.lineTo(X,Y):x.moveTo(X,Y);});x.stroke();x.setLineDash([]);
@@ -3095,7 +3105,7 @@ function impDrawProfile(){
   x.strokeStyle='#0d9488';x.lineWidth=2.6;x.beginPath();x.moveTo(x1+10,y1+10);x.lineTo(x1+30,y1+10);x.stroke();x.fillStyle='#334155';x.fillText('TMM',x1+34,y1+13);
   x.strokeStyle='#d97706';x.setLineDash([4,3]);x.beginPath();x.moveTo(x1+10,y1+28);x.lineTo(x1+30,y1+28);x.stroke();x.setLineDash([]);x.fillStyle='#334155';x.fillText('CST',x1+34,y1+31);
   document.getElementById('imp-prof-note').innerHTML=
-    'TMM : dalle semi-infinie de <b>'+tname+'</b> à <b>'+(f>=1e9?(f/1e9).toFixed(2)+' GHz':(f/1e6).toFixed(0)+' MHz')+'</b> — pénétration SAR (1/e) = <b>'+penTMM.toFixed(1)+' mm</b> (δ champ '+deltaF.toFixed(1)+' mm). '+
+    'TMM : <b>'+tlabel+'</b> à <b>'+(f>=1e9?(f/1e9).toFixed(2)+' GHz':(f/1e6).toFixed(0)+' MHz')+'</b> — pénétration SAR (1/e) = <b>'+penTMM.toFixed(1)+' mm</b> (δ champ '+deltaF.toFixed(1)+' mm). '+
     'Pénétration ajustée sur les points CST ≈ <b>'+(penCST>0?penCST.toFixed(1)+' mm':'—')+'</b>. '+
     'Profil = <b>SAR moyen par plan transverse</b> vs profondeur (robuste à la courbure). <b>Modèle planaire équivalent.</b> Pour une <b>dalle multicouche en incidence normale</b>, l\'accord TMM↔CST est quantitatif (validation rigoureuse). Pour une <b>tête courbe</b>, c\'est qualitatif (courbure, incidence oblique, moyennage) — la TMM fournit le profil exact et continu que la grille exportée échantillonne grossièrement.';
   wrap.style.display='';
@@ -3107,8 +3117,10 @@ function impDrawProfile(){
   if(sel&&typeof TNAMES!=='undefined'){TNAMES.forEach(n=>{const o=document.createElement('option');o.textContent=n;o.value=n;sel.appendChild(o);});
     sel.value=(TNAMES.indexOf('Muscle')>=0?'Muscle':TNAMES[0]);}
   const pt=document.getElementById('imp-prof-tissue');
-  if(pt&&typeof TNAMES!=='undefined'){TNAMES.forEach(n=>{const o=document.createElement('option');o.textContent=n;o.value=n;pt.appendChild(o);});
-    pt.value=(TNAMES.indexOf('Brain')>=0?'Brain':TNAMES[0]);}
+  if(pt&&typeof TNAMES!=='undefined'){
+    const om=document.createElement('option');om.textContent='— σ/ε saisis (liquide équiv.) —';om.value='__manual__';pt.appendChild(om);
+    TNAMES.forEach(n=>{const o=document.createElement('option');o.textContent=n;o.value=n;pt.appendChild(o);});
+    pt.value='__manual__';}
   const ef=document.getElementById('imp-efield');
   if(ef)ef.addEventListener('change',()=>{const f=ef.files[0];if(!f)return;const r=new FileReader();
     r.onload=()=>{impEfield=impParseField(r.result);impStatus(impEfield?`✓ Données : grille ${impEfield.nx}×${impEfield.ny}×${impEfield.nz} · pas ${impEfield.dx.toFixed(1)}×${impEfield.dy.toFixed(1)}×${impEfield.dz.toFixed(1)} mm · ${impEfield.note}`:'⚠ Format non reconnu.');};r.readAsText(f);});
