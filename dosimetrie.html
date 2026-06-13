@@ -796,6 +796,7 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
       <select id="imp-case">
         <option value="head">Tête — onde plane 0,9 GHz</option>
         <option value="slab">Dalle — onde plane 0,9 GHz (sans STL)</option>
+        <option value="trunk">Tronc multicouche — peau/graisse/muscle/foie</option>
       </select></div>
     <div class="field" style="display:flex;align-items:flex-end"><button type="button" onclick="impLoadCase()" style="background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:8px;padding:7px 12px;font-weight:600;cursor:pointer;font-size:12px">⤓ Charger (liquide ε=42, σ=0,99 S/m, ρ=1000)</button></div>
   </div>
@@ -2676,22 +2677,24 @@ const IMPCASES={
   head:{ef:'efield_head_09GHz.txt',sar:'sar10g_head_09GHz.txt',stl:'head.stl',axis:2,pos:-191.3,grid:3,pAxis:2,pDir:'fwd',pMode:'plane',
         lbl:'tête (onde plane 0,9 GHz, propagation +z, E∥x)'},
   slab:{ef:'slab_efield_09GHz.txt',sar:'slab_sar10g_09GHz.txt',stl:null,axis:1,pos:0,grid:4,pAxis:1,pDir:'auto',pMode:'line',
-        lbl:'dalle (onde plane 0,9 GHz, sans STL → tissu = SAR>0)'}
+        lbl:'dalle (onde plane 0,9 GHz, sans STL → tissu = SAR>0)'},
+  trunk:{ef:'trunk_sar10g_09GHz.txt',sar:null,stl:null,axis:2,pos:0,grid:4,pAxis:2,pDir:'auto',pMode:'plane',stack:'trunk',
+        lbl:'tronc multicouche (peau/graisse/muscle/foie ; SAR importé, profil vs empilement TMM)'}
 };
 async function impLoadCase(){
   const which=document.getElementById('imp-case').value, c=IMPCASES[which]||IMPCASES.head;
   document.getElementById('imp-manual').checked=true; impSyncProps();
   document.getElementById('imp-sigma').value=0.99; document.getElementById('imp-eps').value=42; document.getElementById('imp-rho').value=1000; document.getElementById('imp-conv').value='peak';
   const set=(id,v)=>{const e=document.getElementById(id); if(e)e.value=v;};
-  set('imp-prof-tissue','__manual__'); set('imp-prof-axis',c.pAxis); set('imp-prof-dir',c.pDir); set('imp-prof-mode',c.pMode);
+  set('imp-prof-tissue', c.stack?'__stack__':'__manual__'); set('imp-prof-axis',c.pAxis); set('imp-prof-dir',c.pDir); set('imp-prof-mode',c.pMode);
   set('imp-axis',c.axis); set('imp-pos',c.pos); set('imp-grid',c.grid); set('freq',9e8);
+  if(c.stack && typeof PRESETS!=='undefined' && PRESETS[c.stack]){ layers=PRESETS[c.stack].map(l=>({...l})); if(typeof renderStack==='function'){try{renderStack();}catch(_){}}}
   impStatus('Cas test « '+which+' » : chargement des fichiers embarqués…');
   try{
     const base='dosimetrie_cas_test/';
     const get=n=>fetch(base+n).then(r=>{if(!r.ok)throw new Error(n);return r.text();});
-    const reqs=[get(c.ef),get(c.sar)]; if(c.stl)reqs.push(get(c.stl));
-    const res=await Promise.all(reqs);
-    impEfield=impParseField(res[0]); impRefSAR=impParseField(res[1]); impSTL=c.stl?impParseSTL(res[2]):null;
+    const res=await Promise.all([get(c.ef), c.sar?get(c.sar):Promise.resolve(null), c.stl?get(c.stl):Promise.resolve(null)]);
+    impEfield=impParseField(res[0]); impRefSAR=res[1]?impParseField(res[1]):null; impSTL=res[2]?impParseSTL(res[2]):null;
     impStatus('✓ Cas test chargé : '+c.lbl+'. Calcul en cours…');
     impRun();
   }catch(e){
@@ -3159,7 +3162,7 @@ function impRun(){
             `Transitoire ${durMin} min : ΔT max=${(dTmax*1e3).toFixed(1)} mK (${c2(dTmax)} °C) · CEM43 max=${cemMax.toExponential(2)} min équiv. @43°C`);
 
   // profil 1D SAR(z) — disponible dès qu'on part d'un champ E
-  impLast = (kind!=='sar') ? {E:impEfield,sar3d,tissue3d,sigma,rho} : null;
+  impLast = {E:impEfield,sar3d,tissue3d,sigma,rho};   // profil dispo aussi pour un import SAR direct (sar3d = SAR importé)
   impDrawProfile();
 }
 
