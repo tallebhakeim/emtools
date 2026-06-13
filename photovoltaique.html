@@ -184,6 +184,22 @@ table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
   </div>
 
   <div class="panel">
+    <div class="ptitle" data-i18n="ori.t">Orientation &amp; inclinaison des panneaux</div>
+    <div data-i18n-html="ori.intro"></div>
+    <div class="controls" style="margin-top:.9rem">
+      <div class="ctrl"><label><span data-i18n="ori.tilt">Inclinaison β (depuis l'horizontale)</span> · <span id="ori-tiltv" class="val">35°</span></label><input id="ori-tilt" type="range" min="0" max="90" step="1" value="35" oninput="recompute()"></div>
+      <div class="ctrl"><label><span data-i18n="ori.az">Azimut γ (0 = plein sud)</span> · <span id="ori-azv" class="val">0°</span></label><input id="ori-az" type="range" min="-90" max="90" step="5" value="0" oninput="recompute()"></div>
+    </div>
+    <div class="metrics" style="margin-top:1rem">
+      <div class="metric hl"><div class="k" data-i18n="ori.opt">Inclinaison optimale (plein sud)</div><div class="v" id="ori-optb">—</div><div class="u">°</div></div>
+      <div class="metric"><div class="k" data-i18n="ori.vsh">Gain vs panneau horizontal</div><div class="v" id="ori-vsh">—</div><div class="u">%</div></div>
+      <div class="metric"><div class="k" data-i18n="ori.vsopt">Production vs optimum</div><div class="v" id="ori-vsopt">—</div><div class="u">%</div></div>
+    </div>
+    <canvas id="cv_ori" width="900" height="300" style="margin-top:1rem"></canvas>
+    <div class="sub" style="font-size:.74rem;color:var(--text2);margin-top:.3rem" data-i18n="ori.sub">Production annuelle relative selon l'inclinaison (azimut courant). L'optimum se déplace : plus incliné vers la latitude pour l'année, plus plat pour privilégier l'été.</div>
+  </div>
+
+  <div class="panel">
     <div class="ptitle" data-i18n="eco.t">Rentabilité &amp; impact environnemental</div>
     <div data-i18n-html="eco.intro"></div>
     <div class="controls" style="margin-top:.9rem">
@@ -337,8 +353,18 @@ function recompute(){
   $('sh-pg').textContent=sh.gP.toFixed(1);
   $('sh-nmax').textContent=sh.locals.length;
   const loss=Pfull>0?Math.max(0,(1-sh.gP/Pfull)*100):0; $('sh-loss').textContent=loss.toFixed(0);
-  CUR={G,T,p,cell,Ns,Np,lvl,scV,scI,Voc,Isc,Vmp,Imp,Pmp,sh,Pc,pr,lat,day};
-  drawIV(); drawFam(); drawShade(); drawDay(); drawCash();
+  // orientation & tilt
+  $('ori-tiltv').textContent=$('ori-tilt').value+'°';$('ori-azv').textContent=$('ori-az').value+'°';
+  const tilt=parseFloat($('ori-tilt').value), az=parseFloat($('ori-az').value);
+  const horiz=annualPOA(lat,0,0)||1;
+  // optimal tilt (south-facing) by scanning
+  let optb=0,optY=0; for(let b=0;b<=90;b++){const y=annualPOA(lat,b,0); if(y>optY){optY=y;optb=b;}}
+  const cur=annualPOA(lat,tilt,az);
+  $('ori-optb').textContent=optb;
+  const vsh=(cur/horiz-1)*100; $('ori-vsh').textContent=(vsh>=0?'+':'')+vsh.toFixed(0);
+  $('ori-vsopt').textContent=(cur/optY*100).toFixed(0);
+  CUR={G,T,p,cell,Ns,Np,lvl,scV,scI,Voc,Isc,Vmp,Imp,Pmp,sh,Pc,pr,lat,day,tilt,az,optb,optY,horiz};
+  drawIV(); drawFam(); drawShade(); drawDay(); drawCash(); drawOrient();
 }
 let ECO=null;
 function drawCash(){
@@ -377,6 +403,46 @@ function solarElev(lat,day,hour){
 function ghi(el){ if(el<=0)return 0; const AM=1/Math.sin(el); return 1050*Math.sin(el)*Math.pow(0.7,Math.pow(AM,0.678))*1.15; }
 // daily sun-hours (∫GHI dt /1000, kWh/m²/day)
 function daySunHours(lat,day){ let s=0; for(let h=0;h<24;h+=0.25){s+=ghi(solarElev(lat,day,h))*0.25;} return s/1000; }
+// plane-of-array irradiance (W/m²) on a tilted surface (β tilt, γ azimuth from south), all deg
+function poaIrr(lat,day,hour,beta,gamma){
+  const L=lat*Math.PI/180, dcl=23.45*Math.PI/180*Math.sin(2*Math.PI*(284+day)/365), h=(hour-12)*15*Math.PI/180;
+  const el=Math.asin(Math.sin(L)*Math.sin(dcl)+Math.cos(L)*Math.cos(dcl)*Math.cos(h));
+  if(el<=0)return 0;
+  const G=ghi(el), df=0.2, DHI=df*G, DNI=(1-df)*G/Math.sin(el);
+  const b=beta*Math.PI/180, g=gamma*Math.PI/180;
+  const cti=Math.max(0, Math.sin(dcl)*Math.sin(L)*Math.cos(b) - Math.sin(dcl)*Math.cos(L)*Math.sin(b)*Math.cos(g)
+    + Math.cos(dcl)*Math.cos(L)*Math.cos(b)*Math.cos(h) + Math.cos(dcl)*Math.sin(L)*Math.sin(b)*Math.cos(g)*Math.cos(h)
+    + Math.cos(dcl)*Math.sin(b)*Math.sin(g)*Math.sin(h));
+  return DNI*cti + DHI*(1+Math.cos(b))/2 + G*0.2*(1-Math.cos(b))/2;   // beam + diffuse + ground-reflected
+}
+// relative annual plane-of-array irradiation (arbitrary units) for a (β,γ)
+function annualPOA(lat,beta,gamma){ let s=0; for(let d=15;d<=365;d+=15)for(let hh=5;hh<=19;hh+=0.5)s+=poaIrr(lat,d,hh,beta,gamma)*0.5; return s; }
+function drawOrient(){
+  const c=CUR, cv=$('cv_ori'); cv.style.height='300px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const pad=46,x0=pad,x1=w-12,y0=h-30,y1=20;
+  // relative yield vs tilt (0..90) for current azimuth, normalised to optimal (south)
+  const sx=b=>x0+b/90*(x1-x0), sy=r=>y0-r*(y0-y1);
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='right';
+  for(let f=0;f<=1.001;f+=0.25){x.fillText((f*100).toFixed(0),x0-4,sy(f)+3);x.strokeStyle='#f1f5f9';x.beginPath();x.moveTo(x0,sy(f));x.lineTo(x1,sy(f));x.stroke();}
+  x.textAlign='center';for(let b=0;b<=90;b+=15)x.fillText(b+'°',sx(b),y0+13);
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.fillText(LANG==='fr'?'inclinaison β (°)':'tilt β (°)',(x0+x1)/2,h-6);
+  x.save();x.translate(12,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText(LANG==='fr'?'production relative (%)':'relative yield (%)',0,0);x.restore();
+  // curve at current azimuth (teal), plus south reference (faint) if az≠0
+  const drawC=(gamma,col,lw)=>{x.strokeStyle=col;x.lineWidth=lw;x.beginPath();for(let b=0;b<=90;b+=2){const r=annualPOA(c.lat,b,gamma)/c.optY;const X=sx(b),Y=sy(Math.min(r,1.05));b?x.lineTo(X,Y):x.moveTo(X,Y);}x.stroke();};
+  if(Math.abs(c.az)>1){drawC(0,'#cbd5e1',1.4);}
+  drawC(c.az,'#0d9488',2.6);
+  // optimum marker (on south curve)
+  x.strokeStyle='#16a34a';x.setLineDash([3,3]);x.lineWidth=1;x.beginPath();x.moveTo(sx(c.optb),y1);x.lineTo(sx(c.optb),y0);x.stroke();x.setLineDash([]);
+  x.fillStyle='#16a34a';x.beginPath();x.arc(sx(c.optb),sy(1),4,0,7);x.fill();x.font='10px sans-serif';x.textAlign='center';x.fillText('optimum '+c.optb+'°',sx(c.optb),y1+8);
+  // current point (orange) — label placed below the point to avoid the optimum label
+  const rc=annualPOA(c.lat,c.tilt,c.az)/c.optY;
+  x.strokeStyle='#d97706';x.setLineDash([3,3]);x.beginPath();x.moveTo(sx(c.tilt),sy(rc));x.lineTo(sx(c.tilt),y0);x.stroke();x.setLineDash([]);
+  x.fillStyle='#d97706';x.beginPath();x.arc(sx(c.tilt),sy(rc),4,0,7);x.fill();x.font='700 10px sans-serif';x.textAlign=c.tilt<70?'left':'right';const lx=c.tilt<70?sx(c.tilt)+7:sx(c.tilt)-7;x.fillText(c.tilt+'° → '+(rc*100).toFixed(0)+'%',lx,sy(rc)+15);
+  // legend
+  if(Math.abs(c.az)>1){x.font='10px sans-serif';x.textAlign='left';x.strokeStyle='#0d9488';x.lineWidth=2.6;x.beginPath();x.moveTo(x1-150,y1+4);x.lineTo(x1-132,y1+4);x.stroke();x.fillStyle='#475569';x.fillText((LANG==='fr'?'azimut '+c.az+'°':'azimuth '+c.az+'°'),x1-128,y1+7);x.strokeStyle='#cbd5e1';x.lineWidth=1.4;x.beginPath();x.moveTo(x1-150,y1+17);x.lineTo(x1-132,y1+17);x.stroke();x.fillStyle='#475569';x.fillText(LANG==='fr'?'plein sud':'due south',x1-128,y1+20);}
+}
 function drawDay(){
   const c=CUR, cv=$('cv_day'); cv.style.height='300px'; const {x,w,h}=dpr(cv);
   x.clearRect(0,0,w,h);
@@ -508,6 +574,12 @@ const I18N={
  'se.sum':{fr:"Été (solstice)",en:"Summer (solstice)"},'se.eq':{fr:"Équinoxe",en:"Equinox"},'se.win':{fr:"Hiver (solstice)",en:"Winter (solstice)"},
  'day.psh':{fr:"PSH calculé (lat/saison)",en:"Computed PSH (lat/season)"},
  'day.sub':{fr:"Puissance produite heure par heure ; l'aire sous la courbe = énergie du jour. Été/équinoxe/hiver superposés (saison choisie en gras). PSH ≈ aire ÷ puissance crête.",en:"Hour-by-hour output power; area under the curve = daily energy. Summer/equinox/winter overlaid (selected season in bold). PSH ≈ area ÷ peak power."},
+ 'ori.t':{fr:"Orientation & inclinaison des panneaux",en:"Panel orientation & tilt"},
+ 'ori.intro':{fr:"<b>Bien orienter ses panneaux —</b> un panneau capte le plus de soleil quand sa <b>normale pointe vers le soleil</b>. Sur l'année, l'inclinaison optimale (face au sud dans l'hémisphère nord) est <b>≈ la latitude</b> ; on l'incline moins pour favoriser l'été (soleil haut), plus pour l'hiver (soleil bas). L'<b>azimut</b> (écart au plein sud) et l'<b>inclinaison</b> changent la production annuelle — c'est le facteur d'<b>irradiation dans le plan</b> (POA).",
+              en:"<b>Orienting panels well —</b> a panel captures most sun when its <b>normal points at the sun</b>. Over the year the optimal tilt (facing the equator) is <b>≈ the latitude</b>; tilt less to favour summer (high sun), more for winter (low sun). The <b>azimuth</b> (deviation from due south) and the <b>tilt</b> change the annual yield — this is the <b>plane-of-array</b> (POA) irradiation factor."},
+ 'ori.tilt':{fr:"Inclinaison β (depuis l'horizontale)",en:"Tilt β (from horizontal)"},'ori.az':{fr:"Azimut γ (0 = plein sud)",en:"Azimuth γ (0 = due south)"},
+ 'ori.opt':{fr:"Inclinaison optimale (plein sud)",en:"Optimal tilt (due south)"},'ori.vsh':{fr:"Gain vs panneau horizontal",en:"Gain vs horizontal panel"},'ori.vsopt':{fr:"Production vs optimum",en:"Yield vs optimum"},
+ 'ori.sub':{fr:"Production annuelle relative selon l'inclinaison (azimut courant). L'optimum se déplace : plus incliné vers la latitude pour l'année, plus plat pour privilégier l'été.",en:"Relative annual yield vs tilt (current azimuth). The optimum shifts: tilt toward the latitude for the year, flatter to favour summer."},
  'eco.t':{fr:"Rentabilité & impact environnemental",en:"Profitability & environmental impact"},
  'eco.intro':{fr:"<b>La réalité d'un système —</b> au-delà des kWh, on regarde le <b>temps de retour financier</b> (investissement ÷ économies annuelles), le <b>coût de l'énergie produite (LCOE)</b>, le <b>temps de retour énergétique (EPBT)</b> = énergie de fabrication ÷ énergie produite par an (typiquement 1–2 ans pour le PV), et le <b>CO₂ évité</b> selon l'intensité carbone du réseau remplacé.",
               en:"<b>The reality of a system —</b> beyond kWh, look at the <b>financial payback</b> (investment ÷ annual savings), the <b>levelised cost of energy (LCOE)</b>, the <b>energy payback time (EPBT)</b> = manufacturing energy ÷ yearly output (typically 1–2 years for PV), and the <b>CO₂ avoided</b> based on the carbon intensity of the displaced grid."},
@@ -535,7 +607,7 @@ function applyLang(){
 }
 function toggleLang(){LANG=LANG==='fr'?'en':'fr';localStorage.setItem('emtools_lang',LANG);applyLang();recompute();}
 applyLang(); recompute();
-window.addEventListener('resize',()=>{if(CUR){drawIV();drawFam();drawShade();drawDay();drawCash();}});
+window.addEventListener('resize',()=>{if(CUR){drawIV();drawFam();drawShade();drawDay();drawCash();drawOrient();}});
 </script>
 </body>
 </html>
