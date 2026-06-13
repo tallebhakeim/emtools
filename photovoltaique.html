@@ -164,6 +164,21 @@ table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
   </div>
 
   <div class="panel">
+    <div class="ptitle" data-i18n="mppt.t">MPPT — suivi du point de puissance maximale</div>
+    <div data-i18n-html="mppt.intro"></div>
+    <div class="controls" style="margin-top:.9rem">
+      <div class="ctrl"><label><span data-i18n="mppt.v">Tension imposée par la charge (× V_oc)</span> · <span id="mppt-vv" class="val">0.72</span></label><input id="mppt-v" type="range" min="0.40" max="1.00" step="0.01" value="0.72" oninput="recompute()"></div>
+    </div>
+    <div class="metrics" style="margin-top:1rem">
+      <div class="metric hl"><div class="k" data-i18n="mppt.pmp">P au MPP (avec MPPT)</div><div class="v" id="mppt-pmp">—</div><div class="u" id="mppt-pmpu">W</div></div>
+      <div class="metric"><div class="k" data-i18n="mppt.pop">P à la tension imposée</div><div class="v" id="mppt-pop">—</div><div class="u" id="mppt-popu">W</div></div>
+      <div class="metric"><div class="k" data-i18n="mppt.gain">Gain du MPPT</div><div class="v good" id="mppt-gain">—</div><div class="u">%</div></div>
+    </div>
+    <canvas id="cv_mppt" width="900" height="300" style="margin-top:1rem"></canvas>
+    <div class="sub" style="font-size:.74rem;color:var(--text2);margin-top:.3rem" data-i18n="mppt.sub">Courbe puissance-tension. Une charge directe (batterie) fige la tension ; le MPP est ailleurs → puissance perdue. Le convertisseur MPPT (DC-DC) découple charge et panneau et s'asseoit sur le sommet.</div>
+  </div>
+
+  <div class="panel">
     <div class="ptitle" data-i18n="sys">Système — énergie produite</div>
     <div data-i18n-html="sys.intro"></div>
     <div class="controls" style="margin-top:.9rem">
@@ -210,6 +225,23 @@ table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
     </div>
     <canvas id="cv_ori" width="900" height="300" style="margin-top:1rem"></canvas>
     <div class="sub" style="font-size:.74rem;color:var(--text2);margin-top:.3rem" data-i18n="ori.sub">Production annuelle relative selon l'inclinaison (azimut courant). L'optimum se déplace : plus incliné vers la latitude pour l'année, plus plat pour privilégier l'été.</div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="age.t">Vieillissement & dégradation sur la durée de vie</div>
+    <div data-i18n-html="age.intro"></div>
+    <div class="controls" style="margin-top:.9rem">
+      <div class="ctrl"><label><span data-i18n="age.lid">Chute initiale (LID, 1ʳᵉ année)</span> · <span id="age-lidv" class="val">2.0 %</span></label><input id="age-lid" type="range" min="0" max="5" step="0.1" value="2.0" oninput="recompute()"></div>
+      <div class="ctrl"><label><span data-i18n="age.deg">Dégradation annuelle</span> · <span id="age-degv" class="val">0.50 %/an</span></label><input id="age-deg" type="range" min="0.1" max="1.2" step="0.05" value="0.50" oninput="recompute()"></div>
+    </div>
+    <div class="metrics" style="margin-top:1rem">
+      <div class="metric"><div class="k" data-i18n="age.p1">Performance après 1 an</div><div class="v" id="age-p1">—</div><div class="u">%</div></div>
+      <div class="metric hl"><div class="k" data-i18n="age.pn">Performance en fin de vie</div><div class="v" id="age-pn">—</div><div class="u">%</div></div>
+      <div class="metric"><div class="k" data-i18n="age.avg">Performance moyenne</div><div class="v" id="age-avg">—</div><div class="u">%</div></div>
+      <div class="metric"><div class="k" data-i18n="age.etot">Énergie totale cumulée</div><div class="v" id="age-etot">—</div><div class="u">MWh</div></div>
+    </div>
+    <canvas id="cv_age" width="900" height="300" style="margin-top:1rem"></canvas>
+    <div class="sub" style="font-size:.74rem;color:var(--text2);margin-top:.3rem" data-i18n="age.sub">Performance relative au fil des ans : forte chute la 1ʳᵉ année (LID, dégradation induite par la lumière) puis déclin linéaire. La garantie constructeur typique (~80–87 % en fin de vie) est tracée en référence. Durée de vie reprise du bloc économique.</div>
   </div>
 
   <div class="panel">
@@ -362,6 +394,24 @@ function recompute(){
   $('sh-pg').textContent=sh.gP.toFixed(1);
   $('sh-nmax').textContent=sh.locals.length;
   const loss=Pfull>0?Math.max(0,(1-sh.gP/Pfull)*100):0; $('sh-loss').textContent=loss.toFixed(0);
+  // MPPT — power at the load-imposed voltage vs the maximum power point
+  $('mppt-vv').textContent=parseFloat($('mppt-v').value).toFixed(2);
+  const mFrac=parseFloat($('mppt-v').value), Vop=mFrac*Voc;
+  let Pop=0; const mc=cell.curve;
+  for(let k=1;k<mc.length;k++){const Va=mc[k-1].V*scV, Vb=mc[k].V*scV;
+    if((Va<=Vop&&Vb>=Vop)||(Vb<=Vop&&Va>=Vop)){const f=Vb!==Va?(Vop-Va)/(Vb-Va):0;const Ii=(mc[k-1].I+f*(mc[k].I-mc[k-1].I))*scI;Pop=Vop*Ii;break;}}
+  const mppGain=Pop>0?(Pmp/Pop-1)*100:0;
+  $('mppt-pmp').textContent=Pmp>=1?Pmp.toFixed(1):(Pmp*1000).toFixed(0);$('mppt-pmpu').textContent=Pmp>=1?'W':'mW';
+  $('mppt-pop').textContent=Pmp>=1?Pop.toFixed(1):(Pop*1000).toFixed(0);$('mppt-popu').textContent=Pmp>=1?'W':'mW';
+  $('mppt-gain').textContent='+'+mppGain.toFixed(0);
+  // ageing / degradation over the system lifetime (lifetime taken from the economics block)
+  $('age-lidv').textContent=parseFloat($('age-lid').value).toFixed(1)+' %';$('age-degv').textContent=parseFloat($('age-deg').value).toFixed(2)+' %/an';
+  const lid=parseFloat($('age-lid').value), degr=parseFloat($('age-deg').value), lifeY=parseInt($('eco-life').value);
+  const perf=y=>y<=0?100:Math.max(0,(100-lid)-degr*(y-1));   // % of nameplate at end of year y
+  let sumF=0; for(let y=1;y<=lifeY;y++)sumF+=perf(y)/100;
+  const p1=perf(1), pn=perf(lifeY), avg=sumF/lifeY*100, etot=eyear/1000*sumF;   // eyear in kWh → MWh
+  $('age-p1').textContent=p1.toFixed(1);$('age-pn').textContent=pn.toFixed(1);$('age-avg').textContent=avg.toFixed(1);
+  $('age-etot').textContent=etot>=10?etot.toFixed(0):etot.toFixed(1);
   // technology comparison cards (η at STC from the diode model · measured temp coefficient)
   CMP_TECHS.forEach(tt=>{ $('cmp-'+tt.k).textContent=techStcEta(tt.k).toFixed(1)+' %'; $('cmp-'+tt.k+'u').textContent='γ = '+TECH[tt.k].tc+' %/°C'; });
   // orientation & tilt
@@ -374,8 +424,8 @@ function recompute(){
   $('ori-optb').textContent=optb;
   const vsh=(cur/horiz-1)*100; $('ori-vsh').textContent=(vsh>=0?'+':'')+vsh.toFixed(0);
   $('ori-vsopt').textContent=(cur/optY*100).toFixed(0);
-  CUR={G,T,p,cell,Ns,Np,lvl,scV,scI,Voc,Isc,Vmp,Imp,Pmp,sh,Pc,pr,lat,day,tilt,az,optb,optY,horiz};
-  drawIV(); drawFam(); drawTechCmp(); drawShade(); drawDay(); drawCash(); drawOrient();
+  CUR={G,T,p,cell,Ns,Np,lvl,scV,scI,Voc,Isc,Vmp,Imp,Pmp,sh,Pc,pr,lat,day,tilt,az,optb,optY,horiz,eyear,Vop,Pop};
+  drawIV(); drawFam(); drawTechCmp(); drawShade(); drawMPPT(); drawDay(); drawAge(); drawCash(); drawOrient();
 }
 let ECO=null;
 function drawCash(){
@@ -460,6 +510,64 @@ function drawTechCmp(){
     x.fillStyle='#64748b';x.font='9px sans-serif';x.fillText(e0.toFixed(1)+'% @STC',x1+30,ly+14);
     x.fillText('γ '+g+'%/°C',x1+30,ly+24);
   });
+}
+// MPPT: power-voltage curve with the MPP peak and the load-imposed operating point
+function drawMPPT(){
+  const c=CUR, cv=$('cv_mppt'); cv.style.height='300px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const x0=50,x1=w-14,y0=h-30,y1=18;
+  const pv=c.cell.curve.map(pt=>({V:pt.V*c.scV, P:pt.V*c.scV*pt.I*c.scI}));
+  const Vmax=c.Voc*1.02, Pmax=c.Pmp*1.12;
+  const sx=V=>x0+V/Vmax*(x1-x0), sy=P=>y0-P/Pmax*(y0-y1);
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='center';
+  for(let f=0;f<=1.001;f+=0.25){const V=Vmax*f;x.fillText(V.toFixed(V<10?1:0),sx(V),y0+13);}
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.fillText(LANG==='fr'?'tension V':'voltage V',(x0+x1)/2,h-6);
+  x.save();x.translate(13,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText(LANG==='fr'?'puissance P (W)':'power P (W)',0,0);x.restore();
+  // P-V curve
+  x.strokeStyle='#0d9488';x.lineWidth=2.4;x.beginPath();pv.forEach((pt,i)=>{const X=sx(pt.V),Y=sy(pt.P);i?x.lineTo(X,Y):x.moveTo(X,Y);});x.stroke();
+  // MPP marker
+  const Vmp=c.Vmp,Pmp=c.Pmp;
+  x.strokeStyle='#16a34a';x.setLineDash([3,3]);x.lineWidth=1;x.beginPath();x.moveTo(sx(Vmp),sy(Pmp));x.lineTo(sx(Vmp),y0);x.stroke();x.setLineDash([]);
+  x.fillStyle='#16a34a';x.beginPath();x.arc(sx(Vmp),sy(Pmp),4.5,0,7);x.fill();x.font='700 10px sans-serif';x.textAlign='center';x.fillText('MPP '+(Pmp>=1?Pmp.toFixed(0)+' W':(Pmp*1000).toFixed(0)+' mW'),sx(Vmp),sy(Pmp)-8);
+  // operating point (load-imposed voltage)
+  const Vop=c.Vop,Pop=c.Pop;
+  x.strokeStyle='#d97706';x.setLineDash([3,3]);x.beginPath();x.moveTo(sx(Vop),sy(Pop));x.lineTo(sx(Vop),y0);x.stroke();x.setLineDash([]);
+  x.fillStyle='#d97706';x.beginPath();x.arc(sx(Vop),sy(Pop),4.5,0,7);x.fill();
+  x.font='10px sans-serif';x.textAlign=Vop<Vmp?'right':'left';x.fillText((LANG==='fr'?'charge ':'load ')+Vop.toFixed(Vop<10?1:0)+' V',sx(Vop)+(Vop<Vmp?-7:7),sy(Pop)+4);
+  // gap annotation
+  if(Pop<Pmp-0.001){x.strokeStyle='#d97706';x.lineWidth=1.4;x.beginPath();x.moveTo(sx(Vop),sy(Pop)-2);x.lineTo(sx(Vop),sy(Pmp)+2);x.stroke();
+    x.fillStyle='#16a34a';x.font='700 10px sans-serif';x.textAlign='left';x.fillText('+'+((Pmp/Pop-1)*100).toFixed(0)+'%',sx(Vop)+6,(sy(Pop)+sy(Pmp))/2);}
+}
+// ageing: relative performance vs year, modelled curve + typical manufacturer warranty line
+function drawAge(){
+  const cv=$('cv_age'); cv.style.height='300px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const x0=46,x1=w-14,y0=h-30,y1=18;
+  const lid=parseFloat($('age-lid').value), degr=parseFloat($('age-deg').value), life=parseInt($('eco-life').value);
+  const Ymax=Math.max(30,life), perf=y=>y<=0?100:Math.max(0,(100-lid)-degr*(y-1));
+  const sx=y=>x0+y/Ymax*(x1-x0), sy=p=>y0-(p-60)/40*(y0-y1);   // axis 60..100 %
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='right';
+  for(let p=60;p<=100;p+=10){x.fillText(p+'%',x0-4,sy(p)+3);x.strokeStyle='#f1f5f9';x.beginPath();x.moveTo(x0,sy(p));x.lineTo(x1,sy(p));x.stroke();}
+  x.textAlign='center';for(let y=0;y<=Ymax;y+=5)x.fillText(y,sx(y),y0+13);
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.fillText(LANG==='fr'?'année':'year',(x0+x1)/2,h-6);
+  x.save();x.translate(12,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText(LANG==='fr'?'performance (%)':'performance (%)',0,0);x.restore();
+  // typical manufacturer warranty: 98% after yr1, then −0.55%/yr (≈ 85% at 25 yr)
+  x.strokeStyle='#cbd5e1';x.lineWidth=1.6;x.setLineDash([5,4]);x.beginPath();
+  for(let y=0;y<=Ymax;y++){const wty=y<=0?100:98-0.55*(y-1);const X=sx(y),Y=sy(Math.max(60,wty));y?x.lineTo(X,Y):x.moveTo(X,Y);}x.stroke();x.setLineDash([]);
+  // modelled performance curve
+  x.strokeStyle='#0d9488';x.lineWidth=2.6;x.beginPath();
+  for(let y=0;y<=Ymax;y++){const X=sx(y),Y=sy(Math.max(60,perf(y)));y?x.lineTo(X,Y):x.moveTo(X,Y);}x.stroke();
+  // end-of-life marker
+  const pn=perf(life);
+  x.strokeStyle='#d97706';x.setLineDash([3,3]);x.lineWidth=1;x.beginPath();x.moveTo(sx(life),sy(Math.max(60,pn)));x.lineTo(sx(life),y0);x.stroke();x.setLineDash([]);
+  x.fillStyle='#0d9488';x.beginPath();x.arc(sx(life),sy(Math.max(60,pn)),4.5,0,7);x.fill();
+  x.font='700 10px sans-serif';x.textAlign=life>Ymax*0.8?'right':'left';x.fillText(life+' ans : '+pn.toFixed(0)+'%',sx(life)+(life>Ymax*0.8?-7:7),sy(Math.max(60,pn))-7);
+  // legend
+  x.font='10px sans-serif';x.textAlign='left';
+  x.strokeStyle='#0d9488';x.lineWidth=2.6;x.beginPath();x.moveTo(x1-176,y1+4);x.lineTo(x1-158,y1+4);x.stroke();x.fillStyle='#475569';x.fillText(LANG==='fr'?'modèle':'model',x1-154,y1+7);
+  x.strokeStyle='#cbd5e1';x.lineWidth=1.6;x.setLineDash([5,4]);x.beginPath();x.moveTo(x1-110,y1+4);x.lineTo(x1-92,y1+4);x.stroke();x.setLineDash([]);x.fillStyle='#475569';x.fillText(LANG==='fr'?'garantie typique':'typical warranty',x1-88,y1+7);
 }
 function drawOrient(){
   const c=CUR, cv=$('cv_ori'); cv.style.height='300px'; const {x,w,h}=dpr(cv);
@@ -618,6 +726,20 @@ const I18N={
  'se.sum':{fr:"Été (solstice)",en:"Summer (solstice)"},'se.eq':{fr:"Équinoxe",en:"Equinox"},'se.win':{fr:"Hiver (solstice)",en:"Winter (solstice)"},
  'day.psh':{fr:"PSH calculé (lat/saison)",en:"Computed PSH (lat/season)"},
  'day.sub':{fr:"Puissance produite heure par heure ; l'aire sous la courbe = énergie du jour. Été/équinoxe/hiver superposés (saison choisie en gras). PSH ≈ aire ÷ puissance crête.",en:"Hour-by-hour output power; area under the curve = daily energy. Summer/equinox/winter overlaid (selected season in bold). PSH ≈ area ÷ peak power."},
+ 'mppt.t':{fr:"MPPT — suivi du point de puissance maximale",en:"MPPT — maximum power point tracking"},
+ 'mppt.intro':{fr:"<b>Pourquoi un MPPT ? —</b> un panneau a un <b>point de puissance maximale</b> (MPP) à une tension bien précise (≈ V_mp). Mais une charge directe — une batterie 12 V, par exemple — <b>impose sa tension</b> au panneau : si elle ne tombe pas sur V_mp, le panneau travaille ailleurs sur sa courbe et délivre <b>moins</b> que sa puissance crête. Le <b>convertisseur MPPT</b> (un DC-DC qui ajuste en continu son rapport de transformation) <b>découple</b> la tension du panneau de celle de la charge et maintient le panneau pile sur son sommet, quelles que soient l'irradiance et la température.",
+              en:"<b>Why an MPPT? —</b> a panel has a <b>maximum power point</b> (MPP) at one specific voltage (≈ V_mp). But a direct load — a 12 V battery, say — <b>imposes its voltage</b> on the panel: if that isn't V_mp, the panel works elsewhere on its curve and delivers <b>less</b> than its peak power. The <b>MPPT converter</b> (a DC-DC that continuously adjusts its conversion ratio) <b>decouples</b> the panel voltage from the load voltage and keeps the panel right on its peak, whatever the irradiance and temperature."},
+ 'mppt.v':{fr:"Tension imposée par la charge (× V_oc)",en:"Load-imposed voltage (× V_oc)"},
+ 'mppt.pmp':{fr:"P au MPP (avec MPPT)",en:"P at MPP (with MPPT)"},'mppt.pop':{fr:"P à la tension imposée",en:"P at imposed voltage"},'mppt.gain':{fr:"Gain du MPPT",en:"MPPT gain"},
+ 'mppt.sub':{fr:"Courbe puissance-tension. Une charge directe (batterie) fige la tension ; le MPP est ailleurs → puissance perdue. Le convertisseur MPPT (DC-DC) découple charge et panneau et s'asseoit sur le sommet.",
+             en:"Power-voltage curve. A direct load (battery) pins the voltage; the MPP is elsewhere → lost power. The MPPT converter (DC-DC) decouples load and panel and sits on the peak."},
+ 'age.t':{fr:"Vieillissement & dégradation sur la durée de vie",en:"Ageing & degradation over the lifetime"},
+ 'age.intro':{fr:"<b>Un panneau vieillit —</b> dès la 1ʳᵉ année il subit une <b>chute initiale (LID</b>, light-induced degradation : ~1–3 %) quand la lumière active des défauts du silicium. Ensuite la puissance décline <b>linéairement</b> (~0,4–0,7 %/an) : encapsulant qui jaunit, micro-fissures, corrosion des contacts. Les constructeurs <b>garantissent</b> en général ≥ 80–87 % de la puissance nominale à 25 ans. Cette dégradation réduit l'énergie produite sur la durée de vie — et donc le rendement économique du bloc suivant.",
+              en:"<b>A panel ages —</b> in its first year it takes an <b>initial drop (LID</b>, light-induced degradation: ~1–3 %) as light activates silicon defects. Then power declines <b>linearly</b> (~0.4–0.7 %/yr): yellowing encapsulant, micro-cracks, contact corrosion. Manufacturers typically <b>warrant</b> ≥ 80–87 % of nameplate at 25 years. This degradation cuts lifetime energy — and hence the economics of the next block."},
+ 'age.lid':{fr:"Chute initiale (LID, 1ʳᵉ année)",en:"Initial drop (LID, 1st year)"},'age.deg':{fr:"Dégradation annuelle",en:"Annual degradation"},
+ 'age.p1':{fr:"Performance après 1 an",en:"Performance after 1 year"},'age.pn':{fr:"Performance en fin de vie",en:"End-of-life performance"},'age.avg':{fr:"Performance moyenne",en:"Average performance"},'age.etot':{fr:"Énergie totale cumulée",en:"Total cumulative energy"},
+ 'age.sub':{fr:"Performance relative au fil des ans : forte chute la 1ʳᵉ année (LID, dégradation induite par la lumière) puis déclin linéaire. La garantie constructeur typique (~80–87 % en fin de vie) est tracée en référence. Durée de vie reprise du bloc économique.",
+            en:"Relative performance over the years: a sharp first-year drop (LID, light-induced degradation) then a linear decline. A typical manufacturer warranty (~80–87 % at end of life) is drawn for reference. Lifetime taken from the economics block."},
  'cmp.t':{fr:"Comparatif des technologies",en:"Technology comparison"},
  'cmp.intro':{fr:"<b>Trois grandes familles —</b> le <b>monocristallin (c-Si)</b> offre le meilleur rendement (cellule très ordonnée, fort courant), le <b>polycristallin</b> est un peu moins efficace mais moins cher, et le <b>CdTe en couche mince</b> a un rendement plus modeste mais une <b>tension par cellule plus élevée</b> (gap E_g = 1,5 eV vs 1,12 eV pour le silicium) et surtout un <b>coefficient de température plus doux</b> : il perd moins de puissance quand il chauffe. Sous le soleil un panneau monte facilement à 60–70 °C, et c'est là que le classement peut se resserrer.",
               en:"<b>Three main families —</b> <b>monocrystalline (c-Si)</b> gives the best efficiency (highly ordered cell, high current), <b>polycrystalline</b> is slightly less efficient but cheaper, and <b>thin-film CdTe</b> has a more modest efficiency but a <b>higher per-cell voltage</b> (bandgap E_g = 1.5 eV vs 1.12 eV for silicon) and, crucially, a <b>gentler temperature coefficient</b>: it loses less power when hot. In full sun a panel easily reaches 60–70 °C — that's where the ranking can tighten."},
@@ -658,7 +780,7 @@ function applyLang(){
 }
 function toggleLang(){LANG=LANG==='fr'?'en':'fr';localStorage.setItem('emtools_lang',LANG);applyLang();recompute();}
 applyLang(); recompute();
-window.addEventListener('resize',()=>{if(CUR){drawIV();drawFam();drawTechCmp();drawShade();drawDay();drawCash();drawOrient();}});
+window.addEventListener('resize',()=>{if(CUR){drawIV();drawFam();drawTechCmp();drawShade();drawMPPT();drawDay();drawAge();drawCash();drawOrient();}});
 </script>
 </body>
 </html>
