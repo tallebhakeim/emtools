@@ -811,6 +811,8 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
     <div class="field"><label>T ambiante (°C)</label><input type="number" id="imp-tamb" step="any" value="25"></div>
   </div>
   <div class="row">
+    <div class="field"><label>c (J/kg/K)</label><input type="number" id="imp-c" step="any" value="3500"></div>
+    <div class="field"><label>Durée exposition (min)</label><input type="number" id="imp-dur" step="any" value="30"></div>
     <div class="field"><label>Pas grille therm. (mm)</label><input type="number" id="imp-grid" step="any" value="2"></div>
     <div class="field"><label>Normalisation SAR crête (W/kg)</label><input type="number" id="imp-sarref" step="any" value="1"></div>
   </div>
@@ -819,8 +821,9 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
   <div id="imp-status" style="font-size:12px;color:var(--text2);margin:.3rem 0;white-space:pre-line"></div>
 
   <div class="row" style="margin-top:.5rem">
-    <div style="flex:1;min-width:280px"><div class="stitle" style="border-top:none;padding-top:0">SAR sur la coupe [W/kg]</div><canvas id="imp-sar-map" width="600" height="600" style="width:100%;height:auto;border-radius:8px;border:.5px solid var(--border);background:#fff"></canvas></div>
-    <div style="flex:1;min-width:280px"><div class="stitle" style="border-top:none;padding-top:0">ΔT induit par l'EM [mK]</div><canvas id="imp-dt-map" width="600" height="600" style="width:100%;height:auto;border-radius:8px;border:.5px solid var(--border);background:#fff"></canvas></div>
+    <div style="flex:1;min-width:240px"><div class="stitle" style="border-top:none;padding-top:0">SAR sur la coupe [W/kg]</div><canvas id="imp-sar-map" width="600" height="600" style="width:100%;height:auto;border-radius:8px;border:.5px solid var(--border);background:#fff"></canvas></div>
+    <div style="flex:1;min-width:240px"><div class="stitle" style="border-top:none;padding-top:0">ΔT induit par l'EM [mK]</div><canvas id="imp-dt-map" width="600" height="600" style="width:100%;height:auto;border-radius:8px;border:.5px solid var(--border);background:#fff"></canvas></div>
+    <div style="flex:1;min-width:240px"><div class="stitle" style="border-top:none;padding-top:0">Dose thermique CEM43 [min]</div><canvas id="imp-cem-map" width="600" height="600" style="width:100%;height:auto;border-radius:8px;border:.5px solid var(--border);background:#fff"></canvas></div>
   </div>
 </div>
 
@@ -2738,6 +2741,48 @@ function impPennes2D(G,Q,prm){
   return{T,cells,idx,N};
 }
 
+// — Pennes 2D transitoire (Euler implicite) + dose thermique CEM43 —
+function impTransient2D(G,Q,prm,opt){
+  const {nu,nv,h,inside}=G; const hm=h*1e-3;
+  const idx=new Int32Array(nu*nv).fill(-1); const cells=[];
+  for(let iv=0;iv<nv;iv++)for(let iu=0;iu<nu;iu++){const id=iv*nu+iu;if(inside[id]){idx[id]=cells.length;cells.push(id);}}
+  const N=cells.length; if(!N)return null;
+  const k=prm.k,perf=prm.perf,hc=prm.hconv,Tamb=prm.Tamb,Tart=prm.Tart;
+  const cap=opt.rho_c*hm*hm/opt.dt;            // capacité / dt [W/K par cellule]
+  const nb=[[-1,0],[1,0],[0,-1],[0,1]];
+  const diag=new Float64Array(N),bS=new Float64Array(N),nBndA=new Int32Array(N);
+  for(let n=0;n<N;n++){const id=cells[n],iu=id%nu,iv=(id-iu)/nu;let d=perf*hm*hm,nBnd=0;
+    for(const e of nb){const ju=iu+e[0],jv=iv+e[1];
+      if(ju>=0&&ju<nu&&jv>=0&&jv<nv&&inside[jv*nu+ju])d+=k; else nBnd++;}
+    d+=nBnd*hc*hm; nBndA[n]=nBnd; diag[n]=d+cap;   // + terme transitoire
+    bS[n]=(Q[n]+perf*Tart)*hm*hm+nBnd*hc*hm*Tamb;   // source constante (hors temps)
+  }
+  const applyA=(x,out)=>{
+    for(let n=0;n<N;n++){const id=cells[n],iu=id%nu,iv=(id-iu)/nu;let v=(perf*hm*hm+cap)*x[n];
+      for(const e of nb){const ju=iu+e[0],jv=iv+e[1];
+        if(ju>=0&&ju<nu&&jv>=0&&jv<nv&&inside[jv*nu+ju])v+=k*(x[n]-x[idx[jv*nu+ju]]);}
+      v+=nBndA[n]*hc*hm*x[n]; out[n]=v;}
+  };
+  let T=opt.baseline?opt.baseline.slice():new Float64Array(N).fill(Tart);
+  const cem=new Float64Array(N), dtm=opt.dt/60;
+  const r=new Float64Array(N),z=new Float64Array(N),p=new Float64Array(N),Ap=new Float64Array(N),b=new Float64Array(N);
+  for(let it=0;it<opt.nt;it++){
+    for(let n=0;n<N;n++)b[n]=bS[n]+cap*T[n];     // second membre = source + capacité·T^n
+    const x=T.slice();                            // warm start
+    applyA(x,Ap); for(let n=0;n<N;n++){r[n]=b[n]-Ap[n];z[n]=r[n]/diag[n];p[n]=z[n];}
+    let rz=0; for(let n=0;n<N;n++)rz+=r[n]*z[n];
+    for(let cg=0;cg<400;cg++){
+      applyA(p,Ap); let pAp=0; for(let n=0;n<N;n++)pAp+=p[n]*Ap[n];
+      const a=rz/pAp; for(let n=0;n<N;n++){x[n]+=a*p[n];r[n]-=a*Ap[n];}
+      let rz2=0; for(let n=0;n<N;n++){z[n]=r[n]/diag[n];rz2+=r[n]*z[n];}
+      if(rz2<1e-14)break; const bt=rz2/rz; for(let n=0;n<N;n++)p[n]=z[n]+bt*p[n]; rz=rz2;
+    }
+    T=x;
+    for(let n=0;n<N;n++){const R=T[n]<43?0.25:0.5; cem[n]+=Math.pow(R,43-T[n])*dtm;}  // CEM43
+  }
+  return{T,cem,cells,idx,N};
+}
+
 // — Colormap jet —
 function impJet(t){t=Math.max(0,Math.min(1,t));const r=Math.max(0,Math.min(1,1.5-Math.abs(4*t-3)));const g=Math.max(0,Math.min(1,1.5-Math.abs(4*t-2)));const b=Math.max(0,Math.min(1,1.5-Math.abs(4*t-1)));return[r*255|0,g*255|0,b*255|0];}
 
@@ -2843,15 +2888,22 @@ function impRun(){
   let sar10gMax=0; for(let i=0;i<g10.length;i++)if(g10[i]>sar10gMax)sar10gMax=g10[i];
   const F10={...Fsar,g:g10};
 
-  // Thermique : ΔT = T(Q) − T(0), normalisé
+  // Thermique : permanent (majorant) + transitoire (durée d'exposition) + CEM43
+  const cTh=parseFloat(document.getElementById('imp-c').value)||3500;
+  const durMin=parseFloat(document.getElementById('imp-dur').value)||30;
   const prm={k:parseFloat(document.getElementById('imp-k').value),
              perf:1050*3617*(parseFloat(document.getElementById('imp-perf').value)*rho*1e-6/60),
              hconv:parseFloat(document.getElementById('imp-h').value),
              Tamb:parseFloat(document.getElementById('imp-tamb').value),Tart:37};
   const Qs=new Float64Array(N);for(let n=0;n<N;n++)Qs[n]=Q[n]*factor;
-  const solEM=impPennes2D(G,Qs,prm), solBase=impPennes2D(G,new Float64Array(N),prm);
-  const dT=new Float64Array(N);let dTmax=-1e9;
-  for(let n=0;n<N;n++){dT[n]=solEM.T[n]-solBase.T[n];dTmax=Math.max(dTmax,dT[n]);}
+  // permanent : baseline (sans EM) et équilibre (avec EM)
+  const solBase=impPennes2D(G,new Float64Array(N),prm), solSteady=impPennes2D(G,Qs,prm);
+  let dTeq=-1e9; for(let n=0;n<N;n++)dTeq=Math.max(dTeq,solSteady.T[n]-solBase.T[n]);
+  // transitoire : part de l'état pré-exposition (baseline), EM allumé sur durMin
+  const nt=150, dt=durMin*60/nt;
+  const tr=impTransient2D(G,Qs,prm,{rho_c:rho*cTh,dt,nt,baseline:solBase.T});
+  const dT=new Float64Array(N); let dTmax=-1e9, cemMax=0;
+  for(let n=0;n<N;n++){dT[n]=tr.T[n]-solBase.T[n];dTmax=Math.max(dTmax,dT[n]);cemMax=Math.max(cemMax,tr.cem[n]);}
 
   // Carte SAR : point ou psSAR 10g (échantillonné sur la coupe), normalisée
   const mode=document.getElementById('imp-sarmode').value;
@@ -2860,13 +2912,15 @@ function impRun(){
     const P=[0,0,0];P[ca]=pos;P[ia]=u;P[ib]=v;
     SARd[n]=(mode==='10g'?impInterpE2(F10,P[0],P[1],P[2]):SAR[n])*factor;
     if(SARd[n]>sarDispMax)sarDispMax=SARd[n];}
-  impDrawMap(document.getElementById('imp-sar-map'),SARd,G,solEM,segs,0,sarDispMax||1);
+  impDrawMap(document.getElementById('imp-sar-map'),SARd,G,solSteady,segs,0,sarDispMax||1);
   const dTmK=new Float64Array(N);for(let n=0;n<N;n++)dTmK[n]=dT[n]*1e3;
-  impDrawMap(document.getElementById('imp-dt-map'),dTmK,G,solEM,segs,0,dTmax*1e3);
+  impDrawMap(document.getElementById('imp-dt-map'),dTmK,G,solSteady,segs,0,dTmax*1e3||1);
+  impDrawMap(document.getElementById('imp-cem-map'),tr.cem,G,solSteady,segs,0,cemMax||1);
 
   impStatus(`✓ coupe ${G.nu}×${G.nv}, ${N} cellules · affichage SAR : ${mode==='10g'?'psSAR 10g':'point'}\n`+
             `SAR point max=${sarMax.toExponential(3)} · psSAR 10g max=${sar10gMax.toExponential(3)} W/kg (cube ${cubeMM.toFixed(0)} mm ≈ ${cubeG.toFixed(0)} g)\n`+
-            `Normalisé ${sarref} W/kg crête (×${factor.toExponential(2)}) → psSAR 10g=${(sar10gMax*factor).toExponential(3)} W/kg · ΔT_EM max=${(dTmax*1e3).toFixed(1)} mK`);
+            `Normalisé ${sarref} W/kg crête → psSAR 10g=${(sar10gMax*factor).toExponential(3)} W/kg · ΔT permanent=${(dTeq*1e3).toFixed(1)} mK\n`+
+            `Transitoire ${durMin} min : ΔT max=${(dTmax*1e3).toFixed(1)} mK · CEM43 max=${cemMax.toExponential(2)} min équiv. @43°C`);
 }
 
 // — Init du module —
