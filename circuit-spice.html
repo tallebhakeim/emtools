@@ -123,6 +123,8 @@ details.help code{background:var(--bg);padding:1px 4px;border-radius:4px;font-si
             <option value="wpt" data-i18n="pre.wpt">Recharge sans fil — scission de fréquence</option>
             <option value="rect" data-i18n="pre.rect">Redresseur à diode (+ lissage)</option>
             <option value="clip" data-i18n="pre.clip">Écrêteur à diode</option>
+            <option value="oamp" data-i18n="pre.oamp">Ampli non-inverseur (AOP)</option>
+            <option value="aflt" data-i18n="pre.aflt">Filtre actif passe-bas (AOP)</option>
           </select>
         </div>
       </div>
@@ -133,7 +135,7 @@ details.help code{background:var(--bg);padding:1px 4px;border-radius:4px;font-si
           <code>R1 a b 1k</code> · <code>C1 a b 100n</code> · <code>L1 a b 10m</code> — résistance / condensateur / bobine entre nœuds <code>a</code> et <code>b</code>.<br>
           <code>V1 in 0 AC 1</code> — source de tension (entrée fréquentielle, amplitude 1, phase optionnelle <code>AC 1 90</code>).<br>
           <code>V1 in 0 DC 1</code> — échelon ; <code>V1 in 0 SIN(0 1 1k)</code> — sinus (offset, amplitude, fréquence) pour le transitoire.<br>
-          <code>I1 a b AC 1</code> — source de courant. <code>K1 L1 L2 0.5</code> — couplage mutuel entre deux bobines (transfo / WPT ; M = k·√(L1·L2)). <code>D1 a k</code> — diode (anode <code>a</code> → cathode <code>k</code> ; modèle Shockley, options <code>Is n</code>). Masse = nœud <code>0</code>. Suffixes : f p n u m k meg g.
+          <code>I1 a b AC 1</code> — source de courant. <code>K1 L1 L2 0.5</code> — couplage mutuel entre deux bobines (transfo / WPT ; M = k·√(L1·L2)). <code>D1 a k</code> — diode (anode <code>a</code> → cathode <code>k</code> ; Shockley, options <code>Is n</code>). <code>O1 e+ e- s</code> — AOP idéal (entrées <code>e+</code>/<code>e-</code>, sortie <code>s</code>). Masse = nœud <code>0</code>. Suffixes : f p n u m k meg g.
         </div>
       </details>
     </div>
@@ -173,7 +175,7 @@ details.help code{background:var(--bg);padding:1px 4px;border-radius:4px;font-si
     <div class="metrics" id="metrics" style="margin-top:1.1rem"></div>
   </div>
 
-  <div class="warn" data-i18n-html="disclaimer"><b>Outil pédagogique —</b> circuits <b>linéaires</b> R, L, C et sources indépendantes (V, I), résolus par <b>analyse nodale modifiée</b> : exact en régime établi (AC) et par Euler implicite en transitoire ; <b>couplage mutuel K</b> (transformateur / WPT) et <b>diode</b> (Shockley, Newton-Raphson) supportés. Pas encore de transistor ni de sources commandées. Donne les ordres de grandeur et la physique, pas un signoff industriel.</div>
+  <div class="warn" data-i18n-html="disclaimer"><b>Outil pédagogique —</b> circuits <b>linéaires</b> R, L, C et sources indépendantes (V, I), résolus par <b>analyse nodale modifiée</b> : exact en régime établi (AC) et par Euler implicite en transitoire ; <b>couplage mutuel K</b> (transformateur / WPT) , <b>diode</b> (Shockley, Newton-Raphson) et <b>AOP idéal</b> supportés. Pas encore de transistor ni de modèles d'AOP réels (gain/bande finis). Donne les ordres de grandeur et la physique, pas un signoff industriel.</div>
 
 </div></main>
 
@@ -202,6 +204,7 @@ function parseNetlist(text){
     const t0=tok[0].toLowerCase(); if(t0[0]==='.')continue;
     const type=t0[0], name=tok[0];
     if(type==='k'){couples.push({name,l1:tok[1],l2:tok[2],k:pval(tok[3])});continue;}  // couplage mutuel
+    if(type==='o'){const p=tok[1],m=tok[2],o=tok[3]; nodeset.add(p);nodeset.add(m);nodeset.add(o); els.push({type:'o',name,a:p,b:m,out:o});continue;}  // AOP idéal : O1 in+ in- out
     const a=tok[1], b=tok[2]; if(!'rclvid'.includes(type))continue;
     nodeset.add(a);nodeset.add(b); const el={type,name,a,b};
     if(type==='r'||type==='c'||type==='l'){el.value=pval(tok[3]);}
@@ -221,7 +224,7 @@ function parseNetlist(text){
   const inds=els.filter(e=>e.type==='l'); const muts=[];
   for(const c of couples){const e1=inds.find(e=>e.name.toLowerCase()===(''+c.l1).toLowerCase()), e2=inds.find(e=>e.name.toLowerCase()===(''+c.l2).toLowerCase());
     if(e1&&e2)muts.push({i:inds.indexOf(e1),j:inds.indexOf(e2),M:c.k*Math.sqrt(e1.value*e2.value)});}
-  return {els,nodes,idx,inds,muts,diodes:els.filter(e=>e.type==='d')};
+  return {els,nodes,idx,inds,muts,diodes:els.filter(e=>e.type==='d'),opamps:els.filter(e=>e.type==='o')};
 }
 const cadd=(a,b)=>[a[0]+b[0],a[1]+b[1]], csub=(a,b)=>[a[0]-b[0],a[1]-b[1]];
 const cmul=(a,b)=>[a[0]*b[0]-a[1]*b[1],a[0]*b[1]+a[1]*b[0]];
@@ -257,8 +260,8 @@ function diodeGI(Vd,Is,n){const nVt=n*VT,ex=Math.exp(Math.min(Vd/nVt,40));return
 function pnjlim(vnew,vold,Is,n){const nVt=n*VT,vcrit=nVt*Math.log(nVt/(Math.SQRT2*Is));
   if(vnew>vcrit&&Math.abs(vnew-vold)>nVt){if(vold>0){const a=1+(vnew-vold)/nVt;vnew=a>0?vold+nVt*Math.log(a):vcrit;}else vnew=vcrit;}return vnew;}
 const vnod=(Vn,idx,nm)=>idx[nm]>=0?Vn[idx[nm]]:0;
-function dcOp(net){   // point de repos DC (Newton) : R + diodes ; C ouverts, L courts
-  const N=net.nodes.length,vs=net.els.filter(e=>e.type==='v'),Mv=vs.length,P=net.inds.length,K=N+Mv+P;
+function dcOp(net){   // point de repos DC (Newton) : R + diodes + AOP ; C ouverts, L courts
+  const N=net.nodes.length,vs=net.els.filter(e=>e.type==='v'),Mv=vs.length,P=net.inds.length,Q=net.opamps.length,K=N+Mv+P+Q;
   const Vn=new Float64Array(N), vd=net.diodes.map(()=>0);
   for(let it=0;it<120;it++){
     const A=Array.from({length:K},()=>new Float64Array(K)),z=new Float64Array(K);
@@ -268,13 +271,14 @@ function dcOp(net){   // point de repos DC (Newton) : R + diodes ; C ouverts, L 
     vs.forEach((e,k)=>{const r=N+k,i=net.idx[e.a],j=net.idx[e.b];if(i>=0){A[i][r]+=1;A[r][i]+=1;}if(j>=0){A[j][r]-=1;A[r][j]-=1;}z[r]=e.dc;});
     net.inds.forEach((e,p)=>{const r=N+Mv+p,i=net.idx[e.a],j=net.idx[e.b];if(i>=0){A[i][r]+=1;A[r][i]+=1;}if(j>=0){A[j][r]-=1;A[r][j]-=1;}});
     net.diodes.forEach((d,di)=>{const i=net.idx[d.a],j=net.idx[d.b];let Vd=vnod(Vn,net.idx,d.a)-vnod(Vn,net.idx,d.b);Vd=pnjlim(Vd,vd[di],d.Is,d.n);const {g,I}=diodeGI(Vd,d.Is,d.n);sG(i,j,g);sI(i,j,I-g*Vd);vd[di]=Vd;});
+    net.opamps.forEach((o,q)=>{const r=N+Mv+P+q,p=net.idx[o.a],m=net.idx[o.b],oN=net.idx[o.out];if(oN>=0)A[oN][r]+=1;if(p>=0)A[r][p]+=1;if(m>=0)A[r][m]-=1;});
     const x=rsolve(A,z,K);let mx=0;for(let i=0;i<N;i++){mx=Math.max(mx,Math.abs(x[i]-Vn[i]));Vn[i]=x[i];}
     if(mx<1e-9+1e-6*Math.max(...Array.from(Vn,Math.abs),1e-9))break;
   }
   return Vn;
 }
 function acSolve(net,omega){
-  const N=net.nodes.length, vs=net.els.filter(e=>e.type==='v'), Mv=vs.length, P=net.inds.length, K=N+Mv+P;
+  const N=net.nodes.length, vs=net.els.filter(e=>e.type==='v'), Mv=vs.length, P=net.inds.length, Q=net.opamps.length, K=N+Mv+P+Q;
   const Vdc=net.diodes.length?dcOp(net):null;   // point de repos pour le petit-signal des diodes
   const A=Array.from({length:K},()=>Array.from({length:K},()=>[0,0])); const z=Array.from({length:K},()=>[0,0]);
   const sY=(i,j,y)=>{if(i>=0)A[i][i]=cadd(A[i][i],y);if(j>=0)A[j][j]=cadd(A[j][j],y);if(i>=0&&j>=0){A[i][j]=csub(A[i][j],y);A[j][i]=csub(A[j][i],y);}};
@@ -293,12 +297,16 @@ function acSolve(net,omega){
     A[r][r]=csub(A[r][r],[0,omega*e.value]);});
   net.muts.forEach(m=>{const ri=N+Mv+m.i,rj=N+Mv+m.j; A[ri][rj]=csub(A[ri][rj],[0,omega*m.M]); A[rj][ri]=csub(A[rj][ri],[0,omega*m.M]);});  // −jωM
   net.diodes.forEach(d=>{const i=net.idx[d.a],j=net.idx[d.b];const Vd=vnod(Vdc,net.idx,d.a)-vnod(Vdc,net.idx,d.b);sY(i,j,[diodeGI(Vd,d.Is,d.n).g,0]);});  // petit-signal au repos
+  // AOP idéal : sortie en courant inconnu (norator) + contrainte V+−V−=0 (nullateur)
+  net.opamps.forEach((o,q)=>{const r=N+Mv+P+q,p=net.idx[o.a],m=net.idx[o.b],oN=net.idx[o.out];
+    if(oN>=0)A[oN][r]=cadd(A[oN][r],[1,0]);
+    if(p>=0)A[r][p]=cadd(A[r][p],[1,0]); if(m>=0)A[r][m]=csub(A[r][m],[1,0]);});
   const x=csolve(A,z,K); const V={'0':[0,0]}; net.nodes.forEach((n,i)=>V[n]=x[i]); return V;
 }
 const srcVal=(e,t)=>e.sin?e.sin.off+e.sin.amp*Math.sin(2*Math.PI*e.sin.freq*t):e.dc;
 function tranRun(net,h,stop){
   const steps=Math.max(1,Math.round(stop/h));
-  const N=net.nodes.length, vs=net.els.filter(e=>e.type==='v'), Mv=vs.length, P=net.inds.length, K=N+Mv+P;
+  const N=net.nodes.length, vs=net.els.filter(e=>e.type==='v'), Mv=vs.length, P=net.inds.length, Q=net.opamps.length, K=N+Mv+P+Q;
   const capV={}; net.els.forEach(e=>{if(e.type==='c')capV[e.name]=0;});
   const iL=new Float64Array(P), Vn=new Float64Array(N), vdSt=net.diodes.map(()=>0);   // état (Euler implicite)
   const out={t:[],V:{}}; net.nodes.concat('0').forEach(n=>out.V[n]=[]);
@@ -318,6 +326,7 @@ function tranRun(net,h,stop){
         A[r][r]-=e.value/h; z[r]-=(e.value/h)*iL[p];});
       net.muts.forEach(m=>{const ri=N+Mv+m.i,rj=N+Mv+m.j; A[ri][rj]-=m.M/h; A[rj][ri]-=m.M/h; z[ri]-=(m.M/h)*iL[m.j]; z[rj]-=(m.M/h)*iL[m.i];});
       net.diodes.forEach((d,di)=>{const i=net.idx[d.a],j=net.idx[d.b];let Vd=vnod(Vn,net.idx,d.a)-vnod(Vn,net.idx,d.b);Vd=pnjlim(Vd,vd[di],d.Is,d.n);const {g,I}=diodeGI(Vd,d.Is,d.n);sG(i,j,g);sI(i,j,I-g*Vd);vd[di]=Vd;});
+      net.opamps.forEach((o,q)=>{const r=N+Mv+P+q,p=net.idx[o.a],m=net.idx[o.b],oN=net.idx[o.out];if(oN>=0)A[oN][r]+=1;if(p>=0)A[r][p]+=1;if(m>=0)A[r][m]-=1;});  // AOP idéal
       x=rsolve(A,z,K); let mx=0; for(let i=0;i<N;i++){mx=Math.max(mx,Math.abs(x[i]-Vn[i]));Vn[i]=x[i];}
       if(mx<1e-7+1e-5*Math.max(...Array.from(Vn,Math.abs),1e-9))break;
     }
@@ -341,7 +350,9 @@ const PRESETS={
   transfo:{m:'ac',ac:[1e3,1e6],txt:`* Transformateur — couplage mutuel K. V2/V1 = k*sqrt(L2/L1)\n* secondaire quasi à vide (Rl grand) -> rapport de transformation\nV1 p 0 AC 1\nL1 p 0 1m\nL2 s 0 4m\nRl s 0 100k\nK1 L1 L2 0.98`},
   wpt:{m:'ac',ac:[1e6,1e7],txt:`* Recharge sans fil — deux résonateurs série couplés (f0 ≈ 3,16 MHz)\n* sur-couplage -> SCISSION de fréquence : f± = f0/sqrt(1±k)\nV1 in 0 AC 1\nR1 in a 1\nL1 a b 10u\nC1 b 0 253p\nL2 c d 10u\nC2 d 0 253p\nRl c 0 5\nK1 L1 L2 0.4`},
   rect:{m:'tran',tr:[8e-3,1200],txt:`* Redresseur demi-onde + lissage (détecteur de crête)\n* la diode laisse passer l'alternance positive, C tient la tension\nV1 in 0 SIN(0 5 1k)\nD1 in out\nR1 out 0 10k\nC1 out 0 10u`},
-  clip:{m:'tran',tr:[3e-3,900],txt:`* Écrêteur à diode — la sortie est limitée à ~+0,6 V\nV1 in 0 SIN(0 5 1k)\nR1 in out 1k\nD1 out 0\nR2 out 0 1meg`}
+  clip:{m:'tran',tr:[3e-3,900],txt:`* Écrêteur à diode — la sortie est limitée à ~+0,6 V\nV1 in 0 SIN(0 5 1k)\nR1 in out 1k\nD1 out 0\nR2 out 0 1meg`},
+  oamp:{m:'ac',ac:[10,1e6],txt:`* Ampli non-inverseur (AOP idéal) — gain = 1 + R2/R1 = 10\n* O1 in+ in- out\nV1 in 0 AC 1\nO1 in nm out\nR2 out nm 9k\nR1 nm 0 1k`},
+  aflt:{m:'ac',ac:[10,1e6],txt:`* Filtre actif passe-bas (AOP) — gain DC -10, coupure 1 kHz\n* inverseur avec C en réaction : fc = 1/(2*pi*R2*C)\nV1 in 0 AC 1\nR1 in nm 1k\nR2 out nm 10k\nC1 out nm 15.915n\nO1 0 nm out`}
 };
 let MODE='ac', LASTNODES=[], CHECKED={};
 const COLORS=['#0d9488','#d97706','#6366f1','#db2777','#16a34a','#0891b2','#9333ea','#dc2626'];
@@ -659,9 +670,10 @@ const I18N={
  'pre.tank':{fr:'Tank RLC parallèle (impédance)',en:'Parallel RLC tank (impedance)'},'pre.ring':{fr:'Transitoire — sonnerie RLC',en:'Transient — RLC ringing'},'pre.rc':{fr:"Transitoire — charge d'un RC",en:'Transient — RC charging'},
  'pre.transfo':{fr:'Transformateur (couplage K)',en:'Transformer (mutual coupling K)'},'pre.wpt':{fr:'Recharge sans fil — scission de fréquence',en:'Wireless power — frequency splitting'},
  'pre.rect':{fr:'Redresseur à diode (+ lissage)',en:'Diode rectifier (+ smoothing)'},'pre.clip':{fr:'Écrêteur à diode',en:'Diode clipper'},
+ 'pre.oamp':{fr:'Ampli non-inverseur (AOP)',en:'Non-inverting amp (op-amp)'},'pre.aflt':{fr:'Filtre actif passe-bas (AOP)',en:'Active low-pass filter (op-amp)'},
  'help.sum':{fr:'Aide-mémoire syntaxe',en:'Syntax cheat-sheet'},
- 'help.body':{fr:"<code>R1 a b 1k</code> · <code>C1 a b 100n</code> · <code>L1 a b 10m</code> — résistance / condensateur / bobine entre nœuds <code>a</code> et <code>b</code>.<br><code>V1 in 0 AC 1</code> — source de tension (entrée fréquentielle, amplitude 1, phase optionnelle <code>AC 1 90</code>).<br><code>V1 in 0 DC 1</code> — échelon ; <code>V1 in 0 SIN(0 1 1k)</code> — sinus (offset, amplitude, fréquence) pour le transitoire.<br><code>I1 a b AC 1</code> — source de courant. <code>K1 L1 L2 0.5</code> — couplage mutuel entre deux bobines (transfo / WPT ; M = k·√(L1·L2)). <code>D1 a k</code> — diode (anode <code>a</code> → cathode <code>k</code> ; modèle Shockley, options <code>Is n</code>). Masse = nœud <code>0</code>. Suffixes : f p n u m k meg g.",
-            en:"<code>R1 a b 1k</code> · <code>C1 a b 100n</code> · <code>L1 a b 10m</code> — resistor / capacitor / inductor between nodes <code>a</code> and <code>b</code>.<br><code>V1 in 0 AC 1</code> — voltage source (frequency-domain input, magnitude 1, optional phase <code>AC 1 90</code>).<br><code>V1 in 0 DC 1</code> — step ; <code>V1 in 0 SIN(0 1 1k)</code> — sine (offset, amplitude, frequency) for transient.<br><code>I1 a b AC 1</code> — current source. <code>K1 L1 L2 0.5</code> — mutual coupling between two inductors (transformer / WPT ; M = k·√(L1·L2)). <code>D1 a k</code> — diode (anode <code>a</code> → cathode <code>k</code> ; Shockley, options <code>Is n</code>). Ground = node <code>0</code>. Suffixes: f p n u m k meg g."},
+ 'help.body':{fr:"<code>R1 a b 1k</code> · <code>C1 a b 100n</code> · <code>L1 a b 10m</code> — résistance / condensateur / bobine entre nœuds <code>a</code> et <code>b</code>.<br><code>V1 in 0 AC 1</code> — source de tension (entrée fréquentielle, amplitude 1, phase optionnelle <code>AC 1 90</code>).<br><code>V1 in 0 DC 1</code> — échelon ; <code>V1 in 0 SIN(0 1 1k)</code> — sinus (offset, amplitude, fréquence) pour le transitoire.<br><code>I1 a b AC 1</code> — source de courant. <code>K1 L1 L2 0.5</code> — couplage mutuel entre deux bobines (transfo / WPT ; M = k·√(L1·L2)). <code>D1 a k</code> — diode (anode <code>a</code> → cathode <code>k</code> ; Shockley, options <code>Is n</code>). <code>O1 e+ e- s</code> — AOP idéal (entrées <code>e+</code>/<code>e-</code>, sortie <code>s</code>). Masse = nœud <code>0</code>. Suffixes : f p n u m k meg g.",
+            en:"<code>R1 a b 1k</code> · <code>C1 a b 100n</code> · <code>L1 a b 10m</code> — resistor / capacitor / inductor between nodes <code>a</code> and <code>b</code>.<br><code>V1 in 0 AC 1</code> — voltage source (frequency-domain input, magnitude 1, optional phase <code>AC 1 90</code>).<br><code>V1 in 0 DC 1</code> — step ; <code>V1 in 0 SIN(0 1 1k)</code> — sine (offset, amplitude, frequency) for transient.<br><code>I1 a b AC 1</code> — current source. <code>K1 L1 L2 0.5</code> — mutual coupling between two inductors (transformer / WPT ; M = k·√(L1·L2)). <code>D1 a k</code> — diode (anode <code>a</code> → cathode <code>k</code> ; Shockley, options <code>Is n</code>). <code>O1 e+ e- s</code> — ideal op-amp (inputs <code>e+</code>/<code>e-</code>, output <code>s</code>). Ground = node <code>0</code>. Suffixes: f p n u m k meg g."},
  'p.analysis':{fr:'Analyse',en:'Analysis'},
  'mode.ac':{fr:'Fréquentiel (Bode)',en:'Frequency (Bode)'},'mode.tran':{fr:'Transitoire',en:'Transient'},
  'lbl.fmin':{fr:'Fréquence min (Hz)',en:'Min frequency (Hz)'},'lbl.fmax':{fr:'Fréquence max (Hz)',en:'Max frequency (Hz)'},'lbl.ppd':{fr:'Points / décade',en:'Points / decade'},
@@ -681,8 +693,8 @@ const I18N={
  'err.nosrc':{fr:'Aucune source (V ou I) — ajoute une excitation.',en:'No source (V or I) — add an excitation.'},
  'err.freq':{fr:'Plage de fréquence invalide (0 < fmin < fmax).',en:'Invalid frequency range (0 < fmin < fmax).'},
  'err.tstop':{fr:'Durée invalide.',en:'Invalid duration.'},
- 'disclaimer':{fr:"<b>Outil pédagogique —</b> circuits <b>linéaires</b> R, L, C et sources indépendantes (V, I), résolus par <b>analyse nodale modifiée</b> : exact en régime établi (AC) et par Euler implicite en transitoire ; <b>couplage mutuel K</b> (transformateur / WPT) et <b>diode</b> (Shockley, Newton-Raphson) supportés. Pas encore de transistor ni de sources commandées. Donne les ordres de grandeur et la physique, pas un signoff industriel.",
-              en:"<b>Educational tool —</b> <b>linear</b> R, L, C circuits with independent sources (V, I), solved by <b>modified nodal analysis</b>: exact in steady state (AC), backward-Euler in transient; <b>mutual coupling K</b> (transformer / WPT) and <b>diode</b> (Shockley, Newton-Raphson) supported. No transistor or controlled sources yet. Gives orders of magnitude and the physics, not an industrial sign-off."},
+ 'disclaimer':{fr:"<b>Outil pédagogique —</b> circuits <b>linéaires</b> R, L, C et sources indépendantes (V, I), résolus par <b>analyse nodale modifiée</b> : exact en régime établi (AC) et par Euler implicite en transitoire ; <b>couplage mutuel K</b> (transformateur / WPT) , <b>diode</b> (Shockley, Newton-Raphson) et <b>AOP idéal</b> supportés. Pas encore de transistor ni de modèles d'AOP réels (gain/bande finis). Donne les ordres de grandeur et la physique, pas un signoff industriel.",
+              en:"<b>Educational tool —</b> <b>linear</b> R, L, C circuits with independent sources (V, I), solved by <b>modified nodal analysis</b>: exact in steady state (AC), backward-Euler in transient; <b>mutual coupling K</b> (transformer / WPT) , <b>diode</b> (Shockley, Newton-Raphson) and <b>ideal op-amp</b> supported. No transistor or real op-amp models (finite gain/bandwidth) yet. Gives orders of magnitude and the physics, not an industrial sign-off."},
  'footer.lic':{fr:'© 2026 Hakeim Talleb · EMtools · Code sous licence <a href="LICENSE">MIT</a>',en:'© 2026 Hakeim Talleb · EMtools · Code under <a href="LICENSE">MIT</a> licence'},
  'footer.home':{fr:'← Tous les outils EMtools',en:'← All EMtools'}
 };
