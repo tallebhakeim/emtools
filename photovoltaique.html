@@ -134,6 +134,19 @@ table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
   </div>
 
   <div class="panel">
+    <div class="ptitle" data-i18n="cmp.t">Comparatif des technologies</div>
+    <div data-i18n-html="cmp.intro"></div>
+    <div class="metrics" style="margin-top:1rem">
+      <div class="metric"><div class="k">Mono c-Si</div><div class="v" id="cmp-mono" style="color:#1d4ed8">—</div><div class="u" id="cmp-monou">η · γ</div></div>
+      <div class="metric"><div class="k">Poly c-Si</div><div class="v" id="cmp-poly" style="color:#0d9488">—</div><div class="u" id="cmp-polyu">η · γ</div></div>
+      <div class="metric"><div class="k">Couche mince CdTe</div><div class="v" id="cmp-cdte" style="color:#d97706">—</div><div class="u" id="cmp-cdteu">η · γ</div></div>
+    </div>
+    <canvas id="cv_tech" width="900" height="300" style="margin-top:1rem"></canvas>
+    <div class="sub" style="font-size:.74rem;color:var(--text2);margin-top:.3rem" data-i18n="cmp.sub">Rendement absolu vs température de cellule. Le mono part le plus haut mais chute plus vite ; le CdTe (coefficient le plus doux) résiste mieux à la chaleur — l'écart se resserre par temps chaud. η à STC issu du modèle à une diode ; coefficient γ = valeur mesurée constructeur.</div>
+    <div class="warn" id="cmp-note" style="margin-top:.7rem" data-i18n-html="cmp.note"></div>
+  </div>
+
+  <div class="panel">
     <div class="ptitle" data-i18n="sh.t">Ombrage partiel &amp; diodes de by-pass</div>
     <div data-i18n-html="sh.intro"></div>
     <div class="controls" style="margin-top:.9rem">
@@ -246,14 +259,10 @@ function $(id){return document.getElementById(id);}
 function dpr(cv){const r=window.devicePixelRatio||1;const w=cv.clientWidth||parseFloat(cv.style.width)||cv.width;const h=parseFloat(cv.style.height)||cv.clientHeight||cv.height;cv.width=Math.round(w*r);cv.height=Math.round(h*r);const x=cv.getContext('2d');x.setTransform(r,0,0,r,0,0);return {x,w,h};}
 const QE=1.602e-19, KB=1.381e-23;
 // technology presets: Jsc (mA/cm²), Voc_ref (V/cell), n (ideality), Eg (eV)
-const TECH={ mono:{Jsc:39,Voc:0.690,n:1.1,Eg:1.12}, poly:{Jsc:37,Voc:0.660,n:1.2,Eg:1.12}, cdte:{Jsc:26,Voc:0.850,n:1.5,Eg:1.50} };
-function cellParams(){
-  const tp=TECH[$('tech').value]||TECH.mono, area=parseFloat($('area').value);
-  const Iph_ref=tp.Jsc/1000*area;                 // A at STC (G=1000)
-  const Vt0=tp.n*KB*298.15/QE;
-  const I0_ref=Iph_ref/(Math.exp(tp.Voc/Vt0)-1);  // saturation current from Voc
-  return {tp,area,Iph_ref,I0_ref,n:tp.n,Eg:tp.Eg,Rs:parseFloat($('Rs').value)/1000,Rsh:parseFloat($('Rsh').value)};
-}
+const TECH={ mono:{Jsc:39,Voc:0.690,n:1.1,Eg:1.12,tc:-0.35}, poly:{Jsc:37,Voc:0.660,n:1.2,Eg:1.12,tc:-0.40}, cdte:{Jsc:26,Voc:0.850,n:1.5,Eg:1.50,tc:-0.25} };
+// build single-diode params for an arbitrary technology key (shared Rs/Rsh/area → fair comparison)
+function paramsFor(key){ const tp=TECH[key], area=parseFloat($('area').value); const Iph_ref=tp.Jsc/1000*area; const Vt0=tp.n*KB*298.15/QE; const I0_ref=Iph_ref/(Math.exp(tp.Voc/Vt0)-1); return {tp,area,Iph_ref,I0_ref,n:tp.n,Eg:tp.Eg,Rs:parseFloat($('Rs').value)/1000,Rsh:parseFloat($('Rsh').value)}; }
+function cellParams(){ return paramsFor(TECH[$('tech').value]?$('tech').value:'mono'); }
 // single-diode cell I-V at (G,T). returns {Voc,Isc,Vmp,Imp,Pmp,FF,eta,curve}
 function cellIV(G,T,p){
   const Tk=T+273.15, Vt=p.n*KB*Tk/QE;
@@ -353,6 +362,8 @@ function recompute(){
   $('sh-pg').textContent=sh.gP.toFixed(1);
   $('sh-nmax').textContent=sh.locals.length;
   const loss=Pfull>0?Math.max(0,(1-sh.gP/Pfull)*100):0; $('sh-loss').textContent=loss.toFixed(0);
+  // technology comparison cards (η at STC from the diode model · measured temp coefficient)
+  CMP_TECHS.forEach(tt=>{ $('cmp-'+tt.k).textContent=techStcEta(tt.k).toFixed(1)+' %'; $('cmp-'+tt.k+'u').textContent='γ = '+TECH[tt.k].tc+' %/°C'; });
   // orientation & tilt
   $('ori-tiltv').textContent=$('ori-tilt').value+'°';$('ori-azv').textContent=$('ori-az').value+'°';
   const tilt=parseFloat($('ori-tilt').value), az=parseFloat($('ori-az').value);
@@ -364,7 +375,7 @@ function recompute(){
   const vsh=(cur/horiz-1)*100; $('ori-vsh').textContent=(vsh>=0?'+':'')+vsh.toFixed(0);
   $('ori-vsopt').textContent=(cur/optY*100).toFixed(0);
   CUR={G,T,p,cell,Ns,Np,lvl,scV,scI,Voc,Isc,Vmp,Imp,Pmp,sh,Pc,pr,lat,day,tilt,az,optb,optY,horiz};
-  drawIV(); drawFam(); drawShade(); drawDay(); drawCash(); drawOrient();
+  drawIV(); drawFam(); drawTechCmp(); drawShade(); drawDay(); drawCash(); drawOrient();
 }
 let ECO=null;
 function drawCash(){
@@ -417,6 +428,39 @@ function poaIrr(lat,day,hour,beta,gamma){
 }
 // relative annual plane-of-array irradiation (arbitrary units) for a (β,γ)
 function annualPOA(lat,beta,gamma){ let s=0; for(let d=15;d<=365;d+=15)for(let hh=5;hh<=19;hh+=0.5)s+=poaIrr(lat,d,hh,beta,gamma)*0.5; return s; }
+// technology comparison: absolute efficiency vs cell temperature, η(T)=η_STC·(1+γ(T−25)/100)
+const CMP_TECHS=[{k:'mono',c:'#1d4ed8'},{k:'poly',c:'#0d9488'},{k:'cdte',c:'#d97706'}];
+function techStcEta(key){ return cellIV(1000,25,paramsFor(key)).eta*100; }   // STC efficiency from the diode model
+function drawTechCmp(){
+  const cv=$('cv_tech'); cv.style.height='300px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const x0=46,x1=w-118,y0=h-30,y1=18, Tmin=15,Tmax=75, eMax=24;
+  const sx=T=>x0+(T-Tmin)/(Tmax-Tmin)*(x1-x0), sy=e=>y0-e/eMax*(y0-y1);
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='right';
+  for(let e=0;e<=eMax;e+=6){x.fillText(e+'%',x0-4,sy(e)+3);x.strokeStyle='#f1f5f9';x.beginPath();x.moveTo(x0,sy(e));x.lineTo(x1,sy(e));x.stroke();}
+  x.textAlign='center';for(let T=Tmin;T<=Tmax;T+=15)x.fillText(T+'°',sx(T),y0+13);
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.fillText(LANG==='fr'?'température de cellule (°C)':'cell temperature (°C)',(x0+x1)/2,h-6);
+  x.save();x.translate(12,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText(LANG==='fr'?'rendement η (%)':'efficiency η (%)',0,0);x.restore();
+  // STC reference line and current-temperature marker
+  const Tcur=parseFloat($('T').value), sel=TECH[$('tech').value]?$('tech').value:'mono';
+  x.strokeStyle='#e2e8f0';x.setLineDash([3,3]);x.beginPath();x.moveTo(sx(25),y1);x.lineTo(sx(25),y0);x.stroke();
+  x.strokeStyle='#94a3b8';x.beginPath();x.moveTo(sx(Tcur),y1);x.lineTo(sx(Tcur),y0);x.stroke();x.setLineDash([]);
+  x.fillStyle='#94a3b8';x.textAlign='center';x.font='9px sans-serif';x.fillText('STC',sx(25),y1-2);x.fillStyle='#475569';x.fillText('T = '+Tcur+'°',sx(Tcur),y1-2);
+  CMP_TECHS.forEach((tt,i)=>{
+    const e0=techStcEta(tt.k), g=TECH[tt.k].tc, lw=tt.k===sel?3.2:1.8;
+    x.strokeStyle=tt.c;x.lineWidth=lw;x.globalAlpha=tt.k===sel?1:.85;x.beginPath();
+    for(let T=Tmin;T<=Tmax;T+=2){const e=e0*(1+g/100*(T-25));const X=sx(T),Y=sy(e);T===Tmin?x.moveTo(X,Y):x.lineTo(X,Y);}
+    x.stroke();
+    const ec=e0*(1+g/100*(Tcur-25)); x.fillStyle=tt.c;x.beginPath();x.arc(sx(Tcur),sy(ec),tt.k===sel?4.5:3.2,0,7);x.fill();
+    x.globalAlpha=1;
+    // right-side legend
+    const ly=y1+8+i*30; x.strokeStyle=tt.c;x.lineWidth=lw;x.beginPath();x.moveTo(x1+8,ly);x.lineTo(x1+26,ly);x.stroke();
+    x.fillStyle='#334155';x.textAlign='left';x.font=(tt.k===sel?'700 ':'')+'10px sans-serif';x.fillText(tt.k==='mono'?'Mono':tt.k==='poly'?'Poly':'CdTe',x1+30,ly+3);
+    x.fillStyle='#64748b';x.font='9px sans-serif';x.fillText(e0.toFixed(1)+'% @STC',x1+30,ly+14);
+    x.fillText('γ '+g+'%/°C',x1+30,ly+24);
+  });
+}
 function drawOrient(){
   const c=CUR, cv=$('cv_ori'); cv.style.height='300px'; const {x,w,h}=dpr(cv);
   x.clearRect(0,0,w,h);
@@ -574,6 +618,13 @@ const I18N={
  'se.sum':{fr:"Été (solstice)",en:"Summer (solstice)"},'se.eq':{fr:"Équinoxe",en:"Equinox"},'se.win':{fr:"Hiver (solstice)",en:"Winter (solstice)"},
  'day.psh':{fr:"PSH calculé (lat/saison)",en:"Computed PSH (lat/season)"},
  'day.sub':{fr:"Puissance produite heure par heure ; l'aire sous la courbe = énergie du jour. Été/équinoxe/hiver superposés (saison choisie en gras). PSH ≈ aire ÷ puissance crête.",en:"Hour-by-hour output power; area under the curve = daily energy. Summer/equinox/winter overlaid (selected season in bold). PSH ≈ area ÷ peak power."},
+ 'cmp.t':{fr:"Comparatif des technologies",en:"Technology comparison"},
+ 'cmp.intro':{fr:"<b>Trois grandes familles —</b> le <b>monocristallin (c-Si)</b> offre le meilleur rendement (cellule très ordonnée, fort courant), le <b>polycristallin</b> est un peu moins efficace mais moins cher, et le <b>CdTe en couche mince</b> a un rendement plus modeste mais une <b>tension par cellule plus élevée</b> (gap E_g = 1,5 eV vs 1,12 eV pour le silicium) et surtout un <b>coefficient de température plus doux</b> : il perd moins de puissance quand il chauffe. Sous le soleil un panneau monte facilement à 60–70 °C, et c'est là que le classement peut se resserrer.",
+              en:"<b>Three main families —</b> <b>monocrystalline (c-Si)</b> gives the best efficiency (highly ordered cell, high current), <b>polycrystalline</b> is slightly less efficient but cheaper, and <b>thin-film CdTe</b> has a more modest efficiency but a <b>higher per-cell voltage</b> (bandgap E_g = 1.5 eV vs 1.12 eV for silicon) and, crucially, a <b>gentler temperature coefficient</b>: it loses less power when hot. In full sun a panel easily reaches 60–70 °C — that's where the ranking can tighten."},
+ 'cmp.sub':{fr:"Rendement absolu vs température de cellule. Le mono part le plus haut mais chute plus vite ; le CdTe (coefficient le plus doux) résiste mieux à la chaleur — l'écart se resserre par temps chaud. η à STC issu du modèle à une diode ; coefficient γ = valeur mesurée constructeur.",
+             en:"Absolute efficiency vs cell temperature. Mono starts highest but drops faster; CdTe (gentlest coefficient) holds up better in heat — the gap narrows when hot. STC η from the single-diode model; γ = measured datasheet coefficient."},
+ 'cmp.note':{fr:"<b>Pourquoi γ n'est pas déduit du modèle —</b> le modèle à une diode idéalisé (I₀ ∝ T³·exp(−E_g/kT), facteur 3) reproduit bien la pente du silicium mais surestime celle du CdTe. Le coefficient de température réel dépend de la physique fine du matériau ; on utilise donc ici les <b>valeurs mesurées des fiches techniques</b> (mono ≈ −0,35, poly ≈ −0,40, CdTe ≈ −0,25 %/°C). À retenir : le meilleur rendement à 25 °C n'est pas toujours le plus productif sous climat chaud.",
+             en:"<b>Why γ isn't derived from the model —</b> the idealized single-diode model (I₀ ∝ T³·exp(−E_g/kT), factor 3) captures silicon's slope well but overestimates CdTe's. The real temperature coefficient depends on fine material physics, so we use the <b>measured datasheet values</b> (mono ≈ −0.35, poly ≈ −0.40, CdTe ≈ −0.25 %/°C). Takeaway: the best efficiency at 25 °C is not always the most productive in a hot climate."},
  'ori.t':{fr:"Orientation & inclinaison des panneaux",en:"Panel orientation & tilt"},
  'ori.intro':{fr:"<b>Bien orienter ses panneaux —</b> un panneau capte le plus de soleil quand sa <b>normale pointe vers le soleil</b>. Sur l'année, l'inclinaison optimale (face au sud dans l'hémisphère nord) est <b>≈ la latitude</b> ; on l'incline moins pour favoriser l'été (soleil haut), plus pour l'hiver (soleil bas). L'<b>azimut</b> (écart au plein sud) et l'<b>inclinaison</b> changent la production annuelle — c'est le facteur d'<b>irradiation dans le plan</b> (POA).",
               en:"<b>Orienting panels well —</b> a panel captures most sun when its <b>normal points at the sun</b>. Over the year the optimal tilt (facing the equator) is <b>≈ the latitude</b>; tilt less to favour summer (high sun), more for winter (low sun). The <b>azimuth</b> (deviation from due south) and the <b>tilt</b> change the annual yield — this is the <b>plane-of-array</b> (POA) irradiation factor."},
@@ -607,7 +658,7 @@ function applyLang(){
 }
 function toggleLang(){LANG=LANG==='fr'?'en':'fr';localStorage.setItem('emtools_lang',LANG);applyLang();recompute();}
 applyLang(); recompute();
-window.addEventListener('resize',()=>{if(CUR){drawIV();drawFam();drawShade();drawDay();drawCash();drawOrient();}});
+window.addEventListener('resize',()=>{if(CUR){drawIV();drawFam();drawTechCmp();drawShade();drawDay();drawCash();drawOrient();}});
 </script>
 </body>
 </html>
