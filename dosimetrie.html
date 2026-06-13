@@ -837,6 +837,17 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
     </div>
     <div style="font-size:11px;color:var(--text2);margin-top:.4rem;line-height:1.5" id="imp-valid-note"></div>
   </div>
+
+  <div id="imp-prof-wrap" style="display:none;margin-top:1.25rem;border-top:1px solid var(--border);padding-top:1rem">
+    <div class="stitle0">Profil 1D — SAR vs profondeur : analytique (TMM) vs données CST</div>
+    <div class="row">
+      <div class="field"><label>Axe de propagation</label><select id="imp-prof-axis" onchange="impDrawProfile()"><option value="0">x</option><option value="1">y</option><option value="2" selected>z</option></select></div>
+      <div class="field" style="flex:2"><label>Tissu pour la TMM (Cole-Cole)</label><select id="imp-prof-tissue" onchange="impDrawProfile()"></select></div>
+      <div class="field"><label>Sens d'entrée</label><select id="imp-prof-dir" onchange="impDrawProfile()"><option value="auto">auto (depuis le pic)</option><option value="fwd">indices croissants</option><option value="bwd">indices décroissants</option></select></div>
+    </div>
+    <canvas id="imp-prof" width="900" height="320" style="width:100%;height:auto;border-radius:8px;border:.5px solid var(--border);background:#fff"></canvas>
+    <div style="font-size:11px;color:var(--text2);margin-top:.4rem;line-height:1.55" id="imp-prof-note"></div>
+  </div>
 </div>
 
 <script>
@@ -3020,6 +3031,74 @@ function impRun(){
             `SAR point max=${sarMax.toExponential(3)} · psSAR 10g max=${sar10gMax.toExponential(3)} W/kg (cube ${cubeMM.toFixed(0)} mm ≈ ${cubeG.toFixed(0)} g)\n`+
             `Normalisé ${sarref} W/kg crête → psSAR 10g=${(sar10gMax*factor).toExponential(3)} W/kg · ΔT permanent=${(dTeq*1e3).toFixed(1)} mK\n`+
             `Transitoire ${durMin} min : ΔT max=${(dTmax*1e3).toFixed(1)} mK · CEM43 max=${cemMax.toExponential(2)} min équiv. @43°C`);
+
+  // profil 1D SAR(z) — disponible dès qu'on part d'un champ E
+  impLast = (kind!=='sar') ? {E:impEfield,sar3d,tissue3d,sigma,rho} : null;
+  impDrawProfile();
+}
+
+// — Profil 1D : SAR vs profondeur, TMM analytique vs ligne extraite des données CST —
+let impLast=null;
+function impDrawProfile(){
+  const wrap=document.getElementById('imp-prof-wrap');
+  if(!impLast){if(wrap)wrap.style.display='none';return;}
+  const {E,sar3d,tissue3d}=impLast;
+  const ax=parseInt(document.getElementById('imp-prof-axis').value);
+  const tname=document.getElementById('imp-prof-tissue').value||'Brain';
+  const f=parseFloat(document.getElementById('freq').value)||9e8;
+  const dims=[E.nx,E.ny,E.nz], step=[E.dx,E.dy,E.dz][ax];
+  const at=(ix,iy,iz)=>(ix*E.ny+iy)*E.nz+iz;
+  // SAR moyen par plan transverse vs profondeur (robuste à la courbure / au maillage fragmenté)
+  const nA=dims[ax]; const sum=new Float64Array(nA), cnt=new Int32Array(nA);
+  for(let ix=0;ix<E.nx;ix++)for(let iy=0;iy<E.ny;iy++)for(let iz=0;iz<E.nz;iz++){const id=at(ix,iy,iz);if(!tissue3d[id])continue;const ia=[ix,iy,iz][ax];sum[ia]+=sar3d[id];cnt[ia]++;}
+  const line=[]; for(let i=0;i<nA;i++)if(cnt[i]>0)line.push({i,s:sum[i]/cnt[i]});
+  if(line.length<3){wrap.style.display='none';return;}
+  // entrée = voxel tissu de SAR max ; sens vers l'intérieur (auto = côté le plus long)
+  let im=0; for(let k=0;k<line.length;k++)if(line[k].s>line[im].s)im=k;
+  const dir=document.getElementById('imp-prof-dir').value;
+  const fwd=line.filter(p=>p.i>=line[im].i), bwd=line.filter(p=>p.i<=line[im].i).reverse();
+  let seg = dir==='fwd'?fwd : dir==='bwd'?bwd : (fwd.length>=bwd.length?fwd:bwd);
+  if(seg.length<2)seg=line;
+  const i0=seg[0].i, s0=seg[0].s||1;
+  const cst=seg.map(p=>({z:Math.abs(p.i-i0)*step, r:p.s/s0}));
+  const maxZ=Math.max(cst[cst.length-1].z, step);
+  // TMM : dalle semi-infinie du tissu choisi
+  const tmm=runTMM(f,1,[{t:tname,d:Math.max(maxZ+30,60)}]);
+  const ts0=tmm.sarArr[0]||1;
+  const lp0=layerParams(f,tname); const alpha=Math.abs(lp0.k.im); const deltaF=alpha>0?1/alpha*1000:0;
+  // pénétration SAR ajustée sur CST (régression ln(r) vs z, partie décroissante)
+  let fa=0,fb=0,fc=0,fd=0,fn=0; for(const p of cst){if(p.r>0.05&&p.r<=1.001&&p.z<=Math.max(2*deltaF,maxZ*0.6)){const ly=Math.log(p.r);fa+=p.z;fb+=ly;fc+=p.z*p.z;fd+=p.z*ly;fn++;}}
+  const slope=fn>2?(fn*fd-fa*fb)/(fn*fc-fa*fa):0; const penCST=slope<0?-1/slope:0;
+  // ── tracé ──
+  const cv=document.getElementById('imp-prof'),x=cv.getContext('2d'),W=cv.width,Hh=cv.height;
+  x.clearRect(0,0,W,Hh);
+  const x0=56,x1=W-120,y0=Hh-34,y1=16;
+  const sx=z=>x0+z/maxZ*(x1-x0), sy=r=>y0-Math.max(0,Math.min(1.05,r))/1.05*(y0-y1);
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='right';
+  for(let r=0;r<=1.001;r+=0.25){x.fillText(r.toFixed(2),x0-4,sy(r)+3);x.strokeStyle='#f1f5f9';x.beginPath();x.moveTo(x0,sy(r));x.lineTo(x1,sy(r));x.stroke();}
+  x.textAlign='center';const zStep=Math.max(10,Math.round(maxZ/6/10)*10);for(let z=0;z<=maxZ+1e-6;z+=zStep)x.fillText(z.toFixed(0),sx(z),y0+13);
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.fillText('profondeur depuis la surface éclairée (mm)',(x0+x1)/2,Hh-6);
+  x.save();x.translate(14,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText('SAR moyen / SAR(surface)',0,0);x.restore();
+  // marqueur δ TMM (pénétration SAR = δ_champ/2)
+  const penTMM=deltaF/2;
+  if(penTMM>0&&penTMM<maxZ){x.strokeStyle='#16a34a';x.setLineDash([2,3]);x.lineWidth=1;x.beginPath();x.moveTo(sx(penTMM),y1);x.lineTo(sx(penTMM),y0);x.stroke();x.setLineDash([]);x.fillStyle='#16a34a';x.font='9px sans-serif';x.textAlign='center';x.fillText('δ_SAR',sx(penTMM),y1-2);}
+  // TMM (teal, lisse)
+  x.strokeStyle='#0d9488';x.lineWidth=2.6;x.beginPath();let st=false;
+  for(let k=0;k<tmm.zArr.length;k++){const z=tmm.zArr[k];if(z>maxZ)break;const X=sx(z),Y=sy(tmm.sarArr[k]/ts0);st?x.lineTo(X,Y):x.moveTo(X,Y);st=true;}
+  x.stroke();
+  // CST (orange, marqueurs + ligne tiretée)
+  x.strokeStyle='#d97706';x.lineWidth=1.4;x.setLineDash([4,3]);x.beginPath();cst.forEach((p,k)=>{const X=sx(p.z),Y=sy(p.r);k?x.lineTo(X,Y):x.moveTo(X,Y);});x.stroke();x.setLineDash([]);
+  x.fillStyle='#d97706';cst.forEach(p=>{x.beginPath();x.arc(sx(p.z),sy(p.r),3.2,0,7);x.fill();});
+  // légende
+  x.font='11px sans-serif';x.textAlign='left';
+  x.strokeStyle='#0d9488';x.lineWidth=2.6;x.beginPath();x.moveTo(x1+10,y1+10);x.lineTo(x1+30,y1+10);x.stroke();x.fillStyle='#334155';x.fillText('TMM',x1+34,y1+13);
+  x.strokeStyle='#d97706';x.setLineDash([4,3]);x.beginPath();x.moveTo(x1+10,y1+28);x.lineTo(x1+30,y1+28);x.stroke();x.setLineDash([]);x.fillStyle='#334155';x.fillText('CST',x1+34,y1+31);
+  document.getElementById('imp-prof-note').innerHTML=
+    'TMM : dalle semi-infinie de <b>'+tname+'</b> à <b>'+(f>=1e9?(f/1e9).toFixed(2)+' GHz':(f/1e6).toFixed(0)+' MHz')+'</b> — pénétration SAR (1/e) = <b>'+penTMM.toFixed(1)+' mm</b> (δ champ '+deltaF.toFixed(1)+' mm). '+
+    'Pénétration ajustée sur les points CST ≈ <b>'+(penCST>0?penCST.toFixed(1)+' mm':'—')+'</b>. '+
+    'Profil = <b>SAR moyen par plan transverse</b> vs profondeur (robuste à la courbure). <b>Modèle planaire équivalent.</b> Pour une <b>dalle multicouche en incidence normale</b>, l\'accord TMM↔CST est quantitatif (validation rigoureuse). Pour une <b>tête courbe</b>, c\'est qualitatif (courbure, incidence oblique, moyennage) — la TMM fournit le profil exact et continu que la grille exportée échantillonne grossièrement.';
+  wrap.style.display='';
 }
 
 // — Init du module —
@@ -3027,6 +3106,9 @@ function impRun(){
   const sel=document.getElementById('imp-tissue');
   if(sel&&typeof TNAMES!=='undefined'){TNAMES.forEach(n=>{const o=document.createElement('option');o.textContent=n;o.value=n;sel.appendChild(o);});
     sel.value=(TNAMES.indexOf('Muscle')>=0?'Muscle':TNAMES[0]);}
+  const pt=document.getElementById('imp-prof-tissue');
+  if(pt&&typeof TNAMES!=='undefined'){TNAMES.forEach(n=>{const o=document.createElement('option');o.textContent=n;o.value=n;pt.appendChild(o);});
+    pt.value=(TNAMES.indexOf('Brain')>=0?'Brain':TNAMES[0]);}
   const ef=document.getElementById('imp-efield');
   if(ef)ef.addEventListener('change',()=>{const f=ef.files[0];if(!f)return;const r=new FileReader();
     r.onload=()=>{impEfield=impParseField(r.result);impStatus(impEfield?`✓ Données : grille ${impEfield.nx}×${impEfield.ny}×${impEfield.nz} · pas ${impEfield.dx.toFixed(1)}×${impEfield.dy.toFixed(1)}×${impEfield.dz.toFixed(1)} mm · ${impEfield.note}`:'⚠ Format non reconnu.');};r.readAsText(f);});
