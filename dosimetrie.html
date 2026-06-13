@@ -3218,10 +3218,13 @@ function impDrawProfile(){
     tlabel='liquide équiv. (σ='+sg.toFixed(2)+' S/m, ε='+er.toFixed(0)+')';
   } else if(tname==='__stack__'){
     // empilement multicouche défini dans l'onglet « Couches » → TMM rigoureuse (interfaces, réflexions)
-    const stk=(typeof layers!=='undefined'&&layers.length)?layers:[{t:'Skin',d:2},{t:'Fat',d:6},{t:'Skull (Cortical)',d:7},{t:'Brain (Grey Matter)',d:Math.max(maxZ,40)}];
+    const stk0=(typeof layers!=='undefined'&&layers.length)?layers:[{t:'Skin',d:2},{t:'Fat',d:6},{t:'Skull (Cortical)',d:7},{t:'Brain (Grey Matter)',d:40}];
+    // la dernière couche est le substrat semi-infini → on la prolonge jusqu'à la profondeur des données CST
+    const stk=stk0.map(l=>({...l})); const sumD=stk.reduce((s,l)=>s+l.d,0);
+    if(maxZ>sumD)stk[stk.length-1].d += (maxZ-sumD)+10;
     const tmm=runTMM(f,1,stk); const arr=cst10g?tmm.sar10gArr:tmm.sarArr; let amax=0; for(let k=0;k<tmm.zArr.length&&tmm.zArr[k]<=maxZ;k++)amax=Math.max(amax,arr[k]); const ts0=amax||1;
     for(let k=0;k<tmm.zArr.length;k++){if(tmm.zArr[k]>maxZ)break;tmmZ.push(tmm.zArr[k]);tmmR.push(arr[k]/ts0);}
-    deltaF=0; tlabel='empilement : '+stk.map(l=>l.t+' '+l.d+'mm').join(' / ');
+    deltaF=0; tlabel='empilement : '+stk0.map(l=>l.t+' '+l.d+'mm').join(' / ')+' ('+stk0[stk0.length-1].t+' = substrat semi-infini)';
   } else {
     const tmm=runTMM(f,1,[{t:tname,d:Math.max(maxZ+30,60)}]); const arr=cst10g?tmm.sar10gArr:tmm.sarArr; let amax=0; for(let k=0;k<tmm.zArr.length&&tmm.zArr[k]<=maxZ;k++)amax=Math.max(amax,arr[k]); const ts0=amax||1;
     for(let k=0;k<tmm.zArr.length;k++){if(tmm.zArr[k]>maxZ)break;tmmZ.push(tmm.zArr[k]);tmmR.push(arr[k]/ts0);}
