@@ -2953,6 +2953,14 @@ function impVoxelizeTissue(F,tris){
   return inside;
 }
 
+// — Interpolation trilinéaire ROBUSTE (recherche des indices encadrants → OK sur grilles non uniformes) —
+function impTrilin(F,x,y,z){
+  const br=(a,v)=>{const n=a.length; if(v<=a[0])return[0,0]; if(v>=a[n-1])return[n-2,1]; let lo=0,hi=n-1; while(hi-lo>1){const m=(lo+hi)>>1; if(a[m]<=v)lo=m;else hi=m;} return[lo,(v-a[lo])/(a[lo+1]-a[lo])];};
+  const [ix,tx]=br(F.xs,x),[iy,ty]=br(F.ys,y),[iz,tz]=br(F.zs,z);
+  const g=F.g,ny=F.ny,nz=F.nz,at=(a,b,c)=>g[(a*ny+b)*nz+c],lp=(p,q,t)=>p+(q-p)*t;
+  return lp(lp(lp(at(ix,iy,iz),at(ix+1,iy,iz),tx),lp(at(ix,iy+1,iz),at(ix+1,iy+1,iz),tx),ty),
+            lp(lp(at(ix,iy,iz+1),at(ix+1,iy,iz+1),tx),lp(at(ix,iy+1,iz+1),at(ix+1,iy+1,iz+1),tx),ty),tz);
+}
 // — SAR de réf. ré-échantillonné sur la grille du champ E (grille identique → direct ; sinon plus proche voisin) —
 function impRefOnEgrid(E,R){
   const same=R.nx===E.nx&&R.ny===E.ny&&R.nz===E.nz&&Math.abs(R.xs[0]-E.xs[0])<1e-3&&Math.abs(R.ys[0]-E.ys[0])<1e-3&&Math.abs(R.zs[0]-E.zs[0])<1e-3;
@@ -3041,7 +3049,7 @@ function impRun(){
   const SAR=new Float64Array(N),Q=new Float64Array(N);
   for(let n=0;n<N;n++){const id=cells[n],iu=id%G.nu,iv=(id-iu)/G.nu;
     const u=G.u0+iu*G.h,v=G.v0+iv*G.h; const P=[0,0,0];P[ca]=pos;P[ia]=u;P[ib]=v;
-    SAR[n]=impInterpE2(Fsar,P[0],P[1],P[2]); Q[n]=SAR[n]*rho;
+    SAR[n]=impTrilin(Fsar,P[0],P[1],P[2]); Q[n]=SAR[n]*rho;
   }
   let sarMax=0; for(let n=0;n<N;n++)sarMax=Math.max(sarMax,SAR[n]);    // pic SUR LA COUPE (affichage)
   let sar3dMax=0; for(let i=0;i<sar3d.length;i++){if(tissue3d&&!tissue3d[i])continue; if(sar3d[i]>sar3dMax)sar3dMax=sar3d[i];}
@@ -3078,7 +3086,7 @@ function impRun(){
   const SARd=new Float64Array(N); let sarDispMax=0;
   for(let n=0;n<N;n++){const id=cells[n],iu=id%G.nu,iv=(id-iu)/G.nu;const u=G.u0+iu*G.h,v=G.v0+iv*G.h;
     const P=[0,0,0];P[ca]=pos;P[ia]=u;P[ib]=v;
-    SARd[n]=(mode==='10g'?impInterpE2(F10,P[0],P[1],P[2]):SAR[n])*factor;
+    SARd[n]=(mode==='10g'?impTrilin(F10,P[0],P[1],P[2]):SAR[n])*factor;
     if(SARd[n]>sarDispMax)sarDispMax=SARd[n];}
   impDrawMap(document.getElementById('imp-sar-map'),SARd,G,solSteady,segs,0,sarDispMax||1);
   const dTmK=new Float64Array(N);for(let n=0;n<N;n++)dTmK[n]=dT[n]*1e3;
@@ -3110,12 +3118,12 @@ function impRun(){
       'Un <b>r proche de 1</b> et un <b>σ déduit cohérent</b> valident notre chaîne de calcul du SAR. '+
       'Le rapport de pics ≠ 1 vient surtout de la <b>résolution de la grille exportée</b> ('+impEfield.dx.toFixed(1)+' mm → cube de moyennage ≈ '+cubeG.toFixed(0)+' g, pas exactement 10 g) : '+
       'la <b>méthode analytique (TMM)</b> de l\'outil, elle, résout le profil SAR(z) de façon exacte et continue, sans cet artefact de maillage.';
-    // cartes sur la coupe : notre 10g, CST réf, écart relatif — échantillonnage par index le plus proche
+    // cartes sur la coupe : notre 10g, CST réf, écart relatif — interpolation trilinéaire (lissée)
+    const F10cmp={...Fsar,g:g10cmp}, Fref={...Fsar,g:refOnE};
     const ourSl=new Float64Array(N),cstSl=new Float64Array(N),diffSl=new Float64Array(N);
     let vmax=0; for(let nn=0;nn<N;nn++){const id=cells[nn],iu=id%G.nu,iv=(id-iu)/G.nu;const u=G.u0+iu*G.h,v=G.v0+iv*G.h;
       const P=[0,0,0];P[ca]=pos;P[ia]=u;P[ib]=v;
-      const gi=(impNearestIdx(E.xs,P[0])*E.ny+impNearestIdx(E.ys,P[1]))*E.nz+impNearestIdx(E.zs,P[2]);
-      const o=g10cmp[gi], c=refOnE[gi];
+      const o=impTrilin(F10cmp,P[0],P[1],P[2]), c=impTrilin(Fref,P[0],P[1],P[2]);
       ourSl[nn]=o;cstSl[nn]=c;vmax=Math.max(vmax,o,c); diffSl[nn]=c>0?(o-c)/c*100:0;}
     impDrawMap(document.getElementById('imp-cmp-ours'),ourSl,G,solSteady,segs,0,vmax||1);
     impDrawMap(document.getElementById('imp-cmp-cst'),cstSl,G,solSteady,segs,0,vmax||1);
