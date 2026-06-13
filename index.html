@@ -143,6 +143,16 @@ footer a{color:var(--text2)}
       </div>
     </a>
 
+    <a class="card live" href="circuit-spice.html">
+      <div class="ico">🔌</div>
+      <h3 data-i18n="cir.title">Circuit — SPICE light</h3>
+      <p data-i18n="cir.desc">Simulateur de circuit dans le navigateur : netlist R/L/C et sources, analyse fréquentielle (Bode) et transitoire par analyse nodale modifiée. Résonance, filtres, facteur Q.</p>
+      <div class="tags">
+        <span class="badge ok" data-i18n="cir.badge">MNA · Bode + transitoire</span>
+        <span class="badge free" data-i18n="badge.free">accès libre</span>
+      </div>
+    </a>
+
     <div class="card soon">
       <div>
         <div class="ico" style="opacity:.5">＋</div>
@@ -199,6 +209,10 @@ const I18N={
   'pv.desc':{fr:"De la cellule au système : modèle à une diode, courbe I-V/P-V, point de puissance maximale, rendement, effets ensoleillement/température, énergie produite.",
              en:"From cell to system: single-diode model, I-V/P-V curve, maximum power point, efficiency, irradiance/temperature effects, energy yield."},
   'pv.badge':{fr:"cellule → système", en:"cell → system"},
+  'cir.title':{fr:"Circuit — SPICE light", en:"Circuit — SPICE light"},
+  'cir.desc':{fr:"Simulateur de circuit dans le navigateur : netlist R/L/C et sources, analyse fréquentielle (Bode) et transitoire par analyse nodale modifiée. Résonance, filtres, facteur Q.",
+              en:"In-browser circuit simulator: R/L/C netlist with sources, frequency (Bode) and transient analysis by modified nodal analysis. Resonance, filters, Q factor."},
+  'cir.badge':{fr:"MNA · Bode + transitoire", en:"MNA · Bode + transient"},
   'ant.title':{fr:"Antennes", en:"Antennas"},
   'ant.desc':{fr:"Outils sur les antennes : antennes filaires (méthode des moments — dipôle, Yagi, environnements de fils, champ proche) et réseaux d'antennes (dépointage du faisceau). Cornet et patch à venir.",
               en:"Antenna tools: wire antennas (Method of Moments — dipole, Yagi, wire environments, near field) and antenna arrays (beam steering). Horn and patch coming soon."},

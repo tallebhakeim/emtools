@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EMtools — Circuit (SPICE light)</title>
+<meta name="description" content="EMtools — simulateur de circuit pédagogique (SPICE light) : netlist R/L/C/sources, analyse fréquentielle (Bode) et transitoire par analyse nodale modifiée. Résonance, filtres, Q. Par Hakeim Talleb.">
+<style>
+:root{--navy:#1a2e4a;--teal:#0d9488;--teal2:#0f766e;--teal-light:#e6f7f5;--gold:#d97706;
+  --text:#1e293b;--text2:#64748b;--border:#e2e8f0;--bg:#f8fafc;--bg2:#f0fdf9;--white:#fff;--radius:14px;--shadow:0 2px 14px rgba(26,46,74,.08);}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--text);background:var(--bg);line-height:1.6}
+a{color:var(--teal2)}
+.wrap{max-width:980px;margin:0 auto;padding:0 1.25rem}
+#lang-toggle{position:fixed;top:14px;right:16px;z-index:50;background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.45);border-radius:8px;padding:5px 12px;font-size:13px;font-weight:700;cursor:pointer;backdrop-filter:blur(4px)}
+header{background:linear-gradient(135deg,#1a2e4a,#0f3a4d);color:#fff;padding:2.4rem 0 2rem}
+header .wrap{display:flex;flex-direction:column;gap:.4rem}
+header .back{font-size:.82rem;color:#94a3b8;text-decoration:none}
+header .back:hover{color:#cbd5e1}
+header h1{font-size:1.7rem;font-weight:800;letter-spacing:-.02em}
+header .tag{font-size:1rem;color:#cbd5e1;max-width:700px}
+main{padding:2rem 0 3rem}
+.intro{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius);padding:1rem 1.2rem;font-size:.9rem;margin-bottom:1.6rem}
+.intro b{color:var(--navy)}
+.panel{background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.3rem 1.4rem;margin-bottom:1.4rem}
+.ptitle{font-size:.78rem;font-weight:700;color:var(--teal2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:1rem}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem 1.4rem}
+.ctrl{display:flex;flex-direction:column;gap:.3rem}
+.ctrl label{font-size:.82rem;font-weight:600;color:var(--text2)}
+.ctrl input,.ctrl select{font:inherit;font-size:.92rem;padding:.45rem .55rem;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--text)}
+textarea#netlist{width:100%;min-height:170px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.86rem;line-height:1.5;padding:.7rem .8rem;border:1.5px solid var(--border);border-radius:10px;background:#0f172a;color:#e2e8f0;resize:vertical;tab-size:2}
+.btn{font:inherit;font-weight:700;border:none;border-radius:9px;padding:.6rem 1.3rem;cursor:pointer}
+.btn-run{background:var(--teal);color:#fff}
+.btn-run:hover{background:var(--teal2)}
+.row{display:flex;flex-wrap:wrap;gap:.7rem 1rem;align-items:flex-end}
+.seg{display:inline-flex;border:1.5px solid var(--border);border-radius:9px;overflow:hidden}
+.seg button{font:inherit;font-weight:600;font-size:.86rem;border:none;background:#fff;color:var(--text2);padding:.45rem .9rem;cursor:pointer}
+.seg button.on{background:var(--teal);color:#fff}
+.nodes{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.3rem}
+.nodes label{display:inline-flex;align-items:center;gap:4px;font-size:.84rem;background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:3px 8px;cursor:pointer}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.9rem}
+.metric{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:.8rem .9rem}
+.metric .k{font-size:.72rem;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.metric .v{font-size:1.18rem;font-weight:800;color:var(--navy);margin-top:.15rem}
+.metric.hl{background:var(--teal-light);border-color:#99e6dc}.metric.hl .v{color:var(--teal2)}
+canvas{width:100%;height:auto;background:#fff;border:1px solid var(--border);border-radius:10px}
+.sub{font-size:.74rem;color:var(--text2);margin-top:.3rem}
+#status{font-size:.82rem;color:var(--text2);margin-top:.6rem;white-space:pre-line}
+#status.err{color:#b91c1c}
+.warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:10px;padding:.7rem .9rem;font-size:.83rem;margin-top:1rem}
+footer{border-top:1px solid var(--border);padding:1.5rem 0;font-size:.8rem;color:var(--text2);margin-top:1rem}
+footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+footer a{color:var(--text2)}
+details.help{margin-top:.7rem;font-size:.82rem;color:var(--text2)}
+details.help summary{cursor:pointer;font-weight:600;color:var(--teal2)}
+details.help code{background:var(--bg);padding:1px 4px;border-radius:4px;font-size:.82rem}
+</style>
+</head>
+<body>
+<button id="lang-toggle" onclick="toggleLang()">EN</button>
+
+<header><div class="wrap">
+  <a class="back" href="index.html">← <span data-i18n="back.hub">EMtools</span></a>
+  <h1>🔌 <span data-i18n="title">Circuit — SPICE light</span></h1>
+  <div class="tag" data-i18n="tag">Un mini-simulateur de circuit dans le navigateur : décris un réseau R / L / C et sources, lance l'analyse fréquentielle (Bode) ou transitoire. Résolu par analyse nodale modifiée (MNA), comme SPICE.</div>
+</div></header>
+
+<main><div class="wrap">
+
+  <div class="intro" data-i18n-html="intro"><b>Comment ça marche —</b> écris une <b>netlist</b> (un composant par ligne, syntaxe façon SPICE), choisis un nœud de masse <b>0</b>, puis lance l'analyse. En <b>fréquentiel</b>, la source <code>AC</code> sert d'entrée et on trace le <b>diagramme de Bode</b> (gain en dB + phase) de chaque nœud. En <b>transitoire</b>, on intègre la réponse temporelle (sources <code>DC</code> en échelon ou <code>SIN</code>). Le moteur résout le circuit par <b>analyse nodale modifiée</b> à chaque fréquence / pas de temps.</div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="p.circuit">Circuit (netlist)</div>
+    <div class="row" style="margin-bottom:.7rem">
+      <div class="ctrl"><label data-i18n="lbl.preset">Exemple</label>
+        <select id="preset" onchange="loadPreset(this.value)">
+          <option value="lp" data-i18n="pre.lp">Filtre passe-bas RC</option>
+          <option value="hp" data-i18n="pre.hp">Filtre passe-haut CR</option>
+          <option value="bp" data-i18n="pre.bp">Passe-bande RLC série</option>
+          <option value="res" data-i18n="pre.res">Résonance série — surtension Q</option>
+          <option value="tank" data-i18n="pre.tank">Tank RLC parallèle (impédance)</option>
+          <option value="ring" data-i18n="pre.ring">Transitoire — sonnerie RLC</option>
+          <option value="rc" data-i18n="pre.rc">Transitoire — charge d'un RC</option>
+        </select>
+      </div>
+    </div>
+    <textarea id="netlist" spellcheck="false"></textarea>
+    <details class="help">
+      <summary data-i18n="help.sum">Aide-mémoire syntaxe</summary>
+      <div data-i18n-html="help.body" style="margin-top:.4rem;line-height:1.7">
+        <code>R1 a b 1k</code> · <code>C1 a b 100n</code> · <code>L1 a b 10m</code> — résistance / condensateur / bobine entre nœuds <code>a</code> et <code>b</code>.<br>
+        <code>V1 in 0 AC 1</code> — source de tension (entrée fréquentielle, amplitude 1, phase optionnelle <code>AC 1 90</code>).<br>
+        <code>V1 in 0 DC 1</code> — échelon ; <code>V1 in 0 SIN(0 1 1k)</code> — sinus (offset, amplitude, fréquence) pour le transitoire.<br>
+        <code>I1 a b AC 1</code> — source de courant. Masse = nœud <code>0</code>. Suffixes : f p n u m k meg g.
+      </div>
+    </details>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="p.analysis">Analyse</div>
+    <div class="row">
+      <div class="seg" id="mode-seg">
+        <button id="mode-ac" class="on" onclick="setMode('ac')" data-i18n="mode.ac">Fréquentiel (Bode)</button>
+        <button id="mode-tran" onclick="setMode('tran')" data-i18n="mode.tran">Transitoire</button>
+      </div>
+    </div>
+    <div class="controls" id="ac-ctrls" style="margin-top:1rem">
+      <div class="ctrl"><label data-i18n="lbl.fmin">Fréquence min (Hz)</label><input id="fmin" type="number" value="10" step="any"></div>
+      <div class="ctrl"><label data-i18n="lbl.fmax">Fréquence max (Hz)</label><input id="fmax" type="number" value="1e6" step="any"></div>
+      <div class="ctrl"><label data-i18n="lbl.ppd">Points / décade</label><input id="ppd" type="number" value="60" step="any"></div>
+    </div>
+    <div class="controls" id="tran-ctrls" style="margin-top:1rem;display:none">
+      <div class="ctrl"><label data-i18n="lbl.tstop">Durée (s)</label><input id="tstop" type="number" value="5e-3" step="any"></div>
+      <div class="ctrl"><label data-i18n="lbl.npts">Nombre de pas</label><input id="npts" type="number" value="600" step="any"></div>
+    </div>
+    <div style="margin-top:1rem">
+      <label style="font-size:.82rem;font-weight:600;color:var(--text2)" data-i18n="lbl.nodes">Nœuds à tracer</label>
+      <div class="nodes" id="node-checks"></div>
+    </div>
+    <div class="row" style="margin-top:1.1rem">
+      <button class="btn btn-run" onclick="run()" data-i18n="btn.run">▶ Simuler</button>
+    </div>
+    <div id="status"></div>
+  </div>
+
+  <div class="panel" id="plot-panel">
+    <div class="ptitle" id="plot-title" data-i18n="p.bode">Réponse — diagramme de Bode</div>
+    <canvas id="plot" width="900" height="460"></canvas>
+    <div class="sub" id="plot-sub"></div>
+    <div class="metrics" id="metrics" style="margin-top:1.1rem"></div>
+  </div>
+
+  <div class="warn" data-i18n-html="disclaimer"><b>Outil pédagogique —</b> circuits <b>linéaires</b> R, L, C et sources indépendantes (V, I), résolus par <b>analyse nodale modifiée</b> : exact en régime établi (AC) et par Euler implicite en transitoire. Pas encore de semi-conducteurs (diode, transistor), de sources commandées ni de couplage mutuel entre bobines (transformateur). Donne les ordres de grandeur et la physique, pas un signoff industriel.</div>
+
+</div></main>
+
+<footer><div class="wrap">
+  <span data-i18n-html="footer.lic">© 2026 Hakeim Talleb · EMtools · Code sous licence <a href="LICENSE">MIT</a></span>
+  <span><a href="index.html" data-i18n="footer.home">← Tous les outils EMtools</a></span>
+</div></footer>
+
+<script>
+function $(id){return document.getElementById(id);}
+function dpr(cv){const r=window.devicePixelRatio||1;const w=cv.clientWidth||parseFloat(cv.style.width)||cv.width;const h=parseFloat(cv.style.height)||cv.clientHeight||cv.height;cv.width=Math.round(w*r);cv.height=Math.round(h*r);const x=cv.getContext('2d');x.setTransform(r,0,0,r,0,0);return {x,w,h};}
+
+// ═══════════════ Moteur MNA (validé en node : RC, RLC série, échelon RC) ═══════════════
+function pval(s){
+  s=(''+s).trim().toLowerCase();
+  const m=s.match(/^([+-]?[0-9]*\.?[0-9]+(?:e[+-]?[0-9]+)?)\s*(meg|mil|[fpnumkgt]?)/);
+  if(!m)return parseFloat(s)||0;
+  const mul={f:1e-15,p:1e-12,n:1e-9,u:1e-6,m:1e-3,mil:25.4e-6,k:1e3,meg:1e6,g:1e9,t:1e12}[m[2]];
+  return mul?parseFloat(m[1])*mul:parseFloat(m[1]);
+}
+function parseNetlist(text){
+  const els=[],nodeset=new Set(['0']);
+  for(const raw of text.split(/\n/)){
+    const line=raw.trim(); if(!line||line[0]==='*'||line[0]===';')continue;
+    const tok=line.split(/[\s,()]+/).filter(Boolean); if(tok.length<3)continue;
+    const t0=tok[0].toLowerCase(); if(t0[0]==='.')continue;
+    const type=t0[0], name=tok[0], a=tok[1], b=tok[2];
+    if(!'rclvi'.includes(type))continue;
+    nodeset.add(a);nodeset.add(b); const el={type,name,a,b};
+    if(type==='r'||type==='c'||type==='l'){el.value=pval(tok[3]);}
+    else{
+      el.dc=0;el.acmag=0;el.acph=0;el.sin=null;
+      for(let k=3;k<tok.length;k++){const w=tok[k].toLowerCase();
+        if(w==='ac'){el.acmag=pval(tok[k+1]??'1'); const ph=parseFloat(tok[k+2]); if(!isNaN(ph)&&!/^(dc|sin|ac)$/i.test(tok[k+2]||''))el.acph=ph;}
+        else if(w==='dc'){el.dc=pval(tok[k+1]??'0');}
+        else if(w==='sin'){el.sin={off:pval(tok[k+1]),amp:pval(tok[k+2]),freq:pval(tok[k+3])};}}
+      if(tok[3]!==undefined && !isNaN(parseFloat(tok[3])) && !/[a-z]/i.test(tok[3][0])){el.dc=pval(tok[3]);}
+    }
+    els.push(el);
+  }
+  const nodes=[...nodeset].filter(n=>n!=='0'); const idx={'0':-1}; nodes.forEach((n,i)=>idx[n]=i);
+  return {els,nodes,idx};
+}
+const cadd=(a,b)=>[a[0]+b[0],a[1]+b[1]], csub=(a,b)=>[a[0]-b[0],a[1]-b[1]];
+const cmul=(a,b)=>[a[0]*b[0]-a[1]*b[1],a[0]*b[1]+a[1]*b[0]];
+const cdiv=(a,b)=>{const d=b[0]*b[0]+b[1]*b[1];return [(a[0]*b[0]+a[1]*b[1])/d,(a[1]*b[0]-a[0]*b[1])/d];};
+const cabs=a=>Math.hypot(a[0],a[1]);
+function csolve(A,z,K){
+  for(let col=0;col<K;col++){
+    let piv=col,best=cabs(A[col][col]); for(let r=col+1;r<K;r++){const m=cabs(A[r][col]);if(m>best){best=m;piv=r;}}
+    if(piv!==col){[A[col],A[piv]]=[A[piv],A[col]];[z[col],z[piv]]=[z[piv],z[col]];}
+    const d=A[col][col]; if(cabs(d)<1e-18)continue;
+    for(let r=col+1;r<K;r++){const f=cdiv(A[r][col],d); if(cabs(f)===0)continue;
+      for(let c=col;c<K;c++)A[r][c]=csub(A[r][c],cmul(f,A[col][c])); z[r]=csub(z[r],cmul(f,z[col]));}
+  }
+  const x=Array.from({length:K},()=>[0,0]);
+  for(let r=K-1;r>=0;r--){let s=z[r].slice(); for(let c=r+1;c<K;c++)s=csub(s,cmul(A[r][c],x[c]));
+    x[r]=cabs(A[r][r])<1e-18?[0,0]:cdiv(s,A[r][r]);}
+  return x;
+}
+function rsolve(A,z,K){
+  for(let col=0;col<K;col++){
+    let piv=col,best=Math.abs(A[col][col]); for(let r=col+1;r<K;r++){const m=Math.abs(A[r][col]);if(m>best){best=m;piv=r;}}
+    if(piv!==col){[A[col],A[piv]]=[A[piv],A[col]];const tz=z[col];z[col]=z[piv];z[piv]=tz;}
+    const d=A[col][col]; if(Math.abs(d)<1e-18)continue;
+    for(let r=col+1;r<K;r++){const f=A[r][col]/d; if(!f)continue; for(let c=col;c<K;c++)A[r][c]-=f*A[col][c]; z[r]-=f*z[col];}
+  }
+  const x=new Float64Array(K);
+  for(let r=K-1;r>=0;r--){let s=z[r]; for(let c=r+1;c<K;c++)s-=A[r][c]*x[c]; x[r]=Math.abs(A[r][r])<1e-18?0:s/A[r][r];}
+  return x;
+}
+function acSolve(net,omega){
+  const N=net.nodes.length, vs=net.els.filter(e=>e.type==='v'), M=vs.length, K=N+M;
+  const A=Array.from({length:K},()=>Array.from({length:K},()=>[0,0])); const z=Array.from({length:K},()=>[0,0]);
+  const sY=(i,j,y)=>{if(i>=0)A[i][i]=cadd(A[i][i],y);if(j>=0)A[j][j]=cadd(A[j][j],y);if(i>=0&&j>=0){A[i][j]=csub(A[i][j],y);A[j][i]=csub(A[j][i],y);}};
+  for(const e of net.els){const i=net.idx[e.a],j=net.idx[e.b];
+    if(e.type==='r'){if(e.value>0)sY(i,j,[1/e.value,0]);}
+    else if(e.type==='c'){sY(i,j,[0,omega*e.value]);}
+    else if(e.type==='l'){if(omega*e.value!==0)sY(i,j,[0,-1/(omega*e.value)]);}
+    else if(e.type==='i'){const ph=e.acph*Math.PI/180,cur=[e.acmag*Math.cos(ph),e.acmag*Math.sin(ph)];
+      if(i>=0)z[i]=csub(z[i],cur); if(j>=0)z[j]=cadd(z[j],cur);}}
+  vs.forEach((e,k)=>{const row=N+k,i=net.idx[e.a],j=net.idx[e.b];
+    if(i>=0){A[i][row]=[1,0];A[row][i]=[1,0];} if(j>=0){A[j][row]=[-1,0];A[row][j]=[-1,0];}
+    const ph=e.acph*Math.PI/180; z[row]=[e.acmag*Math.cos(ph),e.acmag*Math.sin(ph)];});
+  const x=csolve(A,z,K); const V={'0':[0,0]}; net.nodes.forEach((n,i)=>V[n]=x[i]); return V;
+}
+const srcVal=(e,t)=>e.sin?e.sin.off+e.sin.amp*Math.sin(2*Math.PI*e.sin.freq*t):e.dc;
+function tranRun(net,h,stop){
+  const steps=Math.max(1,Math.round(stop/h));
+  const N=net.nodes.length, vs=net.els.filter(e=>e.type==='v'), M=vs.length, K=N+M;
+  const capV={},indI={}; net.els.forEach(e=>{if(e.type==='c')capV[e.name]=0;if(e.type==='l')indI[e.name]=0;});
+  const out={t:[],V:{}}; net.nodes.concat('0').forEach(n=>out.V[n]=[]);
+  for(let s=0;s<=steps;s++){const t=s*h;
+    const A=Array.from({length:K},()=>new Float64Array(K)); const z=new Float64Array(K);
+    const sG=(i,j,g)=>{if(i>=0)A[i][i]+=g;if(j>=0)A[j][j]+=g;if(i>=0&&j>=0){A[i][j]-=g;A[j][i]-=g;}};
+    const sI=(i,j,cur)=>{if(i>=0)z[i]-=cur;if(j>=0)z[j]+=cur;};
+    for(const e of net.els){const i=net.idx[e.a],j=net.idx[e.b];
+      if(e.type==='r'){if(e.value>0)sG(i,j,1/e.value);}
+      else if(e.type==='c'){const g=e.value/h;sG(i,j,g);sI(i,j,-g*capV[e.name]);}
+      else if(e.type==='l'){const g=h/e.value;sG(i,j,g);sI(i,j,indI[e.name]);}
+      else if(e.type==='i'){sI(i,j,srcVal(e,t));}}
+    vs.forEach((e,k)=>{const row=N+k,i=net.idx[e.a],j=net.idx[e.b];
+      if(i>=0){A[i][row]+=1;A[row][i]+=1;} if(j>=0){A[j][row]-=1;A[row][j]-=1;} z[row]=srcVal(e,t);});
+    const x=rsolve(A,z,K); const Vn={'0':0}; net.nodes.forEach((n,ii)=>Vn[n]=x[ii]);
+    net.els.forEach(e=>{const dv=Vn[e.a]-Vn[e.b]; if(e.type==='c')capV[e.name]=dv; if(e.type==='l')indI[e.name]+=(h/e.value)*dv;});
+    out.t.push(t); net.nodes.concat('0').forEach(n=>out.V[n].push(Vn[n]));
+  }
+  return out;
+}
+
+// ═══════════════ UI ═══════════════
+const PRESETS={
+  lp:{m:'ac',ac:[10,1e6],txt:`* Filtre passe-bas RC — fc = 1/(2*pi*R*C) ≈ 1 kHz\nV1 in 0 AC 1\nR1 in out 1k\nC1 out 0 159.155n`},
+  hp:{m:'ac',ac:[10,1e6],txt:`* Filtre passe-haut CR — fc ≈ 1 kHz\nV1 in 0 AC 1\nC1 in out 159.155n\nR1 out 0 1k`},
+  bp:{m:'ac',ac:[100,1e6],txt:`* Passe-bande RLC série — sortie sur R\nV1 in 0 AC 1\nL1 in n1 1m\nC1 n1 out 1u\nR1 out 0 50`},
+  res:{m:'ac',ac:[500,5e4],txt:`* Résonance série — surtension Q sur le condensateur (nœud out)\n* f0 ≈ 5033 Hz, Q = (1/R)*sqrt(L/C) ≈ 3.2\nV1 in 0 AC 1\nR1 in n1 10\nL1 n1 out 1m\nC1 out 0 1u`},
+  tank:{m:'ac',ac:[1e3,1e6],txt:`* Tank RLC parallèle excité en courant — V(out) = impédance Z(f)\n* f0 ≈ 15.9 kHz, Q = R*sqrt(C/L) ≈ 10, Z(f0) = R = 1 kOhm\nI1 0 out AC 1\nR1 out 0 1k\nL1 out 0 1m\nC1 out 0 100n`},
+  ring:{m:'tran',tr:[5e-3,1500],txt:`* Sonnerie d'un RLC série sous-amorti (échelon) — V sur C oscille\nV1 in 0 DC 1\nR1 in n1 5\nL1 n1 out 1m\nC1 out 0 1u`},
+  rc:{m:'tran',tr:[5e-3,600],txt:`* Charge d'un RC (échelon 1 V) — tau = R*C = 1 ms\nV1 in 0 DC 1\nR1 in out 1k\nC1 out 0 1u`}
+};
+let MODE='ac', LASTNODES=[], CHECKED={};
+const COLORS=['#0d9488','#d97706','#6366f1','#db2777','#16a34a','#0891b2','#9333ea','#dc2626'];
+
+function setMode(m){MODE=m;
+  $('mode-ac').classList.toggle('on',m==='ac'); $('mode-tran').classList.toggle('on',m==='tran');
+  $('ac-ctrls').style.display=m==='ac'?'':'none'; $('tran-ctrls').style.display=m==='tran'?'':'none';
+  $('plot-title').textContent=t(m==='ac'?'p.bode':'p.tran');
+}
+function loadPreset(k){const p=PRESETS[k]; $('netlist').value=p.txt; setMode(p.m);
+  if(p.ac){$('fmin').value=p.ac[0];$('fmax').value=p.ac[1];} if(p.tr){$('tstop').value=p.tr[0];$('npts').value=p.tr[1];}
+  CHECKED={}; run();}
+
+function refreshNodeChecks(nodes){
+  const box=$('node-checks'); box.innerHTML='';
+  if(Object.keys(CHECKED).length===0){nodes.forEach(n=>CHECKED[n]=true);}
+  nodes.forEach((n,i)=>{const id='nc_'+n; const lab=document.createElement('label');
+    lab.innerHTML=`<input type="checkbox" id="${id}" ${CHECKED[n]?'checked':''}> <span style="color:${COLORS[i%COLORS.length]};font-weight:700">●</span> ${n}`;
+    lab.querySelector('input').onchange=e=>{CHECKED[n]=e.target.checked; redraw();}; box.appendChild(lab);});
+}
+function status(msg,err){const s=$('status'); s.textContent=msg; s.className=err?'err':'';}
+
+let RESULT=null;
+function run(){
+  let net; try{net=parseNetlist($('netlist').value);}catch(e){status('Erreur de netlist : '+e.message,true);return;}
+  if(!net.nodes.length){status(t('err.empty'),true);return;}
+  if(!net.els.some(e=>e.type==='v'||e.type==='i')){status(t('err.nosrc'),true);return;}
+  LASTNODES=net.nodes.slice(); refreshNodeChecks(net.nodes);
+  try{
+    if(MODE==='ac'){
+      const f1=parseFloat($('fmin').value), f2=parseFloat($('fmax').value), ppd=Math.max(4,parseFloat($('ppd').value)||40);
+      if(!(f1>0&&f2>f1)){status(t('err.freq'),true);return;}
+      const nd=Math.max(2,Math.round(ppd*Math.log10(f2/f1))); const F=[],MAG={},PH={};
+      net.nodes.forEach(n=>{MAG[n]=[];PH[n]=[];});
+      for(let k=0;k<=nd;k++){const f=f1*Math.pow(10,k/nd*Math.log10(f2/f1)); F.push(f);
+        const V=acSolve(net,2*Math.PI*f); net.nodes.forEach(n=>{MAG[n].push(cabs(V[n]));PH[n].push(Math.atan2(V[n][1],V[n][0])*180/Math.PI);});}
+      RESULT={mode:'ac',F,MAG,PH,nodes:net.nodes}; status('✓ '+(nd+1)+' '+t('s.freqpts'));
+    } else {
+      const stop=parseFloat($('tstop').value), npts=Math.max(20,parseFloat($('npts').value)||400);
+      if(!(stop>0)){status(t('err.tstop'),true);return;}
+      const h=stop/npts; const out=tranRun(net,h,stop);
+      RESULT={mode:'tran',t:out.t,V:out.V,nodes:net.nodes}; status('✓ '+out.t.length+' '+t('s.tpts'));
+    }
+  }catch(e){status('Erreur de calcul : '+e.message,true);return;}
+  redraw();
+}
+function redraw(){ if(!RESULT)return; if(RESULT.mode==='ac')drawBode(); else drawTran(); buildMetrics(); }
+
+function niceFmt(v){const a=Math.abs(v); if(a===0)return'0'; if(a>=1e4||a<1e-2)return v.toExponential(1); return v.toFixed(a>=100?0:a>=1?2:3);}
+function fmtFreq(f){return f>=1e6?(f/1e6).toFixed(f>=1e7?0:2)+'M':f>=1e3?(f/1e3).toFixed(f>=1e4?0:1)+'k':f.toFixed(0);}
+function fmtTime(s){return s>=1?s.toFixed(2)+'s':s>=1e-3?(s*1e3).toFixed(s>=1e-2?1:2)+'ms':s>=1e-6?(s*1e6).toFixed(0)+'µs':(s*1e9).toFixed(0)+'ns';}
+function selNodes(){return LASTNODES.filter(n=>CHECKED[n]);}
+
+function drawBode(){
+  const cv=$('plot'); cv.style.height='460px'; const {x,w,h}=dpr(cv); x.clearRect(0,0,w,h);
+  const R=RESULT, sel=selNodes(); const lf1=Math.log10(R.F[0]), lf2=Math.log10(R.F[R.F.length-1]);
+  const padL=58,padR=14,xpL=padL,xpR=w-padR; const splitY=h*0.56;
+  // magnitude (dB) panel: y in [16, splitY-26]; phase panel: [splitY+18, h-30]
+  const m1y0=splitY-26,m1y1=16, p1y0=h-30,p1y1=splitY+20;
+  let dBmin=1e9,dBmax=-1e9; sel.forEach(n=>R.MAG[n].forEach(v=>{const d=20*Math.log10(Math.max(v,1e-12));if(d<dBmin)dBmin=d;if(d>dBmax)dBmax=d;}));
+  if(!isFinite(dBmin)){dBmin=-60;dBmax=0;} dBmax=Math.ceil(dBmax/10)*10+5; dBmin=Math.floor(dBmin/10)*10-5; if(dBmax-dBmin>140)dBmin=dBmax-140;
+  const sx=f=>xpL+(Math.log10(f)-lf1)/(lf2-lf1)*(xpR-xpL);
+  const syM=d=>m1y0-(d-dBmin)/(dBmax-dBmin)*(m1y0-m1y1);
+  const syP=p=>p1y0-(p+200)/400*(p1y0-p1y1);
+  // grid: decades
+  x.font='10px sans-serif';
+  for(let d=Math.ceil(lf1);d<=Math.floor(lf2);d++){const f=Math.pow(10,d),X=sx(f);
+    x.strokeStyle='#eef2f7';x.beginPath();x.moveTo(X,m1y1);x.lineTo(X,m1y0);x.moveTo(X,p1y1);x.lineTo(X,p1y0);x.stroke();
+    x.fillStyle='#94a3b8';x.textAlign='center';x.fillText(fmtFreq(f),X,p1y0+13);}
+  // mag y-grid
+  x.textAlign='right';for(let d=Math.ceil(dBmin/10)*10;d<=dBmax;d+=10){const Y=syM(d);if(Y<m1y1-1||Y>m1y0+1)continue;x.strokeStyle='#f1f5f9';x.beginPath();x.moveTo(xpL,Y);x.lineTo(xpR,Y);x.stroke();x.fillStyle='#94a3b8';x.fillText(d+'',xpL-4,Y+3);}
+  // phase y-grid
+  for(let p=-180;p<=180;p+=90){const Y=syP(p);x.strokeStyle='#f1f5f9';x.beginPath();x.moveTo(xpL,Y);x.lineTo(xpR,Y);x.stroke();x.fillStyle='#94a3b8';x.fillText(p+'°',xpL-4,Y+3);}
+  // axes frames
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.strokeRect(xpL,m1y1,xpR-xpL,m1y0-m1y1);x.strokeRect(xpL,p1y1,xpR-xpL,p1y0-p1y1);
+  // labels
+  x.fillStyle='#475569';x.font='600 11px sans-serif';x.textAlign='left';x.fillText(t('ax.gain'),xpL+4,m1y1+12);x.fillText(t('ax.phase'),xpL+4,p1y1+12);
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.textAlign='center';x.fillText(t('ax.freq'),(xpL+xpR)/2,h-4);
+  // traces
+  sel.forEach((n,si)=>{const col=COLORS[LASTNODES.indexOf(n)%COLORS.length];
+    x.strokeStyle=col;x.lineWidth=2;x.beginPath();R.F.forEach((f,k)=>{const X=sx(f),Y=syM(20*Math.log10(Math.max(R.MAG[n][k],1e-12)));k?x.lineTo(X,Y):x.moveTo(X,Y);});x.stroke();
+    x.beginPath();R.F.forEach((f,k)=>{const X=sx(f),Y=syP(R.PH[n][k]);k?x.lineTo(X,Y):x.moveTo(X,Y);});x.setLineDash([4,3]);x.stroke();x.setLineDash([]);
+    // legend
+    x.fillStyle=col;x.fillRect(xpR-90,m1y1+6+si*15,10,3);x.fillStyle='#334155';x.textAlign='left';x.font='10px sans-serif';x.fillText('V('+n+')',xpR-76,m1y1+9+si*15);});
+  $('plot-sub').textContent=t('sub.bode');
+}
+function drawTran(){
+  const cv=$('plot'); cv.style.height='380px'; const {x,w,h}=dpr(cv); x.clearRect(0,0,w,h);
+  const R=RESULT, sel=selNodes(); const x0=58,x1=w-14,y0=h-30,y1=16;
+  const T=R.t, tmax=T[T.length-1]||1;
+  let vmin=1e9,vmax=-1e9; sel.forEach(n=>R.V[n].forEach(v=>{if(v<vmin)vmin=v;if(v>vmax)vmax=v;}));
+  if(!isFinite(vmin)){vmin=0;vmax=1;} if(vmax-vmin<1e-12){vmax+=0.5;vmin-=0.5;} const pad=(vmax-vmin)*0.08;vmax+=pad;vmin-=pad;
+  const sx=tt=>x0+tt/tmax*(x1-x0), sy=v=>y0-(v-vmin)/(vmax-vmin)*(y0-y1);
+  x.font='10px sans-serif';
+  // grid
+  x.textAlign='right';for(let g=0;g<=4;g++){const v=vmin+(vmax-vmin)*g/4,Y=sy(v);x.strokeStyle='#f1f5f9';x.beginPath();x.moveTo(x0,Y);x.lineTo(x1,Y);x.stroke();x.fillStyle='#94a3b8';x.fillText(niceFmt(v),x0-4,Y+3);}
+  x.textAlign='center';for(let g=0;g<=5;g++){const tt=tmax*g/5,X=sx(tt);x.strokeStyle='#f6f8fa';x.beginPath();x.moveTo(X,y1);x.lineTo(X,y0);x.stroke();x.fillStyle='#94a3b8';x.fillText(fmtTime(tt),X,y0+13);}
+  // zero line
+  if(vmin<0&&vmax>0){x.strokeStyle='#cbd5e1';x.beginPath();x.moveTo(x0,sy(0));x.lineTo(x1,sy(0));x.stroke();}
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.strokeRect(x0,y1,x1-x0,y0-y1);
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.textAlign='center';x.fillText(t('ax.time'),(x0+x1)/2,h-4);
+  x.save();x.translate(13,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText(t('ax.volt'),0,0);x.restore();
+  sel.forEach((n,si)=>{const col=COLORS[LASTNODES.indexOf(n)%COLORS.length];
+    x.strokeStyle=col;x.lineWidth=2;x.beginPath();T.forEach((tt,k)=>{const X=sx(tt),Y=sy(R.V[n][k]);k?x.lineTo(X,Y):x.moveTo(X,Y);});x.stroke();
+    x.fillStyle=col;x.fillRect(x1-86,y1+6+si*15,10,3);x.fillStyle='#334155';x.textAlign='left';x.font='10px sans-serif';x.fillText('V('+n+')',x1-72,y1+9+si*15);});
+  $('plot-sub').textContent=t('sub.tran');
+}
+
+function buildMetrics(){
+  const box=$('metrics'); box.innerHTML=''; const R=RESULT, sel=selNodes(); if(!sel.length)return;
+  const card=(k,v,u,hl)=>{const d=document.createElement('div');d.className='metric'+(hl?' hl':'');d.innerHTML=`<div class="k">${k}</div><div class="v">${v}</div>${u?`<div class="u" style="font-size:.76rem;color:var(--text2);font-weight:600">${u}</div>`:''}`;box.appendChild(d);};
+  // nœud « primaire » : 'out' s'il est tracé, sinon celui qui varie le plus (pas la source)
+  const series=nm=>R.mode==='ac'?R.MAG[nm].map(v=>20*Math.log10(Math.max(v,1e-12))):R.V[nm];
+  let n;
+  if(sel.includes('out'))n='out';
+  else{n=sel[0];let best=-1;sel.forEach(nm=>{const s=series(nm);let mn=1e9,mx=-1e9;s.forEach(v=>{if(v<mn)mn=v;if(v>mx)mx=v;});if(mx-mn>best){best=mx-mn;n=nm;}});}
+  if(R.mode==='ac'){
+    const mag=R.MAG[n], F=R.F; let pk=0,kpk=0; mag.forEach((v,k)=>{if(v>pk){pk=v;kpk=k;}});
+    const dcG=mag[0], hfG=mag[mag.length-1];
+    // -3 dB relative to peak
+    const thr=pk/Math.SQRT2; let fl=null,fh=null;
+    for(let k=kpk;k>=0;k--){if(mag[k]<thr){fl=F[k];break;}}
+    for(let k=kpk;k<mag.length;k++){if(mag[k]<thr){fh=F[k];break;}}
+    const interior = kpk>0 && kpk<mag.length-1;
+    card(t('m.out'),'V('+n+')','');
+    card(t('m.peak'),fmtFreq(F[kpk])+' Hz',(20*Math.log10(pk)).toFixed(1)+' dB · ×'+niceFmt(pk),true);
+    if(interior && fl && fh){const Q=F[kpk]/(fh-fl); card(t('m.bw'),fmtFreq(fh-fl)+' Hz',t('m.bwsub')); card('Q',Q.toFixed(2),'f₀/Δf');}
+    else { const fc = (dcG>hfG?fh:fl); if(fc)card(t('m.cut'),fmtFreq(fc)+' Hz','−3 dB'); }
+    card(t('m.dchf'),niceFmt(dcG)+' → '+niceFmt(hfG),t('m.dchfsub'));
+  } else {
+    const v=R.V[n]; const v0=v[0], vend=v[v.length-1]; let vmx=-1e9,vmn=1e9;v.forEach(a=>{if(a>vmx)vmx=a;if(a<vmn)vmn=a;});
+    card(t('m.out'),'V('+n+')','');
+    card(t('m.final'),niceFmt(vend)+' V','t = '+fmtTime(R.t[R.t.length-1]),true);
+    card(t('m.minmax'),niceFmt(vmn)+' … '+niceFmt(vmx),'V');
+    const os=vmx>Math.max(v0,vend)?(vmx-vend)/(Math.abs(vend)||1)*100:0;
+    if(os>1)card(t('m.over'),os.toFixed(0)+' %','dépassement');
+  }
+}
+
+// ═══════════════ i18n ═══════════════
+let LANG='fr'; try{LANG=localStorage.getItem('emtools_lang')||'fr';}catch(e){}
+const I18N={
+ 'back.hub':{fr:'EMtools',en:'EMtools'},
+ 'title':{fr:'Circuit — SPICE light',en:'Circuit — SPICE light'},
+ 'tag':{fr:"Un mini-simulateur de circuit dans le navigateur : décris un réseau R / L / C et sources, lance l'analyse fréquentielle (Bode) ou transitoire. Résolu par analyse nodale modifiée (MNA), comme SPICE.",
+        en:'A tiny in-browser circuit simulator: describe an R / L / C network with sources, then run a frequency (Bode) or transient analysis. Solved by modified nodal analysis (MNA), like SPICE.'},
+ 'intro':{fr:"<b>Comment ça marche —</b> écris une <b>netlist</b> (un composant par ligne, syntaxe façon SPICE), choisis un nœud de masse <b>0</b>, puis lance l'analyse. En <b>fréquentiel</b>, la source <code>AC</code> sert d'entrée et on trace le <b>diagramme de Bode</b> (gain en dB + phase) de chaque nœud. En <b>transitoire</b>, on intègre la réponse temporelle (sources <code>DC</code> en échelon ou <code>SIN</code>). Le moteur résout le circuit par <b>analyse nodale modifiée</b> à chaque fréquence / pas de temps.",
+          en:"<b>How it works —</b> write a <b>netlist</b> (one component per line, SPICE-like), pick ground node <b>0</b>, then run. In <b>frequency</b> mode the <code>AC</code> source is the input and we plot the <b>Bode diagram</b> (gain in dB + phase) of each node. In <b>transient</b> mode we integrate the time response (<code>DC</code> step or <code>SIN</code> sources). The engine solves the circuit by <b>modified nodal analysis</b> at every frequency / time step."},
+ 'p.circuit':{fr:'Circuit (netlist)',en:'Circuit (netlist)'},
+ 'lbl.preset':{fr:'Exemple',en:'Example'},
+ 'pre.lp':{fr:'Filtre passe-bas RC',en:'RC low-pass filter'},'pre.hp':{fr:'Filtre passe-haut CR',en:'CR high-pass filter'},
+ 'pre.bp':{fr:'Passe-bande RLC série',en:'Series RLC band-pass'},'pre.res':{fr:'Résonance série — surtension Q',en:'Series resonance — Q overvoltage'},
+ 'pre.tank':{fr:'Tank RLC parallèle (impédance)',en:'Parallel RLC tank (impedance)'},'pre.ring':{fr:'Transitoire — sonnerie RLC',en:'Transient — RLC ringing'},'pre.rc':{fr:"Transitoire — charge d'un RC",en:'Transient — RC charging'},
+ 'help.sum':{fr:'Aide-mémoire syntaxe',en:'Syntax cheat-sheet'},
+ 'help.body':{fr:"<code>R1 a b 1k</code> · <code>C1 a b 100n</code> · <code>L1 a b 10m</code> — résistance / condensateur / bobine entre nœuds <code>a</code> et <code>b</code>.<br><code>V1 in 0 AC 1</code> — source de tension (entrée fréquentielle, amplitude 1, phase optionnelle <code>AC 1 90</code>).<br><code>V1 in 0 DC 1</code> — échelon ; <code>V1 in 0 SIN(0 1 1k)</code> — sinus (offset, amplitude, fréquence) pour le transitoire.<br><code>I1 a b AC 1</code> — source de courant. Masse = nœud <code>0</code>. Suffixes : f p n u m k meg g.",
+            en:"<code>R1 a b 1k</code> · <code>C1 a b 100n</code> · <code>L1 a b 10m</code> — resistor / capacitor / inductor between nodes <code>a</code> and <code>b</code>.<br><code>V1 in 0 AC 1</code> — voltage source (frequency-domain input, magnitude 1, optional phase <code>AC 1 90</code>).<br><code>V1 in 0 DC 1</code> — step ; <code>V1 in 0 SIN(0 1 1k)</code> — sine (offset, amplitude, frequency) for transient.<br><code>I1 a b AC 1</code> — current source. Ground = node <code>0</code>. Suffixes: f p n u m k meg g."},
+ 'p.analysis':{fr:'Analyse',en:'Analysis'},
+ 'mode.ac':{fr:'Fréquentiel (Bode)',en:'Frequency (Bode)'},'mode.tran':{fr:'Transitoire',en:'Transient'},
+ 'lbl.fmin':{fr:'Fréquence min (Hz)',en:'Min frequency (Hz)'},'lbl.fmax':{fr:'Fréquence max (Hz)',en:'Max frequency (Hz)'},'lbl.ppd':{fr:'Points / décade',en:'Points / decade'},
+ 'lbl.tstop':{fr:'Durée (s)',en:'Duration (s)'},'lbl.npts':{fr:'Nombre de pas',en:'Number of steps'},
+ 'lbl.nodes':{fr:'Nœuds à tracer',en:'Nodes to plot'},
+ 'btn.run':{fr:'▶ Simuler',en:'▶ Simulate'},
+ 'p.bode':{fr:'Réponse — diagramme de Bode',en:'Response — Bode diagram'},'p.tran':{fr:'Réponse — transitoire V(t)',en:'Response — transient V(t)'},
+ 'ax.gain':{fr:'Gain (dB)',en:'Gain (dB)'},'ax.phase':{fr:'Phase (°)',en:'Phase (°)'},'ax.freq':{fr:'Fréquence (Hz)',en:'Frequency (Hz)'},
+ 'ax.time':{fr:'Temps',en:'Time'},'ax.volt':{fr:'Tension (V)',en:'Voltage (V)'},
+ 'sub.bode':{fr:'Trait plein = gain (dB) ; pointillé = phase (°). Échelle de fréquence logarithmique.',en:'Solid = gain (dB); dashed = phase (°). Logarithmic frequency axis.'},
+ 'sub.tran':{fr:'Réponse temporelle des nœuds sélectionnés (Euler implicite).',en:'Time response of the selected nodes (backward Euler).'},
+ 'm.out':{fr:'Sortie analysée',en:'Analysed output'},'m.peak':{fr:'Pic / résonance',en:'Peak / resonance'},'m.bw':{fr:'Bande passante −3 dB',en:'−3 dB bandwidth'},'m.bwsub':{fr:'autour du pic',en:'around the peak'},
+ 'm.cut':{fr:'Coupure −3 dB',en:'−3 dB cutoff'},'m.dchf':{fr:'Gain DC → HF',en:'DC → HF gain'},'m.dchfsub':{fr:'|V| à fmin → fmax',en:'|V| at fmin → fmax'},
+ 'm.final':{fr:'Valeur finale',en:'Final value'},'m.minmax':{fr:'Min … Max',en:'Min … Max'},'m.over':{fr:'Dépassement',en:'Overshoot'},
+ 's.freqpts':{fr:'points de fréquence calculés',en:'frequency points computed'},'s.tpts':{fr:'pas de temps calculés',en:'time steps computed'},
+ 'err.empty':{fr:'Netlist vide ou sans nœud valide.',en:'Empty netlist or no valid node.'},
+ 'err.nosrc':{fr:'Aucune source (V ou I) — ajoute une excitation.',en:'No source (V or I) — add an excitation.'},
+ 'err.freq':{fr:'Plage de fréquence invalide (0 < fmin < fmax).',en:'Invalid frequency range (0 < fmin < fmax).'},
+ 'err.tstop':{fr:'Durée invalide.',en:'Invalid duration.'},
+ 'disclaimer':{fr:"<b>Outil pédagogique —</b> circuits <b>linéaires</b> R, L, C et sources indépendantes (V, I), résolus par <b>analyse nodale modifiée</b> : exact en régime établi (AC) et par Euler implicite en transitoire. Pas encore de semi-conducteurs (diode, transistor), de sources commandées ni de couplage mutuel entre bobines (transformateur). Donne les ordres de grandeur et la physique, pas un signoff industriel.",
+              en:"<b>Educational tool —</b> <b>linear</b> R, L, C circuits with independent sources (V, I), solved by <b>modified nodal analysis</b>: exact in steady state (AC), backward-Euler in transient. No semiconductors (diode, transistor), controlled sources or mutual coupling between inductors (transformer) yet. Gives orders of magnitude and the physics, not an industrial sign-off."},
+ 'footer.lic':{fr:'© 2026 Hakeim Talleb · EMtools · Code sous licence <a href="LICENSE">MIT</a>',en:'© 2026 Hakeim Talleb · EMtools · Code under <a href="LICENSE">MIT</a> licence'},
+ 'footer.home':{fr:'← Tous les outils EMtools',en:'← All EMtools'}
+};
+function t(k){const e=I18N[k];return e?(e[LANG]||e.fr):k;}
+function applyLang(){
+  document.documentElement.lang=LANG;
+  document.querySelectorAll('[data-i18n]').forEach(el=>{const e=I18N[el.dataset.i18n];if(e)el.textContent=e[LANG]||e.fr;});
+  document.querySelectorAll('[data-i18n-html]').forEach(el=>{const e=I18N[el.dataset.i18nHtml];if(e)el.innerHTML=e[LANG]||e.fr;});
+  const b=$('lang-toggle');if(b)b.textContent=LANG==='fr'?'EN':'FR';
+  $('plot-title').textContent=t(MODE==='ac'?'p.bode':'p.tran');
+}
+function toggleLang(){LANG=LANG==='fr'?'en':'fr';try{localStorage.setItem('emtools_lang',LANG);}catch(e){}applyLang();redraw();}
+applyLang(); loadPreset('lp');
+window.addEventListener('resize',()=>redraw());
+</script>
+</body>
+</html>
