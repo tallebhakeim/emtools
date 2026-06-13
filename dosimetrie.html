@@ -2853,12 +2853,14 @@ function impTransient2D(G,Q,prm,opt){
 // — Colormap jet —
 function impJet(t){t=Math.max(0,Math.min(1,t));const r=Math.max(0,Math.min(1,1.5-Math.abs(4*t-3)));const g=Math.max(0,Math.min(1,1.5-Math.abs(4*t-2)));const b=Math.max(0,Math.min(1,1.5-Math.abs(4*t-1)));return[r*255|0,g*255|0,b*255|0];}
 
-// — Rendu d'une carte scalaire sur canvas — shading bilinéaire (lissé entre centres de cellules) —
+// — Rendu d'une carte scalaire sur canvas — shading bilinéaire + colorbar (échelle jet vmin→vmax) —
 function impDrawMap(cv,vals,G,sol,segs,vmin,vmax){
   const {u0,v0,h,nu,nv}=G; const ctx=cv.getContext('2d');
   ctx.clearRect(0,0,cv.width,cv.height);
-  const Wmm=nu*h,Hmm=nv*h,sc=Math.min(cv.width/Wmm,cv.height/Hmm);
-  const ox=(cv.width-Wmm*sc)/2,oy=(cv.height-Hmm*sc)/2;
+  const RM=92;                                   // marge droite réservée à la colorbar
+  const availW=cv.width-RM;
+  const Wmm=nu*h,Hmm=nv*h,sc=Math.min(availW/Wmm,cv.height/Hmm);
+  const ox=(availW-Wmm*sc)/2,oy=(cv.height-Hmm*sc)/2;
   const px2=(u)=>ox+(u-u0)*sc, py2=(v)=>cv.height-oy-(v-v0)*sc; // v vers le haut
   const rng=(vmax-vmin)||1, hs=h*sc;
   // grille de valeurs + masque intérieur (indexés iv*nu+iu)
@@ -2866,7 +2868,7 @@ function impDrawMap(cv,vals,G,sol,segs,vmin,vmax){
   for(let n=0;n<sol.N;n++){const id=sol.cells[n]; V[id]=vals[n]; ins[id]=1;}
   // interpolation bilinéaire par pixel ; on ne peint que si la cellule la plus proche est dans le tissu
   const img=ctx.createImageData(cv.width,cv.height); const D=img.data;
-  const xa=Math.max(0,Math.floor(ox)),xb=Math.min(cv.width,Math.ceil(ox+Wmm*sc));
+  const xa=Math.max(0,Math.floor(ox)),xb=Math.min(availW,Math.ceil(ox+Wmm*sc));
   const ya=Math.max(0,Math.floor(oy)),yb=Math.min(cv.height,Math.ceil(oy+Hmm*sc));
   for(let py=ya;py<yb;py++){
     const fv=(cv.height-oy-py)/hs-0.5; const iv0=Math.floor(fv),ty=fv-iv0,ivN=Math.round(fv);
@@ -2886,6 +2888,15 @@ function impDrawMap(cv,vals,G,sol,segs,vmin,vmax){
   ctx.strokeStyle='rgba(0,0,0,.55)';ctx.lineWidth=0.6;ctx.beginPath();
   for(const s of segs){ctx.moveTo(px2(s[0][0]),py2(s[0][1]));ctx.lineTo(px2(s[1][0]),py2(s[1][1]));}
   ctx.stroke();
+  // ── colorbar verticale (haut = vmax, bas = vmin) ──
+  const cbTop=Math.max(12,oy), cbBot=Math.min(cv.height-12,oy+Hmm*sc), cbx=availW+14, cbw=20;
+  for(let py=Math.floor(cbTop);py<=Math.ceil(cbBot);py++){const t=1-(py-cbTop)/(cbBot-cbTop);const c=impJet(t);ctx.fillStyle='rgb('+c[0]+','+c[1]+','+c[2]+')';ctx.fillRect(cbx,py,cbw,1);}
+  ctx.strokeStyle='#64748b';ctx.lineWidth=1;ctx.strokeRect(cbx+.5,cbTop+.5,cbw,cbBot-cbTop);
+  const fmt=v=>{const a=Math.abs(v);return a===0?'0':(a>=1e4||a<1e-2)?v.toExponential(1):v.toFixed(a>=10?0:2);};
+  ctx.fillStyle='#334155';ctx.font='14px sans-serif';ctx.textAlign='left';
+  ctx.fillText(fmt(vmax),cbx+cbw+5,cbTop+11);
+  ctx.fillText(fmt((vmin+vmax)/2),cbx+cbw+5,(cbTop+cbBot)/2+5);
+  ctx.fillText(fmt(vmin),cbx+cbw+5,cbBot);
 }
 
 // — Voxélisation 3D du tissu depuis le STL (scanline en x, point-in-triangle yz) —
@@ -3048,8 +3059,7 @@ function impRun(){
     impDrawMap(document.getElementById('imp-cmp-ours'),ourSl,G,solSteady,segs,0,vmax||1);
     impDrawMap(document.getElementById('imp-cmp-cst'),cstSl,G,solSteady,segs,0,vmax||1);
     let dmax=1; for(let nn=0;nn<N;nn++)dmax=Math.max(dmax,Math.abs(diffSl[nn]));
-    const diffShift=new Float64Array(N); for(let nn=0;nn<N;nn++)diffShift[nn]=diffSl[nn]+dmax;  // 0% → milieu (vert)
-    impDrawMap(document.getElementById('imp-cmp-diff'),diffShift,G,solSteady,segs,0,2*dmax);
+    impDrawMap(document.getElementById('imp-cmp-diff'),diffSl,G,solSteady,segs,-dmax,dmax);  // signé : 0% → vert (milieu)
     vw.style.display='';
   } else { vw.style.display='none'; }
 
