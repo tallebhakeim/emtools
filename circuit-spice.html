@@ -96,6 +96,7 @@ details.help code{background:var(--bg);padding:1px 4px;border-radius:4px;font-si
         <button class="tool" data-tool="V" onclick="setTool('V')" data-i18n="tool.v">Source V</button>
         <button class="tool" data-tool="I" onclick="setTool('I')" data-i18n="tool.i">Source I</button>
         <button class="tool" data-tool="D" onclick="setTool('D')">Diode</button>
+        <button class="tool" data-tool="probe" onclick="setTool('probe')" data-i18n="tool.probe">🔍 Sonde</button>
         <button class="tool" data-tool="GND" onclick="setTool('GND')" data-i18n="tool.gnd">Masse</button>
         <button class="tool" data-tool="del" onclick="setTool('del')" data-i18n="tool.del">Supprimer</button>
         <span style="flex:1"></span>
@@ -369,6 +370,8 @@ function run(){
   let net; try{net=parseNetlist($('netlist').value);}catch(e){status('Erreur de netlist : '+e.message,true);return;}
   if(!net.nodes.length){status(t('err.empty'),true);return;}
   if(!net.els.some(e=>e.type==='v'||e.type==='i')){status(t('err.nosrc'),true);return;}
+  // sondes du schéma → ne tracer que les nœuds sondés
+  if(INPUT==='sch' && PROBES.size){const E=extractNodes(); CHECKED={}; PROBES.forEach(k=>{const p=k.split('_').map(Number); const nm=E.nameOf(p[0],p[1]); if(nm!=='0')CHECKED[nm]=true;});}
   LASTNODES=net.nodes.slice(); refreshNodeChecks(net.nodes);
   try{
     if(MODE==='ac'){
@@ -483,7 +486,7 @@ function buildMetrics(){
 
 // ═══════════════ Éditeur de schéma (génère la netlist → moteur MNA) ═══════════════
 const GS=30, MG=22;                       // pas de grille / marge (px CSS)
-let INPUT='sch', TOOL='sel', ORIENT='h', SEL=null, SCH={comps:[],wires:[]}, CNT={R:0,L:0,C:0,V:0,I:0,G:0,D:0}, wireStart=null, drag=null;
+let INPUT='sch', TOOL='sel', ORIENT='h', SEL=null, SCH={comps:[],wires:[]}, CNT={R:0,L:0,C:0,V:0,I:0,G:0,D:0}, wireStart=null, drag=null, PROBES=new Set();
 const px=g=>MG+g*GS;
 const gridOf=(mx,my)=>[Math.max(0,Math.round((mx-MG)/GS)),Math.max(0,Math.round((my-MG)/GS))];
 function termsOf(c){return c.type==='GND'?[[c.x,c.y]]:c.dir==='h'?[[c.x,c.y],[c.x+2,c.y]]:[[c.x,c.y],[c.x,c.y+2]];}
@@ -492,7 +495,7 @@ function setInput(m){INPUT=m;$('in-sch').classList.toggle('on',m==='sch');$('in-
   $('sch-wrap').style.display=m==='sch'?'':'none';$('net-wrap').style.display=m==='net'?'':'none';
   if(m==='sch')drawSch();}
 function setTool(t){TOOL=t;wireStart=null;document.querySelectorAll('#sch-tools .tool[data-tool]').forEach(b=>b.classList.toggle('on',b.dataset.tool===t));drawSch();}
-function clearSch(){SCH={comps:[],wires:[]};CNT={R:0,L:0,C:0,V:0,I:0,G:0,D:0};SEL=null;editPanel();syncNet();drawSch();}
+function clearSch(){SCH={comps:[],wires:[]};CNT={R:0,L:0,C:0,V:0,I:0,G:0,D:0};SEL=null;PROBES.clear();editPanel();syncNet();drawSch();}
 function rotateSel(){ORIENT=ORIENT==='h'?'v':'h'; if(SEL&&SEL.type!=='GND'){SEL.dir=SEL.dir==='h'?'v':'h';syncNet();} drawSch();}
 
 function newComp(type,x,y){
@@ -517,6 +520,7 @@ function schDown(e){const r=e.currentTarget.getBoundingClientRect();const mx=e.c
   if(TOOL==='sel'){const c=hitComp(mx,my); SEL=c; if(c){drag={c,gx0:gx,gy0:gy,x0:c.x,y0:c.y};} editPanel(); drawSch(); return;}
   if(TOOL==='del'){const c=hitComp(mx,my); if(c){SCH.comps=SCH.comps.filter(k=>k!==c);if(SEL===c)SEL=null;} else {const w=hitWire(mx,my);if(w)SCH.wires=SCH.wires.filter(k=>k!==w);} editPanel();syncNet();drawSch(); return;}
   if(TOOL==='wire'){ if(!wireStart){wireStart=[gx,gy];} else { if(gx!==wireStart[0]||gy!==wireStart[1])SCH.wires.push({x1:wireStart[0],y1:wireStart[1],x2:gx,y2:gy}); wireStart=null; syncNet();} drawSch(); return;}
+  if(TOOL==='probe'){ if(isNodePoint(gx,gy)){const k=gx+'_'+gy; PROBES.has(k)?PROBES.delete(k):PROBES.add(k);} drawSch(); run(); return;}
   // composant
   const c=newComp(TOOL,gx,gy); SCH.comps.push(c); SEL=c; editPanel(); syncNet(); drawSch();
 }
@@ -525,6 +529,12 @@ function schMove(e){const r=e.currentTarget.getBoundingClientRect();const mx=e.c
   else if(TOOL==='wire'&&wireStart){drawSch();const[gx,gy]=gridOf(mx,my);const x=$('sch').getContext('2d');x.strokeStyle='#94a3b8';x.setLineDash([4,3]);x.beginPath();x.moveTo(px(wireStart[0]),px(wireStart[1]));x.lineTo(px(gx),px(gy));x.stroke();x.setLineDash([]);}
 }
 function schUp(){drag=null;}
+function isNodePoint(gx,gy){   // un point de sonde valide = borne de composant ou extrémité/segment de fil
+  for(const c of SCH.comps)for(const t of termsOf(c))if(t[0]===gx&&t[1]===gy)return true;
+  for(const w of SCH.wires){if((w.x1===gx&&w.y1===gy)||(w.x2===gx&&w.y2===gy))return true;
+    if(dSeg(px(gx),px(gy),px(w.x1),px(w.y1),px(w.x2),px(w.y2))<6)return true;}
+  return false;
+}
 
 // ---- nœuds + netlist ----
 function extractNodes(){
@@ -536,6 +546,8 @@ function extractNodes(){
   SCH.wires.forEach(w=>uni(key(w.x1,w.y1),key(w.x2,w.y2)));
   const rootName={}; let ni=0;
   SCH.comps.filter(c=>c.type==='GND').forEach(c=>{rootName[find(key(c.x,c.y))]='0';});
+  // pré-nommage déterministe (ordre des bornes de composants = ordre genNetlist) → noms cohérents entre netlist et sondes
+  SCH.comps.forEach(c=>{if(c.type==='GND')return;termsOf(c).forEach(t=>{const rt=find(key(t[0],t[1]));if(!(rt in rootName))rootName[rt]='n'+(++ni);});});
   return {nameOf:(x,y)=>{const rt=find(key(x,y)); if(!(rt in rootName))rootName[rt]='n'+(++ni); return rootName[rt];}};
 }
 function srcSpec(c){const s=c.src; return s.kind==='ac'?('AC '+s.mag+(s.ph?(' '+s.ph):'')) : s.kind==='dc'?('DC '+s.dc) : ('SIN('+s.off+' '+s.amp+' '+s.freq+')');}
@@ -583,6 +595,10 @@ function drawSch(){
   x.fillStyle='#0f766e';Object.keys(inc).forEach(k=>{if(inc[k]>=3){const[a,b]=k.split('_').map(Number);x.beginPath();x.arc(px(a),px(b),3.4,0,7);x.fill();}});
   // composants
   SCH.comps.forEach(c=>drawComp(x,c));
+  // sondes (marqueurs oscillo)
+  let pi=0; PROBES.forEach(k=>{const p=k.split('_').map(Number),X=px(p[0]),Y=px(p[1]),col=COLORS[pi%COLORS.length];pi++;
+    x.beginPath();x.arc(X,Y,5.5,0,7);x.fillStyle=col;x.fill();x.lineWidth=1.5;x.strokeStyle='#fff';x.stroke();   // pastille de sonde
+    x.beginPath();x.arc(X,Y,9,0,7);x.strokeStyle=col;x.lineWidth=1.3;x.stroke();});
 }
 function drawComp(x,c){
   const sel=SEL===c, col=sel?'#0d9488':'#334155';
@@ -634,9 +650,9 @@ const I18N={
           en:"<b>How it works —</b> <b>draw</b> the circuit (components + wires, ground = node <b>0</b>) or write the <b>netlist</b>, then run. In <b>frequency</b> mode the <code>AC</code> source is the input and we plot the <b>Bode diagram</b> (gain in dB + phase) of each node. In <b>transient</b> mode we integrate the time response (<code>DC</code> step or <code>SIN</code> sources). The engine solves the circuit by <b>modified nodal analysis</b> at every frequency / time step."},
  'p.circuit':{fr:'Circuit',en:'Circuit'},
  'in.sch':{fr:'✏️ Schéma',en:'✏️ Schematic'},'in.net':{fr:'📝 Netlist',en:'📝 Netlist'},
- 'tool.sel':{fr:'Sélection',en:'Select'},'tool.wire':{fr:'Fil',en:'Wire'},'tool.v':{fr:'Source V',en:'V source'},'tool.i':{fr:'Source I',en:'I source'},'tool.gnd':{fr:'Masse',en:'Ground'},'tool.del':{fr:'Supprimer',en:'Delete'},'tool.rot':{fr:'⟳ Rotation',en:'⟳ Rotate'},'tool.clear':{fr:'Tout effacer',en:'Clear all'},
- 'sch.hint':{fr:"Clique un outil puis le quadrillage pour poser un composant (orientation via ⟳). Outil « Fil » : clic-clic entre deux points. Les bornes qui se touchent (ou reliées par un fil) forment un même nœud. Place une Masse = nœud 0. Sélectionne un composant pour éditer sa valeur.",
-            en:"Click a tool then the grid to drop a component (orientation via ⟳). 'Wire' tool: click-click between two points. Terminals that touch (or joined by a wire) form one node. Place a Ground = node 0. Select a component to edit its value."},
+ 'tool.sel':{fr:'Sélection',en:'Select'},'tool.wire':{fr:'Fil',en:'Wire'},'tool.v':{fr:'Source V',en:'V source'},'tool.i':{fr:'Source I',en:'I source'},'tool.gnd':{fr:'Masse',en:'Ground'},'tool.del':{fr:'Supprimer',en:'Delete'},'tool.rot':{fr:'⟳ Rotation',en:'⟳ Rotate'},'tool.clear':{fr:'Tout effacer',en:'Clear all'},'tool.probe':{fr:'🔍 Sonde',en:'🔍 Probe'},
+ 'sch.hint':{fr:"Clique un outil puis le quadrillage pour poser un composant (orientation via ⟳). Outil « Fil » : clic-clic entre deux points. Les bornes qui se touchent (ou reliées par un fil) forment un même nœud. Place une Masse = nœud 0. Sélectionne un composant pour éditer sa valeur. Outil « 🔍 Sonde » : clique un nœud/fil pour ne tracer que celui-là (re-clic = enlève).",
+            en:"Click a tool then the grid to drop a component (orientation via ⟳). 'Wire' tool: click-click between two points. Terminals that touch (or joined by a wire) form one node. Place a Ground = node 0. Select a component to edit its value. '🔍 Probe' tool: click a node/wire to plot only that one (click again to remove)."},
  'lbl.preset':{fr:'Exemple',en:'Example'},
  'pre.lp':{fr:'Filtre passe-bas RC',en:'RC low-pass filter'},'pre.hp':{fr:'Filtre passe-haut CR',en:'CR high-pass filter'},
  'pre.bp':{fr:'Passe-bande RLC série',en:'Series RLC band-pass'},'pre.res':{fr:'Résonance série — surtension Q',en:'Series resonance — Q overvoltage'},
