@@ -3177,9 +3177,11 @@ function impDrawProfile(){
   const wrap=document.getElementById('imp-prof-wrap');
   if(!impLast){if(wrap)wrap.style.display='none';return;}
   const {E,tissue3d}=impLast;
-  const sar3d=impLast.refOnE||impLast.sar3d;   // courbe CST = SAR de réf. (par couche) si fourni, sinon SAR calculé
   const ax=parseInt(document.getElementById('imp-prof-axis').value);
   const tname=document.getElementById('imp-prof-tissue').value||'Brain';
+  // empilement multicouche → SAR 10 g de réf. CST (par couche) vs TMM 10 g ; sinon SAR point (notre calcul) vs TMM point
+  const useRef10g=(tname==='__stack__') && !!impLast.refOnE;
+  const sar3d=useRef10g?impLast.refOnE:impLast.sar3d;
   const f=parseFloat(document.getElementById('freq').value)||9e8;
   const dims=[E.nx,E.ny,E.nz], step=[E.dx,E.dy,E.dz][ax];
   const at=(ix,iy,iz)=>(ix*E.ny+iy)*E.nz+iz;
@@ -3205,6 +3207,8 @@ function impDrawProfile(){
   const cst=seg.map(p=>({z:Math.abs(p.i-i0)*step, r:p.s/s0}));
   const maxZ=Math.max(cst[cst.length-1].z, step);
   // TMM : dalle semi-infinie. Tissu Cole-Cole OU matériau saisi (σ/ε non dispersif, = liquide équiv. CST)
+  // si la courbe CST est une réf. 10 g (empilement) → on compare au profil 10 g de la TMM (même moyennage)
+  const cst10g = useRef10g;
   const tmmZ=[],tmmR=[]; let deltaF=0,tlabel='';
   if(tname==='__manual__'){
     const sg=parseFloat(document.getElementById('imp-sigma').value), er=parseFloat(document.getElementById('imp-eps').value);
@@ -3215,12 +3219,12 @@ function impDrawProfile(){
   } else if(tname==='__stack__'){
     // empilement multicouche défini dans l'onglet « Couches » → TMM rigoureuse (interfaces, réflexions)
     const stk=(typeof layers!=='undefined'&&layers.length)?layers:[{t:'Skin',d:2},{t:'Fat',d:6},{t:'Skull (Cortical)',d:7},{t:'Brain (Grey Matter)',d:Math.max(maxZ,40)}];
-    const tmm=runTMM(f,1,stk); const ts0=tmm.sarArr[0]||1;
-    for(let k=0;k<tmm.zArr.length;k++){if(tmm.zArr[k]>maxZ)break;tmmZ.push(tmm.zArr[k]);tmmR.push(tmm.sarArr[k]/ts0);}
+    const tmm=runTMM(f,1,stk); const arr=cst10g?tmm.sar10gArr:tmm.sarArr; let amax=0; for(let k=0;k<tmm.zArr.length&&tmm.zArr[k]<=maxZ;k++)amax=Math.max(amax,arr[k]); const ts0=amax||1;
+    for(let k=0;k<tmm.zArr.length;k++){if(tmm.zArr[k]>maxZ)break;tmmZ.push(tmm.zArr[k]);tmmR.push(arr[k]/ts0);}
     deltaF=0; tlabel='empilement : '+stk.map(l=>l.t+' '+l.d+'mm').join(' / ');
   } else {
-    const tmm=runTMM(f,1,[{t:tname,d:Math.max(maxZ+30,60)}]); const ts0=tmm.sarArr[0]||1;
-    for(let k=0;k<tmm.zArr.length;k++){if(tmm.zArr[k]>maxZ)break;tmmZ.push(tmm.zArr[k]);tmmR.push(tmm.sarArr[k]/ts0);}
+    const tmm=runTMM(f,1,[{t:tname,d:Math.max(maxZ+30,60)}]); const arr=cst10g?tmm.sar10gArr:tmm.sarArr; let amax=0; for(let k=0;k<tmm.zArr.length&&tmm.zArr[k]<=maxZ;k++)amax=Math.max(amax,arr[k]); const ts0=amax||1;
+    for(let k=0;k<tmm.zArr.length;k++){if(tmm.zArr[k]>maxZ)break;tmmZ.push(tmm.zArr[k]);tmmR.push(arr[k]/ts0);}
     const lp0=layerParams(f,tname); const alpha=Math.abs(lp0.k.im); deltaF=alpha>0?1/alpha*1000:0;
     tlabel='dalle semi-infinie de '+tname;
   }
@@ -3254,6 +3258,7 @@ function impDrawProfile(){
   x.strokeStyle='#d97706';x.setLineDash([4,3]);x.beginPath();x.moveTo(x1+10,y1+28);x.lineTo(x1+30,y1+28);x.stroke();x.setLineDash([]);x.fillStyle='#334155';x.fillText('CST',x1+34,y1+31);
   const penTxt = (tname==='__stack__') ? 'profil SAR(z) à travers les couches (interfaces + réflexions)' : 'pénétration SAR (1/e) = <b>'+penTMM.toFixed(1)+' mm</b> (δ champ '+deltaF.toFixed(1)+' mm)';
   document.getElementById('imp-prof-note').innerHTML=
+    '<b>Grandeur tracée : '+(cst10g?'SAR moyenné 10 g':'SAR point (σ|E|²/2ρ)')+'</b> (CST '+(cst10g?'= export 10 g':'= calculé')+', TMM au même moyennage). '+
     'TMM : <b>'+tlabel+'</b> à <b>'+(f>=1e9?(f/1e9).toFixed(2)+' GHz':(f/1e6).toFixed(0)+' MHz')+'</b> — '+penTxt+'. '+
     'Pénétration ajustée sur les points CST ≈ <b>'+(penCST>0?penCST.toFixed(1)+' mm':'—')+'</b>. '+
     'Profil = '+(emode==='line'?'<b>ligne centrale</b> (centroïde du tissu, évite les faces latérales)':emode==='plane-repli'?'<b>moyenne par plan</b> (repli : la ligne centrale ne traverse pas un tissu continu ici)':'<b>SAR moyen par plan transverse</b> (robuste à la courbure)')+' vs profondeur. <b>Modèle planaire équivalent.</b> Pour un milieu localement planaire près de la surface (dalle, ligne centrale), l\'accord TMM↔CST est quantitatif. Sur un <b>volume fini</b> (cube, tête), la moyenne par plan est contaminée par les autres faces — préfère la ligne centrale, et garde en tête que loin de la surface le champ 3D s\'écarte du modèle 1D semi-infini.';
