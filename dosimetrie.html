@@ -3183,21 +3183,17 @@ function impDrawProfile(){
   const f=parseFloat(document.getElementById('freq').value)||9e8;
   const dims=[E.nx,E.ny,E.nz], step=[E.dx,E.dy,E.dz][ax];
   const at=(ix,iy,iz)=>(ix*E.ny+iy)*E.nz+iz;
-  const emode=document.getElementById('imp-prof-mode').value;   // 'line' (centrale) | 'plane' (moyenne)
-  const nA=dims[ax]; const line=[];
-  if(emode==='plane'){
-    // SAR moyen par plan transverse (robuste à la courbure / au maillage fragmenté)
-    const sum=new Float64Array(nA), cnt=new Int32Array(nA);
+  let emode=document.getElementById('imp-prof-mode').value;   // 'line' (centrale) | 'plane' (moyenne)
+  const nA=dims[ax];
+  const planeLine=()=>{const L=[],sum=new Float64Array(nA),cnt=new Int32Array(nA);
     for(let ix=0;ix<E.nx;ix++)for(let iy=0;iy<E.ny;iy++)for(let iz=0;iz<E.nz;iz++){const id=at(ix,iy,iz);if(!tissue3d[id])continue;const aI=[ix,iy,iz][ax];sum[aI]+=sar3d[id];cnt[aI]++;}
-    for(let i=0;i<nA;i++)if(cnt[i]>0)line.push({i,s:sum[i]/cnt[i]});
-  } else {
-    // ligne centrale : à travers le centroïde transverse du tissu (évite la contamination par les faces latérales)
-    const oth=[0,1,2].filter(d=>d!==ax); let s1=0,s2=0,nt=0;
+    for(let i=0;i<nA;i++)if(cnt[i]>0)L.push({i,s:sum[i]/cnt[i]});return L;};
+  const centerLine=()=>{const L=[],oth=[0,1,2].filter(d=>d!==ax);let s1=0,s2=0,nt=0;
     for(let ix=0;ix<E.nx;ix++)for(let iy=0;iy<E.ny;iy++)for(let iz=0;iz<E.nz;iz++){if(!tissue3d[at(ix,iy,iz)])continue;const I=[ix,iy,iz];s1+=I[oth[0]];s2+=I[oth[1]];nt++;}
-    if(!nt){wrap.style.display='none';return;}
-    const c1=Math.round(s1/nt),c2=Math.round(s2/nt);
-    for(let i=0;i<nA;i++){const I=[0,0,0];I[ax]=i;I[oth[0]]=c1;I[oth[1]]=c2;const id=at(I[0],I[1],I[2]);if(tissue3d[id])line.push({i,s:sar3d[id]});}
-  }
+    if(!nt)return L; const c1=Math.round(s1/nt),c2=Math.round(s2/nt);
+    for(let i=0;i<nA;i++){const I=[0,0,0];I[ax]=i;I[oth[0]]=c1;I[oth[1]]=c2;const id=at(I[0],I[1],I[2]);if(tissue3d[id])L.push({i,s:sar3d[id]});}return L;};
+  let line = emode==='plane'?planeLine():centerLine();
+  if(emode==='line' && line.length<3){ line=planeLine(); emode='plane-repli'; }   // repli auto si la ligne centrale est trop pauvre
   if(line.length<3){wrap.style.display='none';return;}
   // entrée = voxel tissu de SAR max ; sens vers l'intérieur (auto = côté le plus long)
   let im=0; for(let k=0;k<line.length;k++)if(line[k].s>line[im].s)im=k;
@@ -3260,7 +3256,7 @@ function impDrawProfile(){
   document.getElementById('imp-prof-note').innerHTML=
     'TMM : <b>'+tlabel+'</b> à <b>'+(f>=1e9?(f/1e9).toFixed(2)+' GHz':(f/1e6).toFixed(0)+' MHz')+'</b> — '+penTxt+'. '+
     'Pénétration ajustée sur les points CST ≈ <b>'+(penCST>0?penCST.toFixed(1)+' mm':'—')+'</b>. '+
-    'Profil = '+(emode==='line'?'<b>ligne centrale</b> (centroïde du tissu, évite les faces latérales)':'<b>SAR moyen par plan transverse</b> (robuste à la courbure)')+' vs profondeur. <b>Modèle planaire équivalent.</b> Pour un milieu localement planaire près de la surface (dalle, ligne centrale), l\'accord TMM↔CST est quantitatif. Sur un <b>volume fini</b> (cube, tête), la moyenne par plan est contaminée par les autres faces — préfère la ligne centrale, et garde en tête que loin de la surface le champ 3D s\'écarte du modèle 1D semi-infini.';
+    'Profil = '+(emode==='line'?'<b>ligne centrale</b> (centroïde du tissu, évite les faces latérales)':emode==='plane-repli'?'<b>moyenne par plan</b> (repli : la ligne centrale ne traverse pas un tissu continu ici)':'<b>SAR moyen par plan transverse</b> (robuste à la courbure)')+' vs profondeur. <b>Modèle planaire équivalent.</b> Pour un milieu localement planaire près de la surface (dalle, ligne centrale), l\'accord TMM↔CST est quantitatif. Sur un <b>volume fini</b> (cube, tête), la moyenne par plan est contaminée par les autres faces — préfère la ligne centrale, et garde en tête que loin de la surface le champ 3D s\'écarte du modèle 1D semi-infini.';
   wrap.style.display='';
 }
 
