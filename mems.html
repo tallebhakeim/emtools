@@ -53,6 +53,7 @@ th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}th:fi
     <button id="tab-comb" onclick="showTab('comb')" data-i18n="t.comb">2 · Peigne interdigité</button>
     <button id="tab-dyn" onclick="showTab('dyn')" data-i18n="t.dyn">3 · Dynamique (résonateur)</button>
     <button id="tab-des" onclick="showTab('des')" data-i18n="t.des">4 · Exemples de design</button>
+    <button id="tab-touch" onclick="showTab('touch')" data-i18n="t.touch">5 · Écran tactile capacitif</button>
   </div>
 
   <!-- ════ 1 · PULL-IN ════ -->
@@ -155,6 +156,34 @@ th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}th:fi
           <div class="metrics" id="ds-metrics"></div>
           <div id="ds-verdict"></div>
           <p class="note" id="ds-note"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ 5 · ÉCRAN TACTILE ════ -->
+  <div id="pane-touch" style="display:none">
+    <div class="card">
+      <h2 data-i18n="ts.h">L'écran tactile capacitif (PCAP)</h2>
+      <p class="lead" data-i18n="ts.lead">Le même principe électrostatique que les MEMS, à plat. Une grille d'électrodes transparentes (ITO) ; le doigt — conducteur relié à la masse par le corps — perturbe les capacités. Deux familles : <b>auto-capacité</b> (chaque électrode mesure sa capacité vers la masse : le doigt l'<b>augmente</b>) et <b>mutuelle</b> (à chaque croisement ligne(TX)/colonne(RX), le doigt <b>vole</b> des lignes de champ et <b>diminue</b> la capacité mutuelle C_m). La mutuelle donne une vraie carte 2D → multi-touch sans ambiguïté.</p>
+      <div class="eq">Q = C·V &nbsp;→&nbsp; mesure de <b>ΔQ = ΔC·V_drive</b> par intégration de charge. &nbsp; Auto : ΔC &gt; 0 (doigt→masse). &nbsp; Mutuelle : ΔC_m &lt; 0 (couplage volé).</div>
+      <div class="grid2">
+        <div>
+          <label data-i18n="ts.mode">Méthode de détection</label>
+          <select id="ts-mode" onchange="touch()">
+            <option value="mutual" selected data-i18n="ts.mutual">Capacité mutuelle (vrai multi-touch)</option>
+            <option value="self" data-i18n="ts.self">Auto-capacité (lignes + colonnes)</option>
+          </select>
+          <label data-i18n="ts.cm">Capacité de nœud C_m au repos (pF)</label>
+          <input type="number" id="ts-cm" value="1.5" step="0.1" oninput="touch()">
+          <label><span data-i18n="ts.v">Tension de pilotage V_drive</span> <b class="muted"></b></label>
+          <div class="rng"><input type="range" id="ts-v" min="1" max="10" value="5" step="0.5" oninput="touch()"><b id="ts-v-b"></b></div>
+          <div class="metrics" id="ts-metrics"></div>
+          <p class="note" data-i18n="ts.note">Auto-capacité : avec ≥2 doigts, le système ne mesure que les profils de lignes et de colonnes → il ne sait pas distinguer les vrais points des intersections « fantômes » (ghosting). La capacité mutuelle mesure chaque croisement indépendamment → pas de fantômes. C'est pourquoi les écrans modernes sont en mutuelle.</p>
+        </div>
+        <div>
+          <canvas id="cv-touch" width="440" height="300" onclick="tfClick(event)" style="cursor:pointer"></canvas>
+          <div class="cap" data-i18n="ts.cap">Cliquez pour poser/retirer un doigt. Cercle orange = doigt réel ; cercle rouge « ? » = fantôme (auto-capacité).</div>
         </div>
       </div>
     </div>
@@ -306,15 +335,63 @@ function design(){
 }
 function v(id){return document.getElementById(id).value;}
 
+// ════ 5 · ÉCRAN TACTILE ════
+const GN=7, GM=5; let TFING=[{i:1,j:1},{i:5,j:3}];
+function touch(){
+  const mode=document.getElementById('ts-mode').value, V=parseFloat(document.getElementById('ts-v').value), Cm=parseFloat(document.getElementById('ts-cm').value)*1e-12;
+  document.getElementById('ts-v-b').textContent=V.toFixed(1)+" V";
+  const frac=0.18, dCm=frac*Cm, dQ=dCm*V, sg=0.55;
+  const cv=document.getElementById('cv-touch'),c=cv.getContext('2d');c.clearRect(0,0,cv.width,cv.height);
+  const W=cv.width,H=cv.height,mx=72,my=58,dx=(W-mx-26)/(GN-1),dy=(H-my-30)/(GM-1);
+  const NX=i=>mx+i*dx, NY=j=>my+j*dy, G=d2=>Math.exp(-d2/(2*sg*sg));
+  // grille TX (lignes, orange) / RX (colonnes, bleu)
+  c.lineWidth=1;
+  for(let j=0;j<GM;j++){c.strokeStyle="rgba(224,136,75,0.22)";c.beginPath();c.moveTo(NX(0),NY(j));c.lineTo(NX(GN-1),NY(j));c.stroke();}
+  for(let i=0;i<GN;i++){c.strokeStyle="rgba(111,182,214,0.22)";c.beginPath();c.moveTo(NX(i),NY(0));c.lineTo(NX(i),NY(GM-1));c.stroke();}
+  const rowSig=[],colSig=[];
+  for(let j=0;j<GM;j++)rowSig[j]=TFING.reduce((s,f)=>s+G((j-f.j)*(j-f.j)),0);
+  for(let i=0;i<GN;i++)colSig[i]=TFING.reduce((s,f)=>s+G((i-f.i)*(i-f.i)),0);
+  const isF=(i,j)=>TFING.some(f=>f.i===i&&f.j===j);
+  let ghosts=0;
+  for(let i=0;i<GN;i++)for(let j=0;j<GM;j++){
+    let t=mode==='mutual'?TFING.reduce((s,f)=>s+G((i-f.i)*(i-f.i)+(j-f.j)*(j-f.j)),0):rowSig[j]*colSig[i];
+    t=Math.min(1,t);const x=NX(i),y=NY(j);
+    c.fillStyle=`rgba(77,182,164,${0.92*t})`;c.beginPath();c.arc(x,y,9,0,2*Math.PI);c.fill();
+    c.strokeStyle="#2d3742";c.lineWidth=1;c.stroke();
+    if(mode==='self'&&t>0.5&&!isF(i,j)&&TFING.length>=2){ghosts++;c.strokeStyle="#e05a5a";c.setLineDash([3,2]);c.lineWidth=2;c.beginPath();c.arc(x,y,13,0,2*Math.PI);c.stroke();c.setLineDash([]);c.fillStyle="#e05a5a";c.font="bold 12px sans-serif";c.textAlign="center";c.fillText("?",x,y+4);}
+  }
+  TFING.forEach(f=>{c.strokeStyle="#e0884b";c.lineWidth=2.5;c.beginPath();c.arc(NX(f.i),NY(f.j),14,0,2*Math.PI);c.stroke();});
+  if(mode==='self'){
+    const mr=Math.max(1,...rowSig,...colSig);
+    for(let j=0;j<GM;j++){const L=rowSig[j]/mr*38;c.fillStyle="#e0884b";c.fillRect(mx-20-L,NY(j)-4,L,8);}
+    for(let i=0;i<GN;i++){const L=colSig[i]/mr*30;c.fillStyle="#6fb6d6";c.fillRect(NX(i)-4,my-14-L,8,L);}
+    c.fillStyle="#e0884b";c.font="10px sans-serif";c.textAlign="left";c.fillText(T('ts.rows'),4,my-30);c.fillStyle="#6fb6d6";c.fillText(T('ts.cols'),4,my-18);
+  }
+  document.getElementById('ts-metrics').innerHTML=
+    met("C_m",fmtSI(Cm,"F"),"")+met("ΔC"+(mode==='mutual'?"_m":"")+" "+T('ts.per'),fmtSI(dCm,"F"),mode==='mutual'?"↓":"↑")+met("ΔQ",fmtSI(dQ,"C"),"")+met(T('ts.fing'),TFING.length,"")+
+    (mode==='self'&&ghosts>0?met(T('ts.ghost'),ghosts,"",'bad'):(mode==='mutual'&&TFING.length>=2?met(T('ts.ghost'),"0","",'good'):''));
+}
+function tfClick(ev){
+  const cv=document.getElementById('cv-touch'),r=cv.getBoundingClientRect();
+  const x=(ev.clientX-r.left)*cv.width/r.width, y=(ev.clientY-r.top)*cv.height/r.height;
+  const W=cv.width,H=cv.height,mx=72,my=58,dx=(W-mx-26)/(GN-1),dy=(H-my-30)/(GM-1);
+  let bi=0,bj=0,bd=1e9;
+  for(let i=0;i<GN;i++)for(let j=0;j<GM;j++){const d=Math.hypot(x-(mx+i*dx),y-(my+j*dy));if(d<bd){bd=d;bi=i;bj=j;}}
+  if(bd>Math.min(dx,dy)*0.7)return;
+  const k=TFING.findIndex(f=>f.i===bi&&f.j===bj);
+  if(k>=0)TFING.splice(k,1);else{if(TFING.length>=4)TFING.shift();TFING.push({i:bi,j:bj});}
+  touch();
+}
+
 // ════ ONGLETS ════
-function showTab(t){['pull','comb','dyn','des'].forEach(p=>{document.getElementById('pane-'+p).style.display=p===t?'block':'none';document.getElementById('tab-'+p).classList.toggle('on',p===t);});
-  if(t==='pull')pull(); if(t==='comb')comb(); if(t==='dyn')dyn(); if(t==='des'){document.getElementById('ds-inputs').innerHTML='';design();}}
+function showTab(t){['pull','comb','dyn','des','touch'].forEach(p=>{document.getElementById('pane-'+p).style.display=p===t?'block':'none';document.getElementById('tab-'+p).classList.toggle('on',p===t);});
+  if(t==='pull')pull(); if(t==='comb')comb(); if(t==='dyn')dyn(); if(t==='des'){document.getElementById('ds-inputs').innerHTML='';design();} if(t==='touch')touch();}
 
 // ════ I18N ════
 const I18N={
  title:{fr:"MEMS électrostatiques",en:"Electrostatic MEMS"},
- sub:{fr:"pull-in, peigne, dynamique, exemples de design",en:"pull-in, comb drive, dynamics, design examples"},
- 't.pull':{fr:"1 · Actionneur plan & pull-in",en:"1 · Parallel plate & pull-in"},'t.comb':{fr:"2 · Peigne interdigité",en:"2 · Comb drive"},'t.dyn':{fr:"3 · Dynamique (résonateur)",en:"3 · Dynamics (resonator)"},'t.des':{fr:"4 · Exemples de design",en:"4 · Design examples"},
+ sub:{fr:"pull-in, peigne, dynamique, design, écran tactile",en:"pull-in, comb drive, dynamics, design, touchscreen"},
+ 't.pull':{fr:"1 · Actionneur plan & pull-in",en:"1 · Parallel plate & pull-in"},'t.comb':{fr:"2 · Peigne interdigité",en:"2 · Comb drive"},'t.dyn':{fr:"3 · Dynamique (résonateur)",en:"3 · Dynamics (resonator)"},'t.des':{fr:"4 · Exemples de design",en:"4 · Design examples"},'t.touch':{fr:"5 · Écran tactile capacitif",en:"5 · Capacitive touchscreen"},
  'pl.h':{fr:"L'actionneur à plaques parallèles et l'instabilité de pull-in",en:"The parallel-plate actuator and pull-in instability"},
  'pl.lead':{fr:"Deux électrodes (surface A, entrefer g) attirées par la force électrostatique F = ε₀A·V²/(2g²). Une plaque est suspendue par un ressort k. En montant V, la plaque s'approche — mais la force croît en 1/g² plus vite que le rappel k·x : au-delà d'un tiers de l'entrefer (x = g₀/3), c'est instable → la plaque <b>claque</b> (pull-in). C'est <b>le</b> phénomène fondateur des MEMS électrostatiques.",en:"Two electrodes (area A, gap g) attract via the electrostatic force F = ε₀A·V²/(2g²). One plate is suspended on a spring k. As V rises, the plate approaches — but the force grows as 1/g², faster than the restoring k·x: beyond one third of the gap (x = g₀/3) it becomes unstable → the plate <b>snaps</b> (pull-in). This is <b>the</b> founding phenomenon of electrostatic MEMS."},
  'pl.area':{fr:"Surface des plaques L × W (µm)",en:"Plate area L × W (µm)"},'pl.gap':{fr:"Entrefer initial g₀ (µm)",en:"Initial gap g₀ (µm)"},'pl.k':{fr:"Raideur du ressort k (N/m)",en:"Spring stiffness k (N/m)"},'pl.v':{fr:"Tension appliquée V",en:"Applied voltage V"},
@@ -345,7 +422,14 @@ const I18N={
  'ds.rfn':{fr:"k requis = 27·ε₀·A·V²/(8·g³). Une raideur plus faible → tension de commande plus basse, mais collage (stiction) plus probable. La course utile avant claquage n'est que g/3.",en:"Required k = 27·ε₀·A·V²/(8·g³). Lower stiffness → lower drive voltage, but stiction more likely. Usable travel before snap is only g/3."},
  'ds.ftarget':{fr:"Fréquence visée (kHz)",en:"Target frequency (kHz)"},'ds.ringdown':{fr:"Temps de ring-down",en:"Ring-down time"},
  'ds.resv':{fr:"On choisit k pour atteindre f₀ avec la masse donnée. Un Q élevé (sous vide) affine la résonance mais ralentit l'établissement.",en:"Choose k to reach f₀ for the given mass. High Q (vacuum) sharpens the resonance but slows settling."},
- 'ds.resn':{fr:"k = m·(2πf₀)². Bande passante = f₀/Q : un résonateur d'horloge vise Q très grand (raie fine, faible bruit de phase) ; le ring-down ≈ Q/(π f₀) peut atteindre des secondes.",en:"k = m·(2πf₀)². Bandwidth = f₀/Q: a clock resonator targets very high Q (narrow line, low phase noise); ring-down ≈ Q/(π f₀) can reach seconds."}
+ 'ds.resn':{fr:"k = m·(2πf₀)². Bande passante = f₀/Q : un résonateur d'horloge vise Q très grand (raie fine, faible bruit de phase) ; le ring-down ≈ Q/(π f₀) peut atteindre des secondes.",en:"k = m·(2πf₀)². Bandwidth = f₀/Q: a clock resonator targets very high Q (narrow line, low phase noise); ring-down ≈ Q/(π f₀) can reach seconds."},
+ 'ts.h':{fr:"L'écran tactile capacitif (PCAP)",en:"The capacitive touchscreen (PCAP)"},
+ 'ts.lead':{fr:"Le même principe électrostatique que les MEMS, à plat. Une grille d'électrodes transparentes (ITO) ; le doigt — conducteur relié à la masse par le corps — perturbe les capacités. Deux familles : <b>auto-capacité</b> (chaque électrode mesure sa capacité vers la masse : le doigt l'<b>augmente</b>) et <b>mutuelle</b> (à chaque croisement ligne(TX)/colonne(RX), le doigt <b>vole</b> des lignes de champ et <b>diminue</b> la capacité mutuelle C_m). La mutuelle donne une vraie carte 2D → multi-touch sans ambiguïté.",en:"The same electrostatic principle as MEMS, laid flat. A grid of transparent electrodes (ITO); the finger — a conductor tied to ground through the body — perturbs the capacitances. Two families: <b>self-capacitance</b> (each electrode measures its capacitance to ground: the finger <b>increases</b> it) and <b>mutual</b> (at each row(TX)/column(RX) crossing, the finger <b>steals</b> field lines and <b>decreases</b> the mutual capacitance C_m). Mutual gives a true 2D map → unambiguous multi-touch."},
+ 'ts.mode':{fr:"Méthode de détection",en:"Sensing method"},'ts.mutual':{fr:"Capacité mutuelle (vrai multi-touch)",en:"Mutual capacitance (true multi-touch)"},'ts.self':{fr:"Auto-capacité (lignes + colonnes)",en:"Self-capacitance (rows + columns)"},
+ 'ts.cm':{fr:"Capacité de nœud C_m au repos (pF)",en:"Resting node capacitance C_m (pF)"},'ts.v':{fr:"Tension de pilotage V_drive",en:"Drive voltage V_drive"},
+ 'ts.per':{fr:"par doigt",en:"per touch"},'ts.fing':{fr:"Doigts",en:"Fingers"},'ts.ghost':{fr:"Fantômes",en:"Ghosts"},'ts.rows':{fr:"profil lignes →",en:"row profile →"},'ts.cols':{fr:"profil colonnes ↑",en:"col profile ↑"},
+ 'ts.cap':{fr:"Cliquez pour poser/retirer un doigt. Cercle orange = doigt réel ; cercle rouge « ? » = fantôme (auto-capacité).",en:"Click to add/remove a finger. Orange ring = real touch; red \"?\" ring = ghost (self-capacitance)."},
+ 'ts.note':{fr:"Auto-capacité : avec ≥2 doigts, le système ne mesure que les profils de lignes et de colonnes → il ne sait pas distinguer les vrais points des intersections « fantômes » (ghosting). La capacité mutuelle mesure chaque croisement indépendamment → pas de fantômes. C'est pourquoi les écrans modernes sont en mutuelle.",en:"Self-capacitance: with ≥2 fingers, the system only measures row and column profiles → it cannot tell real touches from the \"ghost\" intersections. Mutual capacitance measures every crossing independently → no ghosts. That is why modern screens use mutual sensing."}
 };
 let LANG='fr';
 function T(k){return I18N[k]?I18N[k][LANG]:'';}
