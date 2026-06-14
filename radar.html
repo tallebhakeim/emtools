@@ -57,6 +57,8 @@ b.hl{color:var(--acc2)}
     <button id="tab-range" class="on" onclick="showTab('range')" data-i18n="t.range">1 · Portée</button>
     <button id="tab-doppler" onclick="showTab('doppler')" data-i18n="t.doppler">2 · Doppler (vitesse)</button>
     <button id="tab-rcs" onclick="showTab('rcs')" data-i18n="t.rcs">3 · SER (surface radar)</button>
+    <button id="tab-pattern" onclick="showTab('pattern')" data-i18n="t.pattern">4 · Diagramme SER</button>
+    <button id="tab-auto" onclick="showTab('auto')" data-i18n="t.auto">5 · Auto 77 GHz</button>
   </div>
 
   <!-- ════════ 1 · PORTÉE ════════ -->
@@ -156,6 +158,54 @@ b.hl{color:var(--acc2)}
         <div>
           <h3 data-i18n="rc.tab">Ordres de grandeur (bande X)</h3>
           <table id="rc-table"></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ 4 · DIAGRAMME SER (lancer de rayons) ════════ -->
+  <div id="pane-pattern" style="display:none">
+    <div class="card">
+      <h2 data-i18n="pt.h">Diagramme de SER selon l'angle de vue (lancer de rayons)</h2>
+      <p class="lead" data-i18n="pt.lead">La SER dépend énormément de l'<b>angle</b> sous lequel on voit la cible. Par <b>optique physique</b> (chaque facette renvoie l'onde dans la direction spéculaire), on calcule σ(θ) sur 360°. C'est le principe de la <b>furtivité</b> : incliner les facettes pour que rien ne reparte vers le radar de face.</p>
+      <div class="grid2">
+        <div>
+          <label data-i18n="pt.shape">Cible</label>
+          <select id="pshape" onchange="pattern()">
+            <option value="plate" data-i18n="ps.plate">Plaque plane (face au radar)</option>
+            <option value="box" selected data-i18n="ps.box">Caisson rectangulaire (voiture)</option>
+            <option value="circle" data-i18n="ps.circle">Cylindre / convexe</option>
+            <option value="stealth" data-i18n="ps.stealth">Avion furtif (facettes inclinées)</option>
+          </select>
+          <label><span data-i18n="pt.size">Taille de la cible (en λ)</span> <b class="muted" id="psize-v"></b></label>
+          <div class="rng"><input type="range" id="psize" min="2" max="30" value="10" step="1" oninput="pattern()"><b id="psize-b"></b></div>
+          <div class="metrics" id="pt-metrics"></div>
+          <p class="note" data-i18n="pt.note">Le radar regarde depuis la droite (θ=0 = face avant). <b>Plaque</b> → un lobe énorme de face. <b>Caisson</b> → pics sur les 4 faces (d'où la forte SER des voitures). <b>Convexe</b> → renvoi uniforme. <b>Furtif</b> → les lobes sont rejetés sur les côtés, la SER de face s'effondre.</p>
+        </div>
+        <div>
+          <canvas id="cv-pattern" width="360" height="360"></canvas>
+          <div class="cap" data-i18n="pt.cap">Diagramme polaire σ(θ) en dB (0 dB = max) ; silhouette de la cible au centre, radar →</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ 5 · AUTO 77 GHz ════════ -->
+  <div id="pane-auto" style="display:none">
+    <div class="card">
+      <h2 data-i18n="au.h">Radar automobile 77 GHz (anticollision)</h2>
+      <p class="lead" data-i18n="au.lead">Les radars 76–81 GHz équipent les aides à la conduite : régulateur adaptatif (ACC), freinage d'urgence (AEB), angle mort. À 77 GHz, λ ≈ 3,9 mm → antennes minuscules et bonne résolution. La portée utile dépend de la SER de la cible (un piéton renvoie 100× moins qu'un camion).</p>
+      <div class="grid2">
+        <div>
+          <label data-i18n="au.pt">Puissance émise (dBm)</label><input type="number" id="au-pt" value="12" step="1" oninput="autoCalc()">
+          <label data-i18n="au.gain">Gain d'antenne (dBi)</label><input type="number" id="au-gain" value="22" step="1" oninput="autoCalc()">
+          <label data-i18n="au.pmin">Sensibilité P_min (dBm)</label><input type="number" id="au-pmin" value="-110" step="5" oninput="autoCalc()">
+          <div class="metrics" id="au-metrics"></div>
+          <p class="note" data-i18n="au.note">Scénarios typiques : ACC suit une voiture jusqu'à ~150–250 m ; l'AEB doit voir un piéton à temps (~60 m à 50 km/h laisse ~4 s). Réglages par défaut ≈ un radar longue portée 77 GHz.</p>
+        </div>
+        <div>
+          <h3 data-i18n="au.tab">Distance de détection par cible</h3>
+          <table id="au-table"></table>
         </div>
       </div>
     </div>
@@ -263,18 +313,80 @@ function rcs(){
   document.getElementById('rc-table').innerHTML=html;
 }
 
+// ════════ 4 · DIAGRAMME SER (optique physique 2D) ════════
+function shapeVerts(name){
+  if(name==='plate')return [[0,-0.5],[0.04,-0.5],[0.04,0.5],[0,0.5]];
+  if(name==='box')return [[-0.7,-0.35],[0.7,-0.35],[0.7,0.35],[-0.7,0.35]];
+  if(name==='circle'){const v=[];for(let i=0;i<48;i++){const a=2*Math.PI*i/48;v.push([0.5*Math.cos(a),0.5*Math.sin(a)]);}return v;}
+  return [[0.9,0],[0.1,0.35],[-0.7,0.18],[-0.7,-0.18],[0.1,-0.35]]; // furtif
+}
+function pattern(){
+  const name=document.getElementById('pshape').value, sizeLam=+document.getElementById('psize').value;
+  document.getElementById('psize-b').textContent=sizeLam+" λ";
+  const V=shapeVerts(name); let mx=0; for(const p of V)mx=Math.max(mx,Math.abs(p[0]),Math.abs(p[1]));
+  const sc=sizeLam/(2*mx), k=2*Math.PI;
+  const segs=[]; for(let i=0;i<V.length;i++){const A=V[i],B=V[(i+1)%V.length];
+    const Ax=A[0]*sc,Ay=A[1]*sc,Bx=B[0]*sc,By=B[1]*sc,dx=Bx-Ax,dy=By-Ay,L=Math.hypot(dx,dy); if(L<1e-9)continue;
+    const tx=dx/L,ty=dy/L; segs.push({L,tx,ty,nx:ty,ny:-tx,Mx:(Ax+Bx)/2,My:(Ay+By)/2});}
+  const Nθ=360, P=new Float64Array(Nθ); let pmax=1e-12;
+  for(let i=0;i<Nθ;i++){const th=2*Math.PI*i/Nθ,kx=Math.cos(th),ky=Math.sin(th); let sr=0,si=0;
+    for(const s of segs){const nk=s.nx*kx+s.ny*ky; if(nk<=0)continue;
+      const tk=s.tx*kx+s.ty*ky, arg=k*s.L*tk, sinc=Math.abs(arg)<1e-6?1:Math.sin(arg)/arg, amp=nk*s.L*sinc, ph=2*k*(s.Mx*kx+s.My*ky);
+      sr+=amp*Math.cos(ph); si+=amp*Math.sin(ph);}
+    P[i]=sr*sr+si*si; if(P[i]>pmax)pmax=P[i];}
+  const cv=document.getElementById('cv-pattern'),x=cv.getContext('2d');x.clearRect(0,0,cv.width,cv.height);
+  const cx=cv.width/2,cy=cv.height/2,rad=cv.width/2-26,FL=40;
+  x.fillStyle="#6b7682";x.font="10px sans-serif";x.textAlign="center";
+  for(const db of [0,-10,-20,-30]){const rr=(db+FL)/FL*rad;x.strokeStyle="#243039";x.beginPath();x.arc(cx,cy,rr,0,2*Math.PI);x.stroke();x.fillText(db+"dB",cx,cy-rr-2);}
+  for(let a=0;a<360;a+=30){x.strokeStyle="#1c242d";x.beginPath();x.moveTo(cx,cy);x.lineTo(cx+rad*Math.cos(a*Math.PI/180),cy-rad*Math.sin(a*Math.PI/180));x.stroke();}
+  x.strokeStyle="#4db6a4";x.lineWidth=2;x.beginPath();
+  for(let i=0;i<=Nθ;i++){const ii=i%Nθ,db=Math.max(-FL,10*Math.log10(P[ii]/pmax)),rr=(db+FL)/FL*rad,th=2*Math.PI*ii/Nθ,px=cx+rr*Math.cos(th),py=cy-rr*Math.sin(th);i?x.lineTo(px,py):x.moveTo(px,py);}
+  x.closePath();x.stroke();
+  x.strokeStyle="#e0884b";x.lineWidth=1.5;x.beginPath();const ss=rad*0.3/mx;
+  V.forEach((p,i)=>{const px=cx+p[0]*ss,py=cy-p[1]*ss;i?x.lineTo(px,py):x.moveTo(px,py);});x.closePath();x.stroke();
+  x.strokeStyle="#9aa7c9";x.fillStyle="#9aa7c9";x.lineWidth=1.5;x.beginPath();x.moveTo(cx+rad+20,cy);x.lineTo(cx+rad+4,cy);x.stroke();x.beginPath();x.moveTo(cx+rad+10,cy-4);x.lineTo(cx+rad+4,cy);x.lineTo(cx+rad+10,cy+4);x.fill();
+  x.textAlign="right";x.fillText("radar →",cx+rad+18,cy-7);
+  const frontDB=10*Math.log10(P[0]/pmax);
+  document.getElementById('pt-metrics').innerHTML=met(T('pt.front'),frontDB.toFixed(0),"dB")+met(T('pt.red'),(-frontDB).toFixed(0),"dB",(-frontDB)>15?'':'');
+}
+
+// ════════ 5 · AUTO 77 GHz ════════
+const ROAD=[["pedestrian",0.5],["cyclist",2],["motorbike",3],["car",10],["truck",100]];
+function autoCalc(){
+  const Pt=Math.pow(10,((+document.getElementById('au-pt').value)-30)/10), G=Math.pow(10,(+document.getElementById('au-gain').value)/10);
+  const f=77e9, lam=C0/f, PminW=Math.pow(10,((+document.getElementById('au-pmin').value)-30)/10);
+  const Rof=sig=>Math.pow(Pt*G*G*lam*lam*sig/Math.pow(4*Math.PI,3)/PminW,0.25);
+  document.getElementById('au-metrics').innerHTML=met("λ @ 77 GHz",(lam*1000).toFixed(2),"mm")+met(T('au.car'),Rof(10).toFixed(0),"m");
+  let html='<tr><th>'+T('rc.target')+'</th><th>σ (m²)</th><th>'+T('au.dist')+'</th></tr>';
+  for(const t of ROAD)html+=`<tr><td>${T('rct.'+t[0])}</td><td>${t[1]}</td><td>${Rof(t[1]).toFixed(0)} m</td></tr>`;
+  document.getElementById('au-table').innerHTML=html;
+}
+
 // ════════ ONGLETS ════════
 function showTab(t){
-  ['range','doppler','rcs'].forEach(p=>{document.getElementById('pane-'+p).style.display=p===t?'block':'none';document.getElementById('tab-'+p).classList.toggle('on',p===t);});
+  ['range','doppler','rcs','pattern','auto'].forEach(p=>{document.getElementById('pane-'+p).style.display=p===t?'block':'none';document.getElementById('tab-'+p).classList.toggle('on',p===t);});
   if(dopAnim&&t!=='doppler'){cancelAnimationFrame(dopAnim);dopAnim=null;}
-  if(t==='range')range_(); if(t==='doppler')doppler(); if(t==='rcs')rcs();
+  if(t==='range')range_(); if(t==='doppler')doppler(); if(t==='rcs')rcs(); if(t==='pattern')pattern(); if(t==='auto')autoCalc();
 }
 
 // ════════ I18N ════════
 const I18N={
  title:{fr:"Radar — détecter un objet",en:"Radar — detecting a target"},
  sub:{fr:"portée, effet Doppler, surface équivalente radar",en:"range, Doppler effect, radar cross section"},
- 't.range':{fr:"1 · Portée",en:"1 · Range"},'t.doppler':{fr:"2 · Doppler (vitesse)",en:"2 · Doppler (speed)"},'t.rcs':{fr:"3 · SER (surface radar)",en:"3 · RCS (radar cross section)"},
+ 't.range':{fr:"1 · Portée",en:"1 · Range"},'t.doppler':{fr:"2 · Doppler (vitesse)",en:"2 · Doppler (speed)"},'t.rcs':{fr:"3 · SER (surface radar)",en:"3 · RCS (radar cross section)"},'t.pattern':{fr:"4 · Diagramme SER",en:"4 · RCS pattern"},'t.auto':{fr:"5 · Auto 77 GHz",en:"5 · Automotive 77 GHz"},
+ 'pt.h':{fr:"Diagramme de SER selon l'angle de vue (lancer de rayons)",en:"RCS pattern vs aspect angle (ray tracing)"},
+ 'pt.lead':{fr:"La SER dépend énormément de l'<b>angle</b> sous lequel on voit la cible. Par <b>optique physique</b> (chaque facette renvoie l'onde dans la direction spéculaire), on calcule σ(θ) sur 360°. C'est le principe de la <b>furtivité</b> : incliner les facettes pour que rien ne reparte vers le radar de face.",en:"RCS depends strongly on the <b>aspect angle</b>. Using <b>physical optics</b> (each facet reflects specularly), we compute σ(θ) over 360°. This is the principle of <b>stealth</b>: tilt the facets so nothing returns to the radar head-on."},
+ 'pt.shape':{fr:"Cible",en:"Target"},'pt.size':{fr:"Taille de la cible (en λ)",en:"Target size (in λ)"},
+ 'ps.plate':{fr:"Plaque plane (face au radar)",en:"Flat plate (facing the radar)"},'ps.box':{fr:"Caisson rectangulaire (voiture)",en:"Rectangular box (car)"},'ps.circle':{fr:"Cylindre / convexe",en:"Cylinder / convex"},'ps.stealth':{fr:"Avion furtif (facettes inclinées)",en:"Stealth aircraft (tilted facets)"},
+ 'pt.note':{fr:"Le radar regarde depuis la droite (θ=0 = face avant). <b>Plaque</b> → un lobe énorme de face. <b>Caisson</b> → pics sur les 4 faces (forte SER des voitures). <b>Convexe</b> → renvoi uniforme. <b>Furtif</b> → les lobes sont rejetés sur les côtés, la SER de face s'effondre.",en:"The radar looks from the right (θ=0 = front). <b>Plate</b> → one huge frontal lobe. <b>Box</b> → spikes on all 4 faces (cars' high RCS). <b>Convex</b> → uniform return. <b>Stealth</b> → lobes pushed to the sides, frontal RCS collapses."},
+ 'pt.cap':{fr:"Diagramme polaire σ(θ) en dB (0 dB = max) ; silhouette de la cible au centre, radar →",en:"Polar plot σ(θ) in dB (0 dB = max); target outline at centre, radar →"},
+ 'pt.front':{fr:"SER de face (θ=0)",en:"Frontal RCS (θ=0)"},'pt.red':{fr:"Réduction de face",en:"Frontal reduction"},
+ 'au.h':{fr:"Radar automobile 77 GHz (anticollision)",en:"Automotive 77 GHz radar (collision avoidance)"},
+ 'au.lead':{fr:"Les radars 76–81 GHz équipent les aides à la conduite : régulateur adaptatif (ACC), freinage d'urgence (AEB), angle mort. À 77 GHz, λ ≈ 3,9 mm → antennes minuscules et bonne résolution. La portée utile dépend de la SER de la cible (un piéton renvoie 100× moins qu'un camion).",en:"76–81 GHz radars power driver assistance: adaptive cruise control (ACC), emergency braking (AEB), blind spot. At 77 GHz, λ ≈ 3.9 mm → tiny antennas and good resolution. Useful range depends on the target RCS (a pedestrian returns 100× less than a truck)."},
+ 'au.pt':{fr:"Puissance émise (dBm)",en:"Transmit power (dBm)"},'au.gain':{fr:"Gain d'antenne (dBi)",en:"Antenna gain (dBi)"},'au.pmin':{fr:"Sensibilité P_min (dBm)",en:"Sensitivity P_min (dBm)"},
+ 'au.car':{fr:"Portée voiture",en:"Car range"},'au.dist':{fr:"Distance détectée",en:"Detection range"},'au.tab':{fr:"Distance de détection par cible",en:"Detection range per target"},
+ 'au.note':{fr:"Scénarios typiques : ACC suit une voiture jusqu'à ~150–250 m ; l'AEB doit voir un piéton à temps (~60 m à 50 km/h laisse ~4 s). Réglages par défaut ≈ un radar longue portée 77 GHz.",en:"Typical scenarios: ACC tracks a car up to ~150–250 m; AEB must see a pedestrian in time (~60 m at 50 km/h gives ~4 s). Defaults ≈ a long-range 77 GHz radar."},
+ 'rct.pedestrian':{fr:"Piéton",en:"Pedestrian"},'rct.cyclist':{fr:"Cycliste",en:"Cyclist"},'rct.motorbike':{fr:"Moto",en:"Motorbike"},'rct.truck':{fr:"Camion",en:"Truck"},
  'rg.h':{fr:"L'équation du radar : jusqu'où voit-on une cible ?",en:"The radar equation: how far can we see a target?"},
  'rg.lead':{fr:"Le radar émet une puissance P<sub>t</sub>, l'antenne la concentre (gain G), l'onde voyage jusqu'à la cible (distance R), une fraction est réfléchie selon la <b>SER σ</b>, puis revient. La puissance reçue chute en <b>1/R⁴</b> : doubler la portée demande <b>16×</b> plus de puissance. La cible est détectée tant que P<sub>r</sub> ≥ la sensibilité du récepteur.",en:"The radar emits power P<sub>t</sub>, the antenna concentrates it (gain G), the wave travels to the target (range R), a fraction is reflected per the <b>RCS σ</b>, then returns. Received power falls as <b>1/R⁴</b>: doubling the range needs <b>16×</b> more power. The target is detected while P<sub>r</sub> ≥ receiver sensitivity."},
  'rg.pt':{fr:"Puissance émise P_t (W)",en:"Transmit power P_t (W)"},'rg.gain':{fr:"Gain d'antenne G (dBi)",en:"Antenna gain G (dBi)"},'rg.freq':{fr:"Fréquence (GHz)",en:"Frequency (GHz)"},
