@@ -72,6 +72,7 @@ a.back{color:var(--acc);text-decoration:none;font-size:13px}
       <select id="preset" onchange="onPreset()">
         <option value="torso" data-i18n="o.torso">Tronc — coupe axiale (thorax)</option>
         <option value="head" data-i18n="o.head">Tête — coupe axiale</option>
+        <option value="xcat" data-i18n="o.xcat">Coupe XCAT thorax (démo réelle 1 mm)</option>
         <option value="file" data-i18n="o.file">Charger un modèle voxel…</option>
       </select>
       <div id="res-row">
@@ -694,12 +695,23 @@ function getFreq(){const s=document.getElementById('freq').value; return s==='cu
 function fmtF(f){if(f>=1e9)return(f/1e9).toFixed(3)+' GHz';if(f>=1e6)return(f/1e6).toFixed(1)+' MHz';return(f/1e3).toFixed(0)+' kHz';}
 function fmtFshort(f){if(f>=1e9)return(f/1e9).toFixed(2)+'GHz';if(f>=1e6)return(f/1e6).toFixed(0)+'MHz';return(f/1e3).toFixed(0)+'kHz';}
 function onPreset(){const v=document.getElementById('preset').value;
-  const isFile=v==='file';
-  document.getElementById('file-row').style.display=isFile?'block':'none';
-  document.getElementById('res-row').style.display=isFile?'none':'block';
+  document.getElementById('file-row').style.display=(v==='file')?'block':'none';
+  document.getElementById('res-row').style.display=(v==='torso'||v==='head')?'block':'none';
   const h=parseFloat(document.getElementById('res').value)||2.5;
   if(v==='torso'){buildTorso(h);afterBuild();}
   else if(v==='head'){buildHead(h);afterBuild();}
+  else if(v==='xcat'){loadXcatDemo();}
+}
+async function loadXcatDemo(){
+  const info=document.getElementById('grid-info');
+  try{ LOADING=true; info.textContent="⏳ Chargement de la coupe XCAT démo…";
+    const o=await (await fetch('xcat_demo_thorax.json')).json();
+    VOL=o; document.getElementById('slice-row').style.display='none';
+    document.getElementById('slice-axis').value='2';
+    const sl=document.getElementById('slice-pos'); sl.max=0; sl.value=0;
+    LOADING=false; reslice(); showTab('tissue');
+    info.innerHTML='✓ <b>Coupe XCAT thorax</b> '+VOL.nx+'×'+VOL.ny+' @ 1 mm — XCAT mesh50 (BenAuer2021, MIT). Clique « Calculer ».';
+  }catch(e){LOADING=false; info.textContent=""; alert("Coupe démo indisponible : "+e.message);}
 }
 function onImpFmt(){const f=document.getElementById('impfmt').value;
   document.getElementById('imp-json').style.display=f==='json'?'block':'none';
@@ -735,7 +747,7 @@ const I18N={
  title:{fr:"Dosimétrie sur fantôme voxel",en:"Voxel-phantom dosimetry"},
  sub:{fr:"SAR (TMM par colonne) + bio-chaleur de Pennes 2D",en:"SAR (per-column TMM) + 2D Pennes bioheat"},
  'h.model':{fr:"Fantôme",en:"Phantom"},'l.preset':{fr:"Modèle",en:"Model"},
- 'o.torso':{fr:"Tronc — coupe axiale (thorax)",en:"Trunk — axial slice (thorax)"},'o.head':{fr:"Tête — coupe axiale",en:"Head — axial slice"},'o.file':{fr:"Charger un modèle voxel…",en:"Load voxel model…"},
+ 'o.torso':{fr:"Tronc — coupe axiale (thorax)",en:"Trunk — axial slice (thorax)"},'o.head':{fr:"Tête — coupe axiale",en:"Head — axial slice"},'o.xcat':{fr:"Coupe XCAT thorax (démo réelle 1 mm)",en:"XCAT thorax slice (real demo, 1 mm)"},'o.file':{fr:"Charger un modèle voxel…",en:"Load voxel model…"},
  'l.res':{fr:"Résolution de voxélisation (mm)",en:"Voxelisation resolution (mm)"},
  'l.fmt':{fr:"Format",en:"Format"},'l.files33':{fr:"Fichiers .h33 + .i33 (sélectionne les deux à la fois)",en:".h33 + .i33 files (select both at once)"},
  'n.xcat':{fr:"Modèle XCAT mesh50 (licence MIT). La version « tête seule » (~43 Mo) passe bien ; le corps entier (650 Mo) peut saturer le navigateur.",en:"XCAT mesh50 model (MIT license). The “head only” variant (~43 MB) works well; the whole body (650 MB) may overload the browser."},
