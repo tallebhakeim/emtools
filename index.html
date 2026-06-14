@@ -163,6 +163,16 @@ footer a{color:var(--text2)}
       </div>
     </a>
 
+    <a class="card live" href="irm.html">
+      <div class="ico">🧲</div>
+      <h3 data-i18n="irm.title">IRM — comment ça marche</h3>
+      <p data-i18n="irm.desc">Chapitre interactif sur l'IRM : fréquence de Larmor, équations de Bloch (relaxation T₁/T₂, FID), encodage spatial par gradients, k-space ↔ image par FFT 2D, contraste TR/TE sur une coupe cérébrale, et la sécurité RF (SAR, IEC 60601-2-33) reliée à la dosimétrie.</p>
+      <div class="tags">
+        <span class="badge ok" data-i18n="irm.badge">Bloch · k-space · contraste · SAR</span>
+        <span class="badge free" data-i18n="badge.free">accès libre</span>
+      </div>
+    </a>
+
     <div class="card soon">
       <div>
         <div class="ico" style="opacity:.5">＋</div>
@@ -227,6 +237,10 @@ const I18N={
   'vox.desc':{fr:"Charge un fantôme anatomique voxélisé (tronc, tête, ou ton propre modèle), affecte ε_r/σ/ρ et propriétés thermiques par tissu, puis calcule le SAR (TMM exacte par colonne) et l'échauffement par bio-chaleur de Pennes 2D (ΔT, CEM43).",
               en:"Load a voxelised anatomical phantom (trunk, head, or your own model), auto-assign ε_r/σ/ρ and thermal properties per tissue, then compute SAR (exact per-column TMM) and heating via 2D Pennes bioheat (ΔT, CEM43)."},
   'vox.badge':{fr:"SAR + Pennes 2D · IRM", en:"SAR + 2D Pennes · MRI"},
+  'irm.title':{fr:"IRM — comment ça marche", en:"MRI — how it works"},
+  'irm.desc':{fr:"Chapitre interactif sur l'IRM : fréquence de Larmor, équations de Bloch (relaxation T₁/T₂, FID), encodage spatial par gradients, k-space ↔ image par FFT 2D, contraste TR/TE sur une coupe cérébrale, et la sécurité RF (SAR, IEC 60601-2-33) reliée à la dosimétrie.",
+              en:"Interactive MRI chapter: Larmor frequency, Bloch equations (T₁/T₂ relaxation, FID), gradient spatial encoding, k-space ↔ image via 2D FFT, TR/TE contrast on a brain slice, and RF safety (SAR, IEC 60601-2-33) tied to dosimetry."},
+  'irm.badge':{fr:"Bloch · k-space · contraste · SAR", en:"Bloch · k-space · contrast · SAR"},
   'ant.title':{fr:"Antennes", en:"Antennas"},
   'ant.desc':{fr:"Outils sur les antennes : antennes filaires (méthode des moments — dipôle, Yagi, environnements de fils, champ proche) et réseaux d'antennes (dépointage du faisceau). Cornet et patch à venir.",
               en:"Antenna tools: wire antennas (Method of Moments — dipole, Yagi, wire environments, near field) and antenna arrays (beam steering). Horn and patch coming soon."},
