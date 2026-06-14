@@ -308,6 +308,85 @@ table.frames code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8
     <div id="sens-dec" style="font-size:.88rem;margin-top:.9rem;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:.7rem .9rem"></div>
   </div>
 
+  <div class="panel">
+    <div class="ptitle" data-i18n="cod.t">Codage du signal — comment les bits deviennent une onde</div>
+    <div data-i18n-html="cod.intro"></div>
+    <canvas id="cv_coding" width="900" height="340" style="margin-top:.6rem"></canvas>
+    <div class="sub" style="font-size:.76rem;color:var(--text2);margin-top:.4rem" data-i18n="cod.sub">Mêmes bits 1011001, cinq codages. Une transition au milieu d'un bit (Manchester, Miller, FM0) sert d'horloge ; PIE code le bit par la durée du symbole. La RFID place ces codes sur la porteuse par modulation d'amplitude (ASK) ou de charge.</div>
+    <table class="frames" style="margin-top:.7rem">
+      <thead><tr><th data-i18n="cod.c1">Code</th><th data-i18n="cod.c2">Où en RFID</th><th data-i18n="cod.c3">Idée</th></tr></thead>
+      <tbody>
+        <tr><td><b>NRZ</b></td><td data-i18n="cod.nrz1">interne / liaisons simples</td><td data-i18n="cod.nrz2">1 = niveau haut, 0 = bas (pas d'horloge intégrée)</td></tr>
+        <tr><td><b>Manchester</b></td><td data-i18n="cod.man1">tag → lecteur (HF 13,56 MHz, ISO 14443-A)</td><td data-i18n="cod.man2">transition au milieu de chaque bit → horloge + données</td></tr>
+        <tr><td><b>Miller (modifié)</b></td><td data-i18n="cod.mil1">lecteur → tag (HF) — pauses ASK</td><td data-i18n="cod.mil2">transition au milieu pour « 1 », au début pour « 0 » isolé</td></tr>
+        <tr><td><b>FM0</b></td><td data-i18n="cod.fm1">tag → lecteur (UHF EPC Gen2)</td><td data-i18n="cod.fm2">transition à chaque bord ; « 0 » a une transition de plus au milieu</td></tr>
+        <tr><td><b>PIE</b></td><td data-i18n="cod.pie1">lecteur → tag (UHF EPC Gen2)</td><td data-i18n="cod.pie2">durée du symbole : « 0 » court, « 1 » long (Pulse-Interval Encoding)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" data-i18n="uhf.t">RFID UHF (~860–960 MHz) — rétrodiffusion &amp; portée</div>
+    <div data-i18n-html="uhf.intro"></div>
+    <div class="controls" style="margin-top:.9rem">
+      <div class="ctrl">
+        <label data-i18n="uhf.reg">Bande réglementaire</label>
+        <select id="uhf-reg" onchange="uhfRegion()">
+          <option value="eu" data-i18n="uhf.eu">Europe — 866 MHz · 2 W ERP (3,28 W PIRE)</option>
+          <option value="us" data-i18n="uhf.us">Amérique — 915 MHz · 4 W PIRE</option>
+          <option value="custom" data-i18n="uhf.cust">Personnalisé…</option>
+        </select>
+      </div>
+      <div class="ctrl">
+        <label><span data-i18n="uhf.f">Fréquence f</span> · <span id="uhf-fv" class="val">866 MHz</span></label>
+        <input id="uhf-f" type="range" min="860" max="960" step="1" value="866" oninput="uhfCustom();uhf()">
+      </div>
+      <div class="ctrl">
+        <label><span data-i18n="uhf.eirp">PIRE lecteur</span> · <span id="uhf-eirpv" class="val">3.28 W</span></label>
+        <input id="uhf-eirp" type="range" min="0.5" max="4" step="0.02" value="3.28" oninput="uhfCustom();uhf()">
+      </div>
+      <div class="ctrl">
+        <label><span data-i18n="uhf.pth">Sensibilité puce tag P_th</span> · <span id="uhf-pthv" class="val">−18 dBm</span></label>
+        <input id="uhf-pth" type="range" min="-22" max="-6" step="0.5" value="-18" oninput="uhf()">
+      </div>
+      <div class="ctrl">
+        <label><span data-i18n="uhf.gt">Gain antenne tag G_tag</span> · <span id="uhf-gtv" class="val">1.6 dBi</span></label>
+        <input id="uhf-gt" type="range" min="-2" max="6" step="0.1" value="1.6" oninput="uhf()">
+      </div>
+      <div class="ctrl">
+        <label><span data-i18n="uhf.tau">Adaptation / polarisation τ</span> · <span id="uhf-tauv" class="val">50 %</span></label>
+        <input id="uhf-tau" type="range" min="10" max="100" step="5" value="50" oninput="uhf()">
+      </div>
+    </div>
+    <div class="metrics" style="margin-top:1rem">
+      <div class="metric"><div class="k" data-i18n="uhf.lam">Longueur d'onde λ</div><div class="v" id="u_lam">—</div><div class="u">cm</div></div>
+      <div class="metric"><div class="k" data-i18n="uhf.eirpdb">PIRE</div><div class="v" id="u_eirp">—</div><div class="u">dBm</div></div>
+      <div class="metric hl"><div class="k" data-i18n="uhf.rmax">Portée (lien direct)</div><div class="v" id="u_rmax">—</div><div class="u">m</div></div>
+      <div class="metric"><div class="k" data-i18n="uhf.pr1">P reçue par le tag à 1 m</div><div class="v" id="u_pr1">—</div><div class="u">dBm</div></div>
+    </div>
+    <div class="plots" style="margin-top:1.1rem">
+      <div class="plotbox">
+        <h4 data-i18n="uhf.ph">Puissance reçue par le tag vs distance</h4>
+        <div class="sub" data-i18n="uhf.phsub">Loi de Friis (1/r²) ; le tag « se réveille » tant que P_tag ≥ P_th.</div>
+        <canvas id="cv_uhf" width="440" height="340"></canvas>
+      </div>
+      <div class="plotbox">
+        <h4 data-i18n="uhf.cmp">HF inductif vs UHF rétrodiffusion</h4>
+        <table class="frames" style="margin-top:.2rem">
+          <thead><tr><th></th><th data-i18n="uhf.thf">HF 13,56 MHz</th><th data-i18n="uhf.tuhf">UHF ~900 MHz</th></tr></thead>
+          <tbody>
+            <tr><td data-i18n="uhf.l1">Couplage</td><td data-i18n="uhf.hf1">inductif (champ proche)</td><td data-i18n="uhf.uhf1">rétrodiffusion (champ lointain)</td></tr>
+            <tr><td data-i18n="uhf.l2">Décroissance</td><td>H ∝ 1/z³</td><td>P ∝ 1/r²</td></tr>
+            <tr><td data-i18n="uhf.l3">Limité par</td><td data-i18n="uhf.hf3">champ pour alimenter</td><td data-i18n="uhf.uhf3">PIRE pour réveiller la puce</td></tr>
+            <tr><td data-i18n="uhf.l4">Antenne tag</td><td data-i18n="uhf.hf4">boucle / spires</td><td data-i18n="uhf.uhf4">dipôle imprimé</td></tr>
+            <tr><td data-i18n="uhf.l5"><b>Portée typique</b></td><td id="u_hfrange" style="font-weight:700;color:#0f766e">—</td><td id="u_uhfrange" style="font-weight:700;color:#0f766e">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="warn" id="uhf-note" style="margin-top:.9rem" data-i18n-html="uhf.note"></div>
+  </div>
+
   <div class="panel" style="margin-top:1.4rem">
     <div class="ptitle" data-i18n="valid">Validation</div>
     <table class="valid">
@@ -515,7 +594,7 @@ function recompute(){
     .replace(/{code}/g,c.code).replace(/{max}/g,c.maxc).replace(/{n}/g,c.nbit)
     .replace(/{unit}/g,c.sensU).replace(/{Pmin}/g,c.Pmin).replace(/{Pmax}/g,c.Pmax)
     .replace('{rec}',fv(c.sensRec,c.sensStep)).replace('{step}',fv(c.sensStep,c.sensStep)).replace('{qerr}',fv(c.sensQerr,c.sensStep));
-  drawSchema(c); drawFront(c); drawField(c); drawRes(c); drawSignal(c); drawAngle(c); drawSensor(c);
+  drawSchema(c); drawFront(c); drawField(c); drawRes(c); drawSignal(c); drawAngle(c); drawSensor(c); drawCoding(); uhf();
 }
 function preset(p){
   if(p==='card'){$('a').value=3;$('n1').value=1;$('i1').value=0.5;$('b').value=2.2;$('n2').value=4;$('q').value=20;$('z').value=2;}
@@ -764,10 +843,101 @@ function drawAngle(c){
   x.fillStyle='#475569';x.fillText(fr?'crête à vide':'open-circ. peak',x1-148,y1+4);
 }
 
+// ── codes de ligne RFID : chaque fonction renvoie une polyligne [t,niveau] ──
+const COD_BITS=[1,0,1,1,0,0,1];
+function nrz(b){const v=[];b.forEach((x,i)=>{v.push([i,x]);v.push([i+1,x]);});return {v,tmax:b.length};}
+function manchester(b){const v=[];b.forEach((x,i)=>{const h1=x?1:0,h2=x?0:1;v.push([i,h1]);v.push([i+0.5,h1]);v.push([i+0.5,h2]);v.push([i+1,h2]);});return {v,tmax:b.length};}
+function miller(b){let lvl=1;const tr=[];b.forEach((x,i)=>{if(x===1)tr.push(i+0.5);else{const prev=i>0?b[i-1]:1;if(prev===0)tr.push(i);}});
+  const v=[[0,lvl]];tr.forEach(tt=>{v.push([tt,lvl]);lvl=1-lvl;v.push([tt,lvl]);});v.push([b.length,lvl]);return {v,tmax:b.length};}
+function fm0(b){let lvl=1;const v=[[0,lvl]];for(let i=0;i<b.length;i++){if(i>0){v.push([i,lvl]);lvl=1-lvl;v.push([i,lvl]);}if(b[i]===0){v.push([i+0.5,lvl]);lvl=1-lvl;v.push([i+0.5,lvl]);}}v.push([b.length,lvl]);return {v,tmax:b.length};}
+function pie(b){let t=0;const v=[];b.forEach(x=>{const Wh=x?1.5:0.5,Wl=0.5;v.push([t,1]);v.push([t+Wh,1]);v.push([t+Wh,0]);v.push([t+Wh+Wl,0]);t+=Wh+Wl;});return {v,tmax:t};}
+function drawCoding(){
+  const cv=$('cv_coding'); cv.style.height='340px'; const {x,w,h}=dpr(cv); x.clearRect(0,0,w,h);
+  const b=COD_BITS,n=b.length, x0=96,x1=w-16, cw=(x1-x0)/n;
+  for(let i=0;i<=n;i++){const bx=x0+i*cw;x.strokeStyle=i===0||i===n?'#cbd5e1':'#eef2f7';x.lineWidth=1;x.beginPath();x.moveTo(bx,30);x.lineTo(bx,h-10);x.stroke();}
+  for(let i=0;i<n;i++){x.fillStyle=b[i]?'#0f766e':'#64748b';x.textAlign='center';x.font='700 13px sans-serif';x.fillText(b[i],x0+i*cw+cw/2,22);}
+  const rows=[['NRZ','#475569',nrz(b)],['Manchester','#2563eb',manchester(b)],['Miller','#7c3aed',miller(b)],['FM0','#0d9488',fm0(b)],['PIE','#d97706',pie(b)]];
+  const top=38, rh=(h-top-8)/rows.length, amp=rh*0.30;
+  rows.forEach((r,ri)=>{const yc=top+ri*rh+rh*0.5, dat=r[2], sc=(x1-x0)/dat.tmax;
+    x.fillStyle=r[1];x.font='700 11px sans-serif';x.textAlign='right';x.fillText(r[0],x0-8,yc+4);
+    x.strokeStyle='#eef2f7';x.lineWidth=1;x.beginPath();x.moveTo(x0,yc);x.lineTo(x1,yc);x.stroke();
+    x.strokeStyle=r[1];x.lineWidth=2.2;x.beginPath();
+    dat.v.forEach((p,i)=>{const X=x0+p[0]*sc, Y=yc-(p[1]*2-1)*amp; i?x.lineTo(X,Y):x.moveTo(X,Y);});x.stroke();});
+}
+
+// ── RFID UHF : portée limitée par le lien direct (Friis) ──
+function uhfRegion(){const r=$('uhf-reg').value;
+  if(r==='eu'){$('uhf-f').value=866;$('uhf-eirp').value=3.28;}
+  else if(r==='us'){$('uhf-f').value=915;$('uhf-eirp').value=4.0;}
+  uhf();}
+function uhfCustom(){$('uhf-reg').value='custom';}
+function uhf(){
+  const f=parseFloat($('uhf-f').value)*1e6, EIRP=parseFloat($('uhf-eirp').value);
+  const Gt=Math.pow(10,parseFloat($('uhf-gt').value)/10), Pth=Math.pow(10,(parseFloat($('uhf-pth').value)-30)/10), tau=parseFloat($('uhf-tau').value)/100;
+  $('uhf-fv').textContent=(f/1e6).toFixed(0)+' MHz';$('uhf-eirpv').textContent=EIRP.toFixed(2)+' W';
+  $('uhf-pthv').textContent=parseFloat($('uhf-pth').value).toFixed(1)+' dBm';$('uhf-gtv').textContent=parseFloat($('uhf-gt').value).toFixed(1)+' dBi';$('uhf-tauv').textContent=(tau*100).toFixed(0)+' %';
+  const C=2.998e8, lam=C/f;
+  const Ptag=r=>EIRP*Gt*tau*Math.pow(lam/(4*Math.PI*r),2);    // W
+  const rmax=(lam/(4*Math.PI))*Math.sqrt(EIRP*Gt*tau/Pth);     // m (lien direct)
+  const eirpDbm=10*Math.log10(EIRP*1000);
+  $('u_lam').textContent=(lam*100).toFixed(1);
+  $('u_eirp').textContent=eirpDbm.toFixed(1);
+  $('u_rmax').textContent=rmax.toFixed(1);
+  $('u_pr1').textContent=(10*Math.log10(Ptag(1)*1000)).toFixed(1);
+  // comparaison : portée HF (depuis le calcul inductif courant) vs UHF
+  const hf=CUR?(CUR.range*100):0;
+  $('u_hfrange').textContent=(hf<1?'< 1':hf.toFixed(0))+' cm';
+  $('u_uhfrange').textContent=rmax.toFixed(1)+' m';
+  // tracé P_tag (dBm) vs r (log-x)
+  const cv=$('cv_uhf'); cv.style.height='340px'; const {x,w,h}=dpr(cv); x.clearRect(0,0,w,h);
+  const pad=46,x0=pad,x1=w-12,y0=h-30,y1=18, rLo=0.1,rHi=20;
+  const PthDbm=parseFloat($('uhf-pth').value), yTop=Math.ceil((10*Math.log10(Ptag(rLo)*1000))/10)*10, yBot=Math.min(PthDbm-20,-50);
+  const sx=r=>x0+(Math.log10(r)-Math.log10(rLo))/(Math.log10(rHi)-Math.log10(rLo))*(x1-x0), sy=p=>y0-(p-yBot)/(yTop-yBot)*(y0-y1);
+  // bande "tag alimenté" (P ≥ P_th)
+  x.fillStyle='#ecfdf5';x.fillRect(x0,y1,x1-x0,sy(PthDbm)-y1);
+  x.strokeStyle='#cbd5e1';x.lineWidth=1;x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='right';
+  for(let p=yBot;p<=yTop+1e-9;p+=10){x.fillText(p.toFixed(0),x0-4,sy(p)+3);x.strokeStyle='#f1f5f9';x.beginPath();x.moveTo(x0,sy(p));x.lineTo(x1,sy(p));x.stroke();}
+  x.textAlign='center';[0.1,0.3,1,3,10,20].forEach(r=>{x.fillStyle='#94a3b8';x.fillText(r+'',sx(r),y0+14);});
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.fillText(LANG==='fr'?'distance r (m)':'distance r (m)',(x0+x1)/2,h-6);
+  x.save();x.translate(13,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText('P_tag (dBm)',0,0);x.restore();
+  // seuil P_th
+  x.strokeStyle='#16a34a';x.setLineDash([5,3]);x.lineWidth=1.3;x.beginPath();x.moveTo(x0,sy(PthDbm));x.lineTo(x1,sy(PthDbm));x.stroke();x.setLineDash([]);
+  x.fillStyle='#16a34a';x.font='10px sans-serif';x.textAlign='left';x.fillText('P_th = '+PthDbm.toFixed(0)+' dBm',x0+6,sy(PthDbm)-4);
+  // courbe P_tag
+  x.strokeStyle='#0d9488';x.lineWidth=2.4;x.beginPath();
+  for(let i=0;i<=300;i++){const r=Math.pow(10,Math.log10(rLo)+(Math.log10(rHi)-Math.log10(rLo))*i/300);const P=10*Math.log10(Ptag(r)*1000);const X=sx(r),Y=sy(P);i?x.lineTo(X,Y):x.moveTo(X,Y);}
+  x.stroke();
+  // marqueur portée
+  if(rmax>rLo&&rmax<rHi){x.strokeStyle='#d97706';x.setLineDash([3,3]);x.lineWidth=1.3;x.beginPath();x.moveTo(sx(rmax),y1);x.lineTo(sx(rmax),y0);x.stroke();x.setLineDash([]);
+    x.fillStyle='#d97706';x.font='700 11px sans-serif';x.textAlign='center';x.fillText((LANG==='fr'?'portée ':'range ')+rmax.toFixed(1)+' m',sx(rmax),y1+11);}
+}
+
 /* i18n */
 const I18N={
  'back.hub':{fr:"EMtools",en:"EMtools"},
- 'title':{fr:"RFID / NFC 13,56 MHz",en:"RFID / NFC 13.56 MHz"},
+ 'title':{fr:"RFID / NFC — HF 13,56 MHz & UHF ~900 MHz",en:"RFID / NFC — HF 13.56 MHz & UHF ~900 MHz"},
+ 'cod.t':{fr:"Codage du signal — comment les bits deviennent une onde",en:"Signal coding — how bits become a waveform"},
+ 'cod.intro':{fr:"<b>Coder, c'est transformer les bits en variations électriques transmissibles.</b> Sur la porteuse RFID, on combine un <b>code de ligne</b> (qui décide de la forme du « 0 » et du « 1 », et incorpore souvent l'horloge) avec une <b>modulation</b> (amplitude ASK côté lecteur, modulation de charge ou rétrodiffusion côté tag). Les codes à transition (Manchester, Miller, FM0) sont auto-cadencés : le récepteur retrouve l'horloge sur chaque bit.",en:"<b>Coding turns bits into transmissible electrical changes.</b> On the RFID carrier, a <b>line code</b> (which decides the shape of '0' and '1', and usually embeds the clock) is combined with a <b>modulation</b> (ASK amplitude on the reader side, load modulation or backscatter on the tag side). Transition codes (Manchester, Miller, FM0) are self-clocking: the receiver recovers the clock on every bit."},
+ 'cod.sub':{fr:"Mêmes bits 1011001, cinq codages. Une transition au milieu d'un bit (Manchester, Miller, FM0) sert d'horloge ; PIE code le bit par la durée du symbole. La RFID place ces codes sur la porteuse par modulation d'amplitude (ASK) ou de charge.",en:"Same bits 1011001, five codings. A mid-bit transition (Manchester, Miller, FM0) acts as a clock; PIE codes the bit by symbol duration. RFID puts these codes on the carrier via amplitude (ASK) or load modulation."},
+ 'cod.c1':{fr:"Code",en:"Code"},'cod.c2':{fr:"Où en RFID",en:"Where in RFID"},'cod.c3':{fr:"Idée",en:"Idea"},
+ 'cod.nrz1':{fr:"interne / liaisons simples",en:"internal / simple links"},'cod.nrz2':{fr:"1 = niveau haut, 0 = bas (pas d'horloge intégrée)",en:"1 = high level, 0 = low (no embedded clock)"},
+ 'cod.man1':{fr:"tag → lecteur (HF 13,56 MHz, ISO 14443-A)",en:"tag → reader (HF 13.56 MHz, ISO 14443-A)"},'cod.man2':{fr:"transition au milieu de chaque bit → horloge + données",en:"transition mid-bit → clock + data"},
+ 'cod.mil1':{fr:"lecteur → tag (HF) — pauses ASK",en:"reader → tag (HF) — ASK pauses"},'cod.mil2':{fr:"transition au milieu pour « 1 », au début pour « 0 » isolé",en:"transition mid-bit for '1', at start for an isolated '0'"},
+ 'cod.fm1':{fr:"tag → lecteur (UHF EPC Gen2)",en:"tag → reader (UHF EPC Gen2)"},'cod.fm2':{fr:"transition à chaque bord ; « 0 » a une transition de plus au milieu",en:"transition at every edge; '0' has an extra mid-symbol transition"},
+ 'cod.pie1':{fr:"lecteur → tag (UHF EPC Gen2)",en:"reader → tag (UHF EPC Gen2)"},'cod.pie2':{fr:"durée du symbole : « 0 » court, « 1 » long (Pulse-Interval Encoding)",en:"symbol duration: '0' short, '1' long (Pulse-Interval Encoding)"},
+ 'uhf.t':{fr:"RFID UHF (~860–960 MHz) — rétrodiffusion & portée",en:"UHF RFID (~860–960 MHz) — backscatter & range"},
+ 'uhf.intro':{fr:"<b>Tout change en UHF.</b> À ~900 MHz (λ ≈ 33 cm), le tag est en <b>champ lointain</b> : le lecteur lui envoie une onde, la puce s'alimente par <b>récupération RF</b>, et pour répondre le tag <b>module sa surface équivalente radar</b> (rétrodiffusion) — il ne réémet rien, il réfléchit plus ou moins l'onde. La portée n'est plus limitée par un champ magnétique en 1/z³ mais par la <b>puissance reçue</b> (loi de Friis, 1/r²) : le tag se réveille tant que P_tag ≥ P_th (sensibilité de la puce). D'où des portées de <b>plusieurs mètres</b> (vs quelques cm en HF).",en:"<b>Everything changes at UHF.</b> At ~900 MHz (λ ≈ 33 cm) the tag is in the <b>far field</b>: the reader sends a wave, the chip powers itself by <b>RF harvesting</b>, and to reply the tag <b>modulates its radar cross-section</b> (backscatter) — it re-emits nothing, it reflects the wave more or less. Range is no longer limited by a 1/z³ magnetic field but by <b>received power</b> (Friis law, 1/r²): the tag wakes up while P_tag ≥ P_th (chip sensitivity). Hence ranges of <b>several metres</b> (vs a few cm at HF)."},
+ 'uhf.reg':{fr:"Bande réglementaire",en:"Regulatory band"},'uhf.eu':{fr:"Europe — 866 MHz · 2 W ERP (3,28 W PIRE)",en:"Europe — 866 MHz · 2 W ERP (3.28 W EIRP)"},'uhf.us':{fr:"Amérique — 915 MHz · 4 W PIRE",en:"Americas — 915 MHz · 4 W EIRP"},'uhf.cust':{fr:"Personnalisé…",en:"Custom…"},
+ 'uhf.f':{fr:"Fréquence f",en:"Frequency f"},'uhf.eirp':{fr:"PIRE lecteur",en:"Reader EIRP"},'uhf.pth':{fr:"Sensibilité puce tag P_th",en:"Tag chip sensitivity P_th"},'uhf.gt':{fr:"Gain antenne tag G_tag",en:"Tag antenna gain G_tag"},'uhf.tau':{fr:"Adaptation / polarisation τ",en:"Match / polarization τ"},
+ 'uhf.lam':{fr:"Longueur d'onde λ",en:"Wavelength λ"},'uhf.eirpdb':{fr:"PIRE",en:"EIRP"},'uhf.rmax':{fr:"Portée (lien direct)",en:"Range (forward link)"},'uhf.pr1':{fr:"P reçue par le tag à 1 m",en:"Power at tag at 1 m"},
+ 'uhf.ph':{fr:"Puissance reçue par le tag vs distance",en:"Power received by the tag vs distance"},'uhf.phsub':{fr:"Loi de Friis (1/r²) ; le tag « se réveille » tant que P_tag ≥ P_th.",en:"Friis law (1/r²); the tag 'wakes up' while P_tag ≥ P_th."},
+ 'uhf.cmp':{fr:"HF inductif vs UHF rétrodiffusion",en:"HF inductive vs UHF backscatter"},'uhf.thf':{fr:"HF 13,56 MHz",en:"HF 13.56 MHz"},'uhf.tuhf':{fr:"UHF ~900 MHz",en:"UHF ~900 MHz"},
+ 'uhf.l1':{fr:"Couplage",en:"Coupling"},'uhf.l2':{fr:"Décroissance",en:"Falloff"},'uhf.l3':{fr:"Limité par",en:"Limited by"},'uhf.l4':{fr:"Antenne tag",en:"Tag antenna"},'uhf.l5':{fr:"Portée typique",en:"Typical range"},
+ 'uhf.hf1':{fr:"inductif (champ proche)",en:"inductive (near field)"},'uhf.uhf1':{fr:"rétrodiffusion (champ lointain)",en:"backscatter (far field)"},
+ 'uhf.hf3':{fr:"champ pour alimenter",en:"field to power up"},'uhf.uhf3':{fr:"PIRE pour réveiller la puce",en:"EIRP to wake the chip"},
+ 'uhf.hf4':{fr:"boucle / spires",en:"loop / turns"},'uhf.uhf4':{fr:"dipôle imprimé",en:"printed dipole"},
+ 'uhf.note':{fr:"<b>Nuance —</b> la portée affichée est celle du <b>lien direct</b> (réveil de la puce), souvent dominante en UHF passif. Le <b>lien retour</b> par rétrodiffusion décroît en 1/r⁴ (aller-retour) ; avec des puces modernes (P_th ≈ −20 dBm) il limite rarement avant le lien direct. En pratique on perd un facteur 1,5 à 3 sur la portée à cause du multitrajet, du désaccord et de l'orientation. Les tags <b>actifs/à pile</b> (BAP) ou la <b>2,45 GHz</b> changent encore la donne.",en:"<b>Caveat —</b> the displayed range is the <b>forward link</b> (chip wake-up), usually dominant in passive UHF. The <b>return link</b> by backscatter falls as 1/r⁴ (round trip); with modern chips (P_th ≈ −20 dBm) it rarely limits before the forward link. In practice you lose a factor 1.5 to 3 on range due to multipath, mismatch and orientation. <b>Active/battery-assisted</b> tags (BAP) or <b>2.45 GHz</b> change the picture again."},
  'tag':{fr:"Couplage inductif tag ↔ lecteur en champ proche : champ magnétique d'une boucle, inductance mutuelle, résonance LC, tension induite et distance de lecture.",
         en:"Inductive near-field tag ↔ reader coupling: loop magnetic field, mutual inductance, LC resonance, induced voltage and read range."},
  'intro':{fr:"<b>Principe —</b> à 13,56 MHz (λ ≈ 22 m), le tag est à quelques centimètres du lecteur : on est en <b>champ proche magnétique</b>, le couplage est un <b>transformateur à air</b>, pas une onde rayonnée. Le lecteur (boucle de N₁ spires, rayon a, courant I₁) crée sur son axe un champ H(z) = N₁·I₁·a² / [2(a²+z²)<sup>3/2</sup>], qui décroît en <b>1/z³</b>. Ce champ induit dans le tag une f.é.m. <b>e = −dΦ/dt = jω·M·I₁</b> (M = inductance mutuelle). Le tag, accordé en <b>résonance LC</b> sur 13,56 MHz, amplifie cette tension d'un facteur ≈ <b>Q</b> pour s'alimenter. Pour répondre, il fait varier sa charge (<b>modulation de charge</b>), ce que le lecteur détecte. La <b>distance de lecture</b> est la portée où H reste dans la plage opérationnelle ISO 14443 (≈ 1,5 à 7,5 A/m).",
@@ -916,7 +1086,7 @@ function applyLang(){
 }
 function toggleLang(){LANG=LANG==='fr'?'en':'fr';localStorage.setItem('emtools_lang',LANG);applyLang();recompute();}
 applyLang(); recompute();
-window.addEventListener('resize',()=>{const c=CUR||compute();drawSchema(c);drawFront(c);drawField(c);drawRes(c);drawSignal(c);drawAngle(c);drawSensor(c);});
+window.addEventListener('resize',()=>{const c=CUR||compute();drawSchema(c);drawFront(c);drawField(c);drawRes(c);drawSignal(c);drawAngle(c);drawSensor(c);drawCoding();uhf();});
 </script>
 </body>
 </html>

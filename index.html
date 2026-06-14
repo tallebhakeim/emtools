@@ -95,10 +95,10 @@ footer a{color:var(--text2)}
 
     <a class="card live" href="rfid1356.html">
       <div class="ico">📶</div>
-      <h3 data-i18n="rfid.title">RFID / NFC 13,56 MHz</h3>
-      <p data-i18n="rfid.desc">Principe du couplage inductif tag ↔ lecteur en champ proche : champ magnétique d'une boucle, inductance mutuelle, résonance LC, tension induite et distance de lecture.</p>
+      <h3 data-i18n="rfid.title">RFID / NFC — HF 13,56 MHz & UHF ~900 MHz</h3>
+      <p data-i18n="rfid.desc">Couplage inductif tag ↔ lecteur en champ proche (HF 13,56 MHz) : champ de boucle, inductance mutuelle, résonance LC, tension induite et distance de lecture. Plus le codage du signal (NRZ, Manchester, Miller, FM0, PIE) et la RFID UHF (~900 MHz) par rétrodiffusion : portée de plusieurs mètres par la loi de Friis (vs quelques cm en HF).</p>
       <div class="tags">
-        <span class="badge ok" data-i18n="rfid.badge">couplage inductif HF</span>
+        <span class="badge ok" data-i18n="rfid.badge">inductif HF · rétrodiffusion UHF</span>
         <span class="badge free" data-i18n="badge.free">accès libre</span>
       </div>
     </a>
@@ -309,10 +309,10 @@ const I18N={
   'badge.valid':{fr:"✓ validé < 1,4 %", en:"✓ validated < 1.4%"},
   'badge.free':{fr:"accès libre", en:"open access"},
   'badge.mom':{fr:"filaires + réseaux", en:"wire + arrays"},
-  'rfid.title':{fr:"RFID / NFC 13,56 MHz", en:"RFID / NFC 13.56 MHz"},
-  'rfid.desc':{fr:"Principe du couplage inductif tag ↔ lecteur en champ proche : champ magnétique d'une boucle, inductance mutuelle, résonance LC, tension induite et distance de lecture.",
-               en:"Inductive near-field tag ↔ reader coupling: loop magnetic field, mutual inductance, LC resonance, induced voltage and read range."},
-  'rfid.badge':{fr:"couplage inductif HF", en:"HF inductive coupling"},
+  'rfid.title':{fr:"RFID / NFC — HF 13,56 MHz & UHF ~900 MHz", en:"RFID / NFC — HF 13.56 MHz & UHF ~900 MHz"},
+  'rfid.desc':{fr:"Couplage inductif tag ↔ lecteur en champ proche (HF 13,56 MHz) : champ de boucle, inductance mutuelle, résonance LC, tension induite et distance de lecture. Plus le codage du signal (NRZ, Manchester, Miller, FM0, PIE) et la RFID UHF (~900 MHz) par rétrodiffusion : portée de plusieurs mètres par la loi de Friis (vs quelques cm en HF).",
+               en:"Inductive near-field tag ↔ reader coupling (HF 13.56 MHz): loop field, mutual inductance, LC resonance, induced voltage and read range. Plus signal coding (NRZ, Manchester, Miller, FM0, PIE) and UHF RFID (~900 MHz) by backscatter: range of several metres via the Friis law (vs a few cm at HF)."},
+  'rfid.badge':{fr:"inductif HF · rétrodiffusion UHF", en:"HF inductive · UHF backscatter"},
   'helm.title':{fr:"Bobines de Helmholtz", en:"Helmholtz coils"},
   'helm.desc':{fr:"Champ magnétique d'une bobine seule puis de deux bobines : condition d'uniformité d = R, carte de champ, dimensionnement (spires, R, L) et compensation réactive série à f₀.",
                en:"Magnetic field of one coil then two coils: uniformity condition d = R, field map, sizing (turns, R, L) and series reactive compensation at f₀."},
