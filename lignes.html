@@ -72,8 +72,10 @@ th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}th:fi
           <div class="metrics" id="li-metrics"></div>
         </div>
         <div>
-          <canvas id="cv-line" width="460" height="280"></canvas>
+          <canvas id="cv-line" width="460" height="220"></canvas>
           <div class="cap" data-i18n="li.cap">Onde stationnaire |V(z)| le long de la ligne (z=0 à la charge, vers le générateur)</div>
+          <canvas id="cv-smith" width="330" height="330" style="margin-top:12px;margin-left:auto;margin-right:auto"></canvas>
+          <div class="cap" data-i18n="li.smith">Abaque de Smith — ● charge z_L, ● impédance vue à la distance d, cercle de TOS</div>
         </div>
       </div>
     </div>
@@ -90,7 +92,9 @@ th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}th:fi
           <select id="ltype" onchange="microCalc()">
             <option value="microstrip" selected>Microstrip</option>
             <option value="stripline">Stripline (triplaque)</option>
+            <option value="cpw">Coplanaire (CPW)</option>
             <option value="coax">Coaxial</option>
+            <option value="twin">Bifilaire (paire torsadée / twin-lead)</option>
           </select>
           <label data-i18n="mi.er">Permittivité ε_r du substrat</label>
           <input type="number" id="er" value="4.4" step="0.1" oninput="microCalc()">
@@ -108,10 +112,20 @@ th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}th:fi
             <label data-i18n="mi.din">Diamètre âme d (mm)</label><input type="number" id="cx-d" value="0.9" step="0.05" oninput="microCalc()">
             <label data-i18n="mi.dout">Diamètre blindage D (mm)</label><input type="number" id="cx-D" value="3" step="0.1" oninput="microCalc()">
           </div>
+          <div id="p-cpw" style="display:none">
+            <label data-i18n="mi.w">Largeur de piste W (mm)</label><input type="number" id="cpw-w" value="1.6" step="0.05" oninput="microCalc()">
+            <label data-i18n="mi.g">Largeur des fentes g (mm)</label><input type="number" id="cpw-g" value="0.3" step="0.02" oninput="microCalc()">
+          </div>
+          <div id="p-twin" style="display:none">
+            <label data-i18n="mi.dwire">Diamètre des fils d (mm)</label><input type="number" id="tw-d" value="1" step="0.05" oninput="microCalc()">
+            <label data-i18n="mi.dsp">Entraxe des fils D (mm)</label><input type="number" id="tw-D" value="3" step="0.1" oninput="microCalc()">
+          </div>
           <label data-i18n="mi.freq">Fréquence (GHz) — pour λ guidée</label>
           <input type="number" id="mfreq" value="2.45" step="0.1" oninput="microCalc()">
         </div>
         <div>
+          <canvas id="cv-section" width="440" height="200"></canvas>
+          <div class="cap" data-i18n="mi.sect">Vue en coupe de la ligne (conducteurs en cuivre, diélectrique en bleu)</div>
           <div class="metrics" id="mi-metrics"></div>
           <div id="mi-hint" class="note"></div>
           <table id="mi-table"></table>
@@ -219,6 +233,41 @@ function lineCalc(){
   x.stroke();
   // ligne d sélectionnée
   x.strokeStyle="#e0884b";x.setLineDash([3,3]);x.beginPath();x.moveTo(X2(d),mT);x.lineTo(X2(d),mT+ph);x.stroke();x.setLineDash([]);
+  drawSmith(g,gm,d);
+}
+function ellipK(k){let a=1,b=Math.sqrt(Math.max(0,1-k*k));for(let i=0;i<25;i++){const an=(a+b)/2;b=Math.sqrt(a*b);a=an;}return Math.PI/(2*a);}
+function drawSmith(gL,gm,d){
+  const cv=document.getElementById('cv-smith'),x=cv.getContext('2d');x.clearRect(0,0,cv.width,cv.height);
+  const cx=cv.width/2, cy=cv.height/2, rad=cv.width/2-16, P=(gr,gi)=>[cx+gr*rad,cy-gi*rad];
+  x.save();x.beginPath();x.arc(cx,cy,rad,0,2*Math.PI);x.clip();
+  x.strokeStyle="#243039";x.lineWidth=1;
+  for(const r of [0.2,0.5,1,2,5]){const C=r/(r+1),rr=1/(r+1);x.beginPath();x.arc(cx+C*rad,cy,rr*rad,0,2*Math.PI);x.stroke();}
+  for(const xx of [0.2,0.5,1,2,5])for(const s of [1,-1]){x.beginPath();x.arc(cx+rad,cy-s/xx*rad,rad/xx,0,2*Math.PI);x.stroke();}
+  x.restore();
+  x.strokeStyle="#3a4754";x.lineWidth=1.4;x.beginPath();x.arc(cx,cy,rad,0,2*Math.PI);x.stroke();
+  x.strokeStyle="#243039";x.beginPath();x.moveTo(cx-rad,cy);x.lineTo(cx+rad,cy);x.stroke();
+  x.strokeStyle="#4db6a4";x.setLineDash([4,3]);x.beginPath();x.arc(cx,cy,gm*rad,0,2*Math.PI);x.stroke();x.setLineDash([]);
+  x.fillStyle="#6b7682";x.beginPath();x.arc(cx,cy,2,0,2*Math.PI);x.fill();
+  x.font="11px sans-serif";x.textAlign="left";
+  const pL=P(gL[0],gL[1]);x.fillStyle="#e0884b";x.beginPath();x.arc(pL[0],pL[1],5,0,2*Math.PI);x.fill();x.fillText("z_L",pL[0]+7,pL[1]-4);
+  const ph=Math.atan2(gL[1],gL[0])-4*Math.PI*d,pd=P(gm*Math.cos(ph),gm*Math.sin(ph));
+  x.fillStyle="#4db6a4";x.beginPath();x.arc(pd[0],pd[1],5,0,2*Math.PI);x.fill();x.fillText("d",pd[0]+7,pd[1]-4);
+}
+function drawSection(type){
+  const cv=document.getElementById('cv-section'),x=cv.getContext('2d');x.clearRect(0,0,cv.width,cv.height);
+  const W=cv.width,H=cv.height,cu="#e0884b",die="#2b4a66",gnd="#9aa7c9",txt="#8b97a3";
+  x.font="12px sans-serif";x.textAlign="center";
+  const lab=(s,px,py)=>{x.fillStyle=txt;x.fillText(s,px,py);};
+  if(type==='microstrip'){x.fillStyle=die;x.fillRect(80,72,280,62);x.fillStyle=gnd;x.fillRect(80,134,280,10);x.fillStyle=cu;x.fillRect(192,60,56,12);
+    lab("W",220,54);lab("h",66,106);lab("εr",220,108);lab("masse",220,162);}
+  else if(type==='stripline'){x.fillStyle=gnd;x.fillRect(80,56,280,8);x.fillRect(80,140,280,8);x.fillStyle=die;x.fillRect(80,64,280,76);x.fillStyle=cu;x.fillRect(196,97,48,10);
+    lab("W",220,93);lab("b",66,104);lab("εr",128,108);}
+  else if(type==='cpw'){x.fillStyle=die;x.fillRect(60,82,320,56);x.fillStyle=gnd;x.fillRect(60,70,108,12);x.fillRect(272,70,108,12);x.fillStyle=cu;x.fillRect(196,70,48,12);
+    lab("W",220,62);lab("g",182,62);lab("g",258,62);lab("εr",110,114);}
+  else if(type==='coax'){x.strokeStyle=gnd;x.lineWidth=9;x.beginPath();x.arc(W/2,H/2,66,0,2*Math.PI);x.stroke();x.fillStyle=die;x.beginPath();x.arc(W/2,H/2,61,0,2*Math.PI);x.fill();x.fillStyle=cu;x.beginPath();x.arc(W/2,H/2,12,0,2*Math.PI);x.fill();
+    lab("d",W/2,H/2-20);lab("D",W/2+78,H/2+4);lab("εr",W/2+34,H/2+38);}
+  else {x.fillStyle=cu;x.beginPath();x.arc(W/2-48,H/2,15,0,2*Math.PI);x.fill();x.beginPath();x.arc(W/2+48,H/2,15,0,2*Math.PI);x.fill();
+    x.strokeStyle=txt;x.lineWidth=1;x.beginPath();x.moveTo(W/2-48,H/2+26);x.lineTo(W/2+48,H/2+26);x.stroke();lab("d",W/2-48,H/2-22);lab("D",W/2,H/2+40);}
 }
 
 // ════ 2 · IMPEDANCE ════
@@ -230,7 +279,7 @@ function microstripZ0(er,h,W){
 }
 function microCalc(){
   const type=document.getElementById('ltype').value, er=parseFloat(document.getElementById('er').value)||4.4, f=parseFloat(document.getElementById('mfreq').value)*1e9;
-  ['microstrip','stripline','coax'].forEach(p=>document.getElementById('p-'+p).style.display=type===p?'block':'none');
+  ['microstrip','stripline','cpw','coax','twin'].forEach(p=>document.getElementById('p-'+p).style.display=type===p?'block':'none');
   let Z0,ee,extra='';
   if(type==='microstrip'){
     const h=parseFloat(document.getElementById('ms-h').value)||1.6, W=parseFloat(document.getElementById('ms-w').value)||3;
@@ -242,8 +291,16 @@ function microCalc(){
   } else if(type==='stripline'){
     const b=parseFloat(document.getElementById('sl-b').value)||1.6, W=parseFloat(document.getElementById('sl-w').value)||0.8;
     const We=(W/b>0.35)?W:W-b*Math.pow(0.35-W/b,2); Z0=30*Math.PI/Math.sqrt(er)*b/(We+0.441*b); ee=er;
+  } else if(type==='cpw'){
+    const W=parseFloat(document.getElementById('cpw-w').value)||1.6, g=parseFloat(document.getElementById('cpw-g').value)||0.3;
+    const a=W/2, b=W/2+g, k=a/b, kp=Math.sqrt(Math.max(0,1-k*k));
+    ee=(er+1)/2; Z0=30*Math.PI/Math.sqrt(ee)*ellipK(kp)/ellipK(k);
+  } else if(type==='twin'){
+    const d=parseFloat(document.getElementById('tw-d').value)||1, D=parseFloat(document.getElementById('tw-D').value)||3;
+    ee=er; Z0=120/Math.sqrt(er)*Math.acosh(Math.max(1.0001,D/d));
   } else { const d=parseFloat(document.getElementById('cx-d').value)||0.9, D=parseFloat(document.getElementById('cx-D').value)||3;
     Z0=60/Math.sqrt(er)*Math.log(D/d); ee=er; }
+  drawSection(type);
   const lam0=C0/f, lamg=lam0/Math.sqrt(ee);
   document.getElementById('mi-metrics').innerHTML=
     met("Z₀",Z0.toFixed(1),"Ω",Math.abs(Z0-50)<3?'good':'')+
@@ -308,6 +365,9 @@ const I18N={
  'li.z0':{fr:"Impédance caractéristique Z₀ (Ω)",en:"Characteristic impedance Z₀ (Ω)"},'li.zl':{fr:"Charge Z_L = R + jX (Ω)",en:"Load Z_L = R + jX (Ω)"},'li.len':{fr:"Longueur de ligne d (λ)",en:"Line length d (λ)"},
  'li.rl':{fr:"Pertes par réflexion",en:"Return loss"},'li.zin':{fr:"Z_in(d)",en:"Z_in(d)"},'li.pos':{fr:"position (longueurs d'onde)",en:"position (wavelengths)"},
  'li.cap':{fr:"Onde stationnaire |V(z)| le long de la ligne (z=0 à la charge, vers le générateur)",en:"Standing wave |V(z)| along the line (z=0 at load, toward the generator)"},
+ 'li.smith':{fr:"Abaque de Smith — ● charge z_L, ● impédance vue à la distance d, cercle de TOS",en:"Smith chart — ● load z_L, ● impedance seen at distance d, VSWR circle"},
+ 'mi.g':{fr:"Largeur des fentes g (mm)",en:"Slot width g (mm)"},'mi.dwire':{fr:"Diamètre des fils d (mm)",en:"Wire diameter d (mm)"},'mi.dsp':{fr:"Entraxe des fils D (mm)",en:"Wire spacing D (mm)"},
+ 'mi.sect':{fr:"Vue en coupe de la ligne (conducteurs en cuivre, diélectrique en bleu)",en:"Line cross-section (copper conductors, dielectric in blue)"},
  'mi.h':{fr:"Impédance caractéristique d'une ligne planaire / coaxiale",en:"Characteristic impedance of a planar / coaxial line"},
  'mi.lead':{fr:"L'impédance Z₀ dépend de la géométrie et du diélectrique. Pour une <b>microstrip</b> (piste W sur substrat h, ε<sub>r</sub>), on utilise les formules de Hammerstad. Régler W pour viser 50 Ω est la base du routage RF.",en:"Z₀ depends on geometry and dielectric. For a <b>microstrip</b> (trace W on substrate h, ε<sub>r</sub>) the Hammerstad formulas apply. Tuning W to hit 50 Ω is the basis of RF routing."},
  'mi.type':{fr:"Type de ligne",en:"Line type"},'mi.er':{fr:"Permittivité ε_r du substrat",en:"Substrate permittivity ε_r"},'mi.h2':{fr:"Épaisseur substrat h (mm)",en:"Substrate height h (mm)"},'mi.w':{fr:"Largeur de piste W (mm)",en:"Trace width W (mm)"},
