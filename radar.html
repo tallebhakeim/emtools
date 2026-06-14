@@ -186,6 +186,13 @@ b.hl{color:var(--acc2)}
         <div>
           <canvas id="cv-pattern" width="360" height="360"></canvas>
           <div class="cap" data-i18n="pt.cap">Diagramme polaire σ(θ) en dB (0 dB = max) ; silhouette de la cible au centre, radar →</div>
+          <select id="s3d-shape" style="margin-top:12px">
+            <option value="stealth" data-i18n="pt.m3dstealth">Avion furtif (facetté)</option>
+            <option value="box" data-i18n="pt.m3dbox">Cible conventionnelle (caisson)</option>
+          </select>
+          <canvas id="cv-stealth" width="360" height="200" style="margin-top:8px"></canvas>
+          <div class="cap" data-i18n="pt.s3d">Vue 3D — une facette s'allume (rouge) quand elle renvoie vers le radar (= vous). Le furtif incline ses facettes : aucune ne pointe vers la menace → il reste bleu. Le caisson, lui, flashe sur ses faces.</div>
+          <div class="metrics" id="s3d-metric"></div>
         </div>
       </div>
     </div>
@@ -380,6 +387,39 @@ function pattern(){
   x.textAlign="right";x.fillText("radar →",cx+rad+18,cy-7);
   const frontDB=10*Math.log10(P[0]/pmax);
   document.getElementById('pt-metrics').innerHTML=met(T('pt.front'),frontDB.toFixed(0),"dB")+met(T('pt.red'),(-frontDB).toFixed(0),"dB",(-frontDB)>15?'':'');
+  if(!s3dStarted){s3dStarted=true;draw3DStealth();}
+}
+// silhouette furtive 3D facettée
+const STEALTH3D={v:[[0,0,1.4],[-1.2,0,-0.5],[1.2,0,-0.5],[0,0,-1.1],[0,0.4,0],[0,-0.32,0]],
+  f:[[0,1,4],[0,4,2],[1,3,4],[4,3,2],[0,5,1],[0,2,5],[1,5,3],[5,2,3]]};
+const BOX3D={v:[[-0.9,-0.45,-0.7],[0.9,-0.45,-0.7],[0.9,0.45,-0.7],[-0.9,0.45,-0.7],[-0.9,-0.45,0.7],[0.9,-0.45,0.7],[0.9,0.45,0.7],[-0.9,0.45,0.7]],
+  f:[[0,1,2,3],[4,5,6,7],[0,1,5,4],[2,3,7,6],[1,2,6,5],[0,3,7,4]]};
+let s3dStarted=false, yaw3d=0;
+function draw3DStealth(){
+  const cv=document.getElementById('cv-stealth'); if(!cv)return; const x=cv.getContext('2d'),W=cv.width,H=cv.height;
+  function frame(){
+    const M=document.getElementById('s3d-shape').value==='box'?BOX3D:STEALTH3D;
+    x.clearRect(0,0,W,H);
+    const cyaw=Math.cos(yaw3d),syaw=Math.sin(yaw3d),pitch=-0.42,cp=Math.cos(pitch),sp=Math.sin(pitch);
+    const tv=M.v.map(p=>{const X=p[0]*cyaw+p[2]*syaw, Z=-p[0]*syaw+p[2]*cyaw, Y=p[1]; return [X, Y*cp-Z*sp, Y*sp+Z*cp];});
+    const cx=W/2,cyc=H*0.52,sc=W*0.26, proj=p=>[cx+p[0]*sc, cyc-p[1]*sc];
+    const cen=[0,0,0]; tv.forEach(p=>{cen[0]+=p[0];cen[1]+=p[1];cen[2]+=p[2];}); cen.forEach((_,i)=>cen[i]/=tv.length);
+    const facs=M.f.map(f=>{const a=tv[f[0]],b=tv[f[1]],c=tv[f[2]];
+      const ux=b[0]-a[0],uy=b[1]-a[1],uz=b[2]-a[2],vx=c[0]-a[0],vy=c[1]-a[1],vz=c[2]-a[2];
+      let nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx; const nl=Math.hypot(nx,ny,nz)||1; nx/=nl;ny/=nl;nz/=nl;
+      const mx2=(a[0]+b[0]+c[0])/3-cen[0],my=(a[1]+b[1]+c[1])/3-cen[1],mz=(a[2]+b[2]+c[2])/3-cen[2];
+      if(nx*mx2+ny*my+nz*mz<0){nx=-nx;ny=-ny;nz=-nz;}
+      return {f,nz,depth:(a[2]+b[2]+c[2])/3};});
+    facs.sort((p,q)=>p.depth-q.depth); let maxAlign=1e-3;
+    facs.forEach(fc=>{ if(fc.nz<=0)return; const spec=Math.pow(fc.nz,6); if(spec>maxAlign)maxAlign=spec;
+      const c=jet(Math.min(1,spec*1.25));
+      x.beginPath(); fc.f.forEach((vi,k)=>{const p=proj(tv[vi]);k?x.lineTo(p[0],p[1]):x.moveTo(p[0],p[1]);}); x.closePath();
+      x.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},0.92)`; x.fill(); x.strokeStyle="#0b0f14"; x.lineWidth=1; x.stroke();});
+    x.fillStyle="#9aa7c9";x.font="11px sans-serif";x.textAlign="center";x.fillText("◎ "+T('pt.you'),W/2,H-6);
+    document.getElementById('s3d-metric').innerHTML=met(T('pt.inst'),(10*Math.log10(maxAlign)).toFixed(0),"dB");
+    yaw3d+=0.022; requestAnimationFrame(frame);
+  }
+  frame();
 }
 
 // ════════ 5 · AUTO 77 GHz ════════
@@ -456,6 +496,9 @@ const I18N={
  'pt.note':{fr:"Le radar regarde depuis la droite (θ=0 = face avant). <b>Plaque</b> → un lobe énorme de face. <b>Caisson</b> → pics sur les 4 faces (forte SER des voitures). <b>Convexe</b> → renvoi uniforme. <b>Furtif</b> → les lobes sont rejetés sur les côtés, la SER de face s'effondre.",en:"The radar looks from the right (θ=0 = front). <b>Plate</b> → one huge frontal lobe. <b>Box</b> → spikes on all 4 faces (cars' high RCS). <b>Convex</b> → uniform return. <b>Stealth</b> → lobes pushed to the sides, frontal RCS collapses."},
  'pt.cap':{fr:"Diagramme polaire σ(θ) en dB (0 dB = max) ; silhouette de la cible au centre, radar →",en:"Polar plot σ(θ) in dB (0 dB = max); target outline at centre, radar →"},
  'pt.front':{fr:"SER de face (θ=0)",en:"Frontal RCS (θ=0)"},'pt.red':{fr:"Réduction de face",en:"Frontal reduction"},
+ 'pt.s3d':{fr:"Vue 3D — une facette s'allume (rouge) quand elle renvoie vers le radar (= vous). L'avion furtif incline ses facettes pour qu'aucune ne pointe vers la menace.",en:"3D view — a facet lights up (red) when it reflects back toward the radar (= you). A stealth aircraft tilts its facets so none points at the threat."},
+ 'pt.inst':{fr:"SER instantanée",en:"Instantaneous RCS"},'pt.you':{fr:"radar (vous)",en:"radar (you)"},
+ 'pt.m3dstealth':{fr:"Avion furtif (facetté)",en:"Stealth aircraft (faceted)"},'pt.m3dbox':{fr:"Cible conventionnelle (caisson)",en:"Conventional target (box)"},
  'au.h':{fr:"Radar automobile 77 GHz (anticollision)",en:"Automotive 77 GHz radar (collision avoidance)"},
  'au.lead':{fr:"Les radars 76–81 GHz équipent les aides à la conduite : régulateur adaptatif (ACC), freinage d'urgence (AEB), angle mort. À 77 GHz, λ ≈ 3,9 mm → antennes minuscules et bonne résolution. La portée utile dépend de la SER de la cible (un piéton renvoie 100× moins qu'un camion).",en:"76–81 GHz radars power driver assistance: adaptive cruise control (ACC), emergency braking (AEB), blind spot. At 77 GHz, λ ≈ 3.9 mm → tiny antennas and good resolution. Useful range depends on the target RCS (a pedestrian returns 100× less than a truck)."},
  'au.pt':{fr:"Puissance émise (dBm)",en:"Transmit power (dBm)"},'au.gain':{fr:"Gain d'antenne (dBi)",en:"Antenna gain (dBi)"},'au.pmin':{fr:"Sensibilité P_min (dBm)",en:"Sensitivity P_min (dBm)"},
