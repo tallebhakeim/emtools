@@ -100,6 +100,7 @@ details.help code{background:var(--bg);padding:1px 4px;border-radius:4px;font-si
         <button class="tool" data-tool="GND" onclick="setTool('GND')" data-i18n="tool.gnd">Masse</button>
         <button class="tool" data-tool="del" onclick="setTool('del')" data-i18n="tool.del">Supprimer</button>
         <span style="flex:1"></span>
+        <button class="tool" id="dc-toggle" onclick="toggleDC()" data-i18n="tool.dc" title="Point de repos continu : tensions de nœud + courants animés">⚡ Courants (DC)</button>
         <button class="tool on" id="ar-toggle" onclick="toggleAuto()" data-i18n="tool.auto" title="Routage orthogonal automatique (A*) entre deux broches">↳ Auto-routage</button>
         <button class="tool" onclick="rotateSel()" data-i18n="tool.rot">⟳ Rotation</button>
         <button class="tool" onclick="clearSch()" data-i18n="tool.clear">Tout effacer</button>
@@ -264,6 +265,28 @@ function diodeGI(Vd,Is,n){const nVt=n*VT,ex=Math.exp(Math.min(Vd/nVt,40));return
 function pnjlim(vnew,vold,Is,n){const nVt=n*VT,vcrit=nVt*Math.log(nVt/(Math.SQRT2*Is));
   if(vnew>vcrit&&Math.abs(vnew-vold)>nVt){if(vold>0){const a=1+(vnew-vold)/nVt;vnew=a>0?vold+nVt*Math.log(a):vcrit;}else vnew=vcrit;}return vnew;}
 const vnod=(Vn,idx,nm)=>idx[nm]>=0?Vn[idx[nm]]:0;
+// ── transistor bipolaire (Ebers-Moll) ──
+function bjtEval(d,Vb,Ve,Vc){
+  const sgn=d.npn?1:-1, Vt=VT;
+  let Vbe=sgn*(Vb-Ve), Vbc=sgn*(Vb-Vc);
+  Vbe=pnjlim(Vbe,(d._vbe!==undefined?d._vbe:Vbe),d.Is,1); Vbc=pnjlim(Vbc,(d._vbc!==undefined?d._vbc:Vbc),d.Is,1); d._vbe=Vbe; d._vbc=Vbc;
+  const eVbe=Math.exp(Math.min(Vbe/Vt,40)), eVbc=Math.exp(Math.min(Vbc/Vt,40));
+  const If=d.Is*(eVbe-1), Ir=d.Is*(eVbc-1);
+  const gee=d.Is/Vt*eVbe+GMIN, gcc=d.Is/Vt*eVbc+GMIN;
+  const Ic=If-Ir*(1+1/d.br), Ib=If/d.bf+Ir/d.br, Ie=-(Ic+Ib);
+  return {sgn,Vbe,Vbc,gee,gcc,Ic,Ib,Ie};
+}
+// ── MOSFET niveau 1 (loi quadratique, bulk = source) ──
+function mosEval(d,Vg,Vs,Vd){
+  const sgn=d.nmos?1:-1;
+  const Vgs=sgn*(Vg-Vs), Vds=sgn*(Vd-Vs), Vth=d.vth, kp=d.kp, lam=d.lam;
+  let Id=0,gm=0,gds=GMIN; const Vov=Vgs-Vth;
+  if(Vov>0){
+    if(Vds<Vov){Id=kp*(Vov*Vds-0.5*Vds*Vds); gm=kp*Vds; gds=kp*(Vov-Vds)+GMIN;}
+    else {Id=0.5*kp*Vov*Vov*(1+lam*Vds); gm=kp*Vov*(1+lam*Vds); gds=0.5*kp*Vov*Vov*lam+GMIN;}
+  }
+  return {sgn,Vgs,Vds,Id,gm,gds};
+}
 function dcOp(net){   // point de repos DC (Newton) : R + diodes + AOP ; C ouverts, L courts
   const N=net.nodes.length,vs=net.els.filter(e=>e.type==='v'),Mv=vs.length,P=net.inds.length,Q=net.opamps.length,K=N+Mv+P+Q;
   const Vn=new Float64Array(N), vd=net.diodes.map(()=>0);
@@ -280,6 +303,50 @@ function dcOp(net){   // point de repos DC (Newton) : R + diodes + AOP ; C ouver
     if(mx<1e-9+1e-6*Math.max(...Array.from(Vn,Math.abs),1e-9))break;
   }
   return Vn;
+}
+// Point de repos DC pour l'animation : tensions de nœud + courants de branche.
+// Les sources AC sont traitées comme leur amplitude en continu (démo de polarisation).
+function dcAnalyze(net){
+  const N=net.nodes.length,vs=net.els.filter(e=>e.type==='v'),Mv=vs.length,P=net.inds.length,Q=net.opamps.length,K=N+Mv+P+Q;
+  const srcDC=e=>e.dc!==0?e.dc:(e.sin?e.sin.off:(e.acmag||0));
+  const Vn=new Float64Array(N), vd=net.diodes.map(()=>0); let xfull=new Float64Array(K);
+  for(let it=0;it<150;it++){
+    const A=Array.from({length:K},()=>new Float64Array(K)),z=new Float64Array(K);
+    const sG=(i,j,g)=>{if(i>=0)A[i][i]+=g;if(j>=0)A[j][j]+=g;if(i>=0&&j>=0){A[i][j]-=g;A[j][i]-=g;}};
+    const sI=(i,j,c)=>{if(i>=0)z[i]-=c;if(j>=0)z[j]+=c;};
+    for(const e of net.els){const i=net.idx[e.a],j=net.idx[e.b];if(e.type==='r'){if(e.value>0)sG(i,j,1/e.value);}else if(e.type==='i')sI(i,j,srcDC(e));}
+    vs.forEach((e,k)=>{const r=N+k,i=net.idx[e.a],j=net.idx[e.b];if(i>=0){A[i][r]+=1;A[r][i]+=1;}if(j>=0){A[j][r]-=1;A[r][j]-=1;}z[r]=srcDC(e);});
+    net.inds.forEach((e,p)=>{const r=N+Mv+p,i=net.idx[e.a],j=net.idx[e.b];if(i>=0){A[i][r]+=1;A[r][i]+=1;}if(j>=0){A[j][r]-=1;A[r][j]-=1;}});
+    net.diodes.forEach((d,di)=>{const i=net.idx[d.a],j=net.idx[d.b];let Vdd=vnod(Vn,net.idx,d.a)-vnod(Vn,net.idx,d.b);Vdd=pnjlim(Vdd,vd[di],d.Is,d.n);const {g,I}=diodeGI(Vdd,d.Is,d.n);sG(i,j,g);sI(i,j,I-g*Vdd);vd[di]=Vdd;});
+    stampBJTMOS_dc(net,Vn,sG,sI,A,z,N,Mv,P,Q);
+    net.opamps.forEach((o,q)=>{const r=N+Mv+P+q,p=net.idx[o.a],m=net.idx[o.b],oN=net.idx[o.out];if(oN>=0)A[oN][r]+=1;if(p>=0)A[r][p]+=1;if(m>=0)A[r][m]-=1;});
+    const x=rsolve(A,z,K);xfull=x;let mx=0;for(let i=0;i<N;i++){mx=Math.max(mx,Math.abs(x[i]-Vn[i]));Vn[i]=x[i];}
+    if(mx<1e-9+1e-6*Math.max(...Array.from(Vn,Math.abs),1e-9))break;
+  }
+  const Vof=nm=>vnod(Vn,net.idx,nm), I={};
+  net.els.forEach(e=>{const Va=Vof(e.a),Vb=Vof(e.b);
+    if(e.type==='r')I[e.name]=e.value>0?(Va-Vb)/e.value:0;
+    else if(e.type==='c')I[e.name]=0;
+    else if(e.type==='i')I[e.name]=srcDC(e);
+    else if(e.type==='d')I[e.name]=diodeGI(Va-Vb,e.Is,e.n).I;});
+  vs.forEach((e,k)=>I[e.name]=xfull[N+k]);
+  net.inds.forEach((e,p)=>I[e.name]=xfull[N+Mv+p]);
+  (net.bjts||[]).forEach(d=>{const ev=bjtEval(d,Vof(d.b),Vof(d.e),Vof(d.c));I[d.name]=ev.sgn*ev.Ic;I[d.name+'#ib']=ev.sgn*ev.Ib;});
+  (net.moss||[]).forEach(d=>{const ev=mosEval(d,Vof(d.g),Vof(d.s),Vof(d.d));I[d.name]=ev.sgn*ev.Id;});
+  const V={'0':0}; net.nodes.forEach(n=>V[n]=Vof(n));
+  return {V,I};
+}
+// stamp BJT + MOSFET (DC/transitoire, Newton) — placeholders sûrs tant qu'aucun transistor n'est présent
+function stampBJTMOS_dc(net,Vn,sG,sI,A,z,N,Mv,P,Q){
+  const Vof=nm=>vnod(Vn,net.idx,nm);
+  (net.bjts||[]).forEach(d=>{const ic=net.idx[d.c],ib=net.idx[d.b],ie=net.idx[d.e];
+    const ev=bjtEval(d,Vof(d.b),Vof(d.e),Vof(d.c)),sgn=ev.sgn;
+    const term=(T,dbe,dbc,It)=>{if(T<0)return;if(ib>=0)A[T][ib]+=dbe+dbc;if(ie>=0)A[T][ie]-=dbe;if(ic>=0)A[T][ic]-=dbc;z[T]-=sgn*(It-(dbe*ev.Vbe+dbc*ev.Vbc));};
+    term(ic,ev.gee,-ev.gcc*(1+1/d.br),ev.Ic); term(ib,ev.gee/d.bf,ev.gcc/d.br,ev.Ib); term(ie,-(ev.gee+ev.gee/d.bf),ev.gcc,ev.Ie);});
+  (net.moss||[]).forEach(d=>{const id=net.idx[d.d],ig=net.idx[d.g],is=net.idx[d.s];
+    const ev=mosEval(d,Vof(d.g),Vof(d.s),Vof(d.d)),sgn=ev.sgn,gm=ev.gm,gds=ev.gds;
+    const term=(T,dvg,dvs,dvd,It)=>{if(T<0)return;if(ig>=0)A[T][ig]+=dvg;if(is>=0)A[T][is]+=dvs;if(id>=0)A[T][id]+=dvd;z[T]-=sgn*(It-(gm*ev.Vgs+gds*ev.Vds));};
+    term(id,gm,-(gm+gds),gds,ev.Id); term(is,-gm,gm+gds,-gds,-ev.Id);});
 }
 function acSolve(net,omega){
   const N=net.nodes.length, vs=net.els.filter(e=>e.type==='v'), Mv=vs.length, P=net.inds.length, Q=net.opamps.length, K=N+Mv+P+Q;
@@ -410,6 +477,10 @@ function run(){
 function redraw(){ if(!RESULT)return; if(RESULT.mode==='ac')drawBode(); else drawTran(); buildMetrics(); }
 
 function niceFmt(v){const a=Math.abs(v); if(a===0)return'0'; if(a>=1e4||a<1e-2)return v.toExponential(1); return v.toFixed(a>=100?0:a>=1?2:3);}
+function fmtSI(v,u){const a=Math.abs(v); if(a<1e-13)return '0 '+u;
+  const P=[[1e9,'G'],[1e6,'M'],[1e3,'k'],[1,''],[1e-3,'m'],[1e-6,'µ'],[1e-9,'n'],[1e-12,'p']];
+  for(const[s,pre]of P){if(a>=s){const r=v/s;return (Math.abs(r)>=100?r.toFixed(0):Math.abs(r)>=10?r.toFixed(1):r.toFixed(2))+' '+pre+u;}}
+  return v.toExponential(1)+' '+u;}
 function fmtFreq(f){return f>=1e6?(f/1e6).toFixed(f>=1e7?0:2)+'M':f>=1e3?(f/1e3).toFixed(f>=1e4?0:1)+'k':f.toFixed(0);}
 function fmtTime(s){return s>=1?s.toFixed(2)+'s':s>=1e-3?(s*1e3).toFixed(s>=1e-2?1:2)+'ms':s>=1e-6?(s*1e6).toFixed(0)+'µs':(s*1e9).toFixed(0)+'ns';}
 function selNodes(){return LASTNODES.filter(n=>CHECKED[n]);}
@@ -502,7 +573,7 @@ function buildMetrics(){
 
 // ═══════════════ Éditeur de schéma (génère la netlist → moteur MNA) ═══════════════
 const GS=30, MG=22;                       // pas de grille / marge (px CSS)
-let INPUT='sch', TOOL='sel', ORIENT='h', SEL=null, SCH={comps:[],wires:[]}, CNT={R:0,L:0,C:0,V:0,I:0,G:0,D:0,Q:0,M:0,O:0,T:0}, wireStart=null, drag=null, PROBES=new Set(), AUTOROUTE=true;
+let INPUT='sch', TOOL='sel', ORIENT='h', SEL=null, SCH={comps:[],wires:[]}, CNT={R:0,L:0,C:0,V:0,I:0,G:0,D:0,Q:0,M:0,O:0,T:0}, wireStart=null, drag=null, PROBES=new Set(), AUTOROUTE=true, DCMODE=false, DCDATA=null, dcPhase=0, dcRAF=null;
 const px=g=>MG+g*GS;
 const gridOf=(mx,my)=>[Math.max(0,Math.round((mx-MG)/GS)),Math.max(0,Math.round((my-MG)/GS))];
 function termsOf(c){return c.type==='GND'?[[c.x,c.y]]:c.dir==='h'?[[c.x,c.y],[c.x+2,c.y]]:[[c.x,c.y],[c.x,c.y+2]];}
@@ -618,7 +689,7 @@ function genNetlist(){
     else lines.push(`${c.name} ${na} ${nb} ${srcSpec(c)}`); });
   return lines.join('\n');
 }
-function syncNet(){ if(INPUT==='sch')$('netlist').value=genNetlist(); }
+function syncNet(){ if(INPUT==='sch')$('netlist').value=genNetlist(); if(DCMODE)computeDC(); }
 
 // ---- édition ----
 function editPanel(){
@@ -686,6 +757,36 @@ function drawComp(x,c){
   const val=('RLC'.includes(c.type))?c.value:c.type==='D'?'':(c.src.kind==='ac'?('AC '+c.src.mag):c.src.kind==='dc'?(c.src.dc+''):'SIN');
   x.fillText(c.name,lx,ly); x.font='10px sans-serif';x.fillStyle='#64748b';x.fillText(val,lx,ly+12);
 }
+// ── point de repos DC + animation des courants ──
+function toggleDC(){
+  DCMODE=!DCMODE; $('dc-toggle').classList.toggle('on',DCMODE);
+  if(DCMODE){ computeDC(); if(!DCDATA){DCMODE=false;$('dc-toggle').classList.remove('on');status(t('err.dc'),true);return;} status(''); dcLoop(); }
+  else { if(dcRAF)cancelAnimationFrame(dcRAF); dcRAF=null; drawSch(); }
+}
+function computeDC(){
+  try{const net=parseNetlist(genNetlist()); if(!net.nodes.length){DCDATA=null;return;} DCDATA=dcAnalyze(net);
+    DCDATA.Imax=Math.max(1e-12,...Object.keys(DCDATA.I).filter(k=>!k.includes('#')).map(k=>Math.abs(DCDATA.I[k])));}
+  catch(e){DCDATA=null;}
+}
+function dcLoop(){ if(!DCMODE)return; dcPhase+=0.02; if(INPUT==='sch'){drawSch(); drawDCOverlay();} dcRAF=requestAnimationFrame(dcLoop); }
+function drawDCOverlay(){
+  if(!DCDATA)return; const x=$('sch').getContext('2d'), E=extractNodes();
+  // tensions de nœud (une étiquette par nœud)
+  const seen={};
+  SCH.comps.forEach(c=>termsOf(c).forEach(tm=>{const nm=E.nameOf(tm[0],tm[1]); if(nm in seen)return; seen[nm]=1;
+    const V=DCDATA.V[nm]; if(V===undefined)return; const X=px(tm[0]),Y=px(tm[1]);
+    x.fillStyle='#1d4ed8';x.font='700 10px ui-monospace,monospace';x.textAlign='left';x.fillText(fmtSI(V,'V'),X+7,Y-5);
+    x.beginPath();x.arc(X,Y,3,0,7);x.fillStyle='#1d4ed8';x.fill();}));
+  // courants animés par composant
+  SCH.comps.forEach(c=>{ if(!'RLCDVI'.includes(c.type))return; const I=DCDATA.I[c.name]; if(I===undefined)return;
+    const T=termsOf(c); if(T.length<2)return; const ax=px(T[0][0]),ay=px(T[0][1]),bx=px(T[1][0]),by=px(T[1][1]);
+    const mag=Math.abs(I), dir=I>=0?1:-1, sp=0.25+1.5*mag/DCDATA.Imax, nd=3;
+    if(mag>1e-12)for(let k=0;k<nd;k++){ let f=((dcPhase*sp + k/nd)%1+1)%1; if(dir<0)f=1-f;
+      const X=ax+(bx-ax)*f, Y=ay+(by-ay)*f; x.beginPath();x.arc(X,Y,2.8,0,7);x.fillStyle='#d97706';x.fill();
+      x.beginPath();x.arc(X,Y,2.8,0,7);x.strokeStyle='#fff';x.lineWidth=.8;x.stroke();}
+    const mxp=(ax+bx)/2,myp=(ay+by)/2; x.fillStyle='#b45309';x.font='600 9px ui-monospace,monospace';x.textAlign='center';
+    x.fillText(fmtSI(I,'A'),mxp+(c.dir==='h'?0:24),myp+(c.dir==='h'?18:2));});
+}
 function buildDefaultSch(){   // diviseur RC passe-bas par défaut
   SCH={comps:[],wires:[]};CNT={R:0,L:0,C:0,V:0,I:0,G:0,D:0};
   const v=newComp('V',2,7);v.dir='v';v.y=5; SCH.comps.push(v);              // V1 entre (2,5)+ et (2,7)−
@@ -743,7 +844,7 @@ const I18N={
           en:"<b>How it works —</b> <b>draw</b> the circuit (components + wires, ground = node <b>0</b>) or write the <b>netlist</b>, then run. In <b>frequency</b> mode the <code>AC</code> source is the input and we plot the <b>Bode diagram</b> (gain in dB + phase) of each node. In <b>transient</b> mode we integrate the time response (<code>DC</code> step or <code>SIN</code> sources). The engine solves the circuit by <b>modified nodal analysis</b> at every frequency / time step."},
  'p.circuit':{fr:'Circuit',en:'Circuit'},
  'in.sch':{fr:'✏️ Schéma',en:'✏️ Schematic'},'in.net':{fr:'📝 Netlist',en:'📝 Netlist'},
- 'tool.sel':{fr:'Sélection',en:'Select'},'tool.wire':{fr:'Fil',en:'Wire'},'tool.v':{fr:'Source V',en:'V source'},'tool.i':{fr:'Source I',en:'I source'},'tool.gnd':{fr:'Masse',en:'Ground'},'tool.del':{fr:'Supprimer',en:'Delete'},'tool.rot':{fr:'⟳ Rotation',en:'⟳ Rotate'},'tool.clear':{fr:'Tout effacer',en:'Clear all'},'tool.probe':{fr:'🔍 Sonde',en:'🔍 Probe'},'tool.auto':{fr:'↳ Auto-routage',en:'↳ Auto-route'},
+ 'tool.sel':{fr:'Sélection',en:'Select'},'tool.wire':{fr:'Fil',en:'Wire'},'tool.v':{fr:'Source V',en:'V source'},'tool.i':{fr:'Source I',en:'I source'},'tool.gnd':{fr:'Masse',en:'Ground'},'tool.del':{fr:'Supprimer',en:'Delete'},'tool.rot':{fr:'⟳ Rotation',en:'⟳ Rotate'},'tool.clear':{fr:'Tout effacer',en:'Clear all'},'tool.probe':{fr:'🔍 Sonde',en:'🔍 Probe'},'tool.auto':{fr:'↳ Auto-routage',en:'↳ Auto-route'},'tool.dc':{fr:'⚡ Courants (DC)',en:'⚡ Currents (DC)'},
  'sch.hint':{fr:"Clique un outil puis le quadrillage pour poser un composant (orientation via ⟳). Outil « Fil » : clic-clic entre deux points. Les bornes qui se touchent (ou reliées par un fil) forment un même nœud. Place une Masse = nœud 0. Sélectionne un composant pour éditer sa valeur. Outil « 🔍 Sonde » : clique un nœud/fil pour ne tracer que celui-là (re-clic = enlève).",
             en:"Click a tool then the grid to drop a component (orientation via ⟳). 'Wire' tool: click-click between two points. Terminals that touch (or joined by a wire) form one node. Place a Ground = node 0. Select a component to edit its value. '🔍 Probe' tool: click a node/wire to plot only that one (click again to remove)."},
  'lbl.preset':{fr:'Exemple',en:'Example'},'lbl.importasc':{fr:'Importer LTspice (.asc)',en:'Import LTspice (.asc)'},
@@ -776,6 +877,7 @@ const I18N={
  'err.nosrc':{fr:'Aucune source (V ou I) — ajoute une excitation.',en:'No source (V or I) — add an excitation.'},
  'err.freq':{fr:'Plage de fréquence invalide (0 < fmin < fmax).',en:'Invalid frequency range (0 < fmin < fmax).'},
  'err.tstop':{fr:'Durée invalide.',en:'Invalid duration.'},
+ 'err.dc':{fr:'Point de repos DC impossible (circuit incomplet ?).',en:'DC operating point failed (incomplete circuit?).'},
  'disclaimer':{fr:"<b>Outil pédagogique —</b> circuits <b>linéaires</b> R, L, C et sources indépendantes (V, I), résolus par <b>analyse nodale modifiée</b> : exact en régime établi (AC) et par Euler implicite en transitoire ; <b>couplage mutuel K</b> (transformateur / WPT) , <b>diode</b> (Shockley, Newton-Raphson) et <b>AOP idéal</b> supportés. Pas encore de transistor ni de modèles d'AOP réels (gain/bande finis). Donne les ordres de grandeur et la physique, pas un signoff industriel.",
               en:"<b>Educational tool —</b> <b>linear</b> R, L, C circuits with independent sources (V, I), solved by <b>modified nodal analysis</b>: exact in steady state (AC), backward-Euler in transient; <b>mutual coupling K</b> (transformer / WPT) , <b>diode</b> (Shockley, Newton-Raphson) and <b>ideal op-amp</b> supported. No transistor or real op-amp models (finite gain/bandwidth) yet. Gives orders of magnitude and the physics, not an industrial sign-off."},
  'footer.lic':{fr:'© 2026 Hakeim Talleb · EMtools · Code sous licence <a href="LICENSE">MIT</a>',en:'© 2026 Hakeim Talleb · EMtools · Code under <a href="LICENSE">MIT</a> licence'},
