@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lignes de transmission & guides d'onde — EMtools</title>
+<style>
+:root{--bg:#0f1419;--panel:#1a2129;--panel2:#222b35;--ink:#e6edf3;--mut:#8b97a3;--acc:#4db6a4;--acc2:#e0884b;--line:#2d3742;--bad:#e05a5a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+header{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+header h1{font-size:19px;margin:0;font-weight:650}header .sub{color:var(--mut);font-size:13px}
+.lang{margin-left:auto;display:flex;gap:6px}
+.lang button{background:var(--panel2);color:var(--mut);border:1px solid var(--line);border-radius:7px;padding:5px 11px;cursor:pointer;font-size:13px}
+.lang button.on{background:var(--acc);color:#06231d;border-color:var(--acc);font-weight:650}
+.wrap{max-width:1040px;margin:0 auto;padding:20px 22px 90px}
+a.back{color:var(--acc);text-decoration:none;font-size:13px}
+.tabs{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap}
+.tabs button{background:var(--panel2);color:var(--mut);border:1px solid var(--line);border-radius:9px;padding:8px 14px;cursor:pointer;font-size:13.5px}
+.tabs button.on{background:var(--acc);color:#06231d;border-color:var(--acc);font-weight:650}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:18px}
+.card h2{font-size:16px;margin:0 0 6px}.card h3{font-size:13px;margin:18px 0 8px;text-transform:uppercase;letter-spacing:.05em;color:var(--acc)}
+.lead{color:var(--mut);font-size:14px;margin:0 0 14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+@media(max-width:760px){.grid2{grid-template-columns:1fr}}
+label{display:block;font-size:12.5px;color:var(--mut);margin:10px 0 4px}
+input[type=number],select{width:100%;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px}
+input[type=range]{width:100%}.rng{display:flex;align-items:center;gap:10px}.rng input[type=range]{flex:1}.rng b{min-width:84px;text-align:right;font-variant-numeric:tabular-nums}
+.row{display:flex;gap:10px}.row>*{flex:1}
+canvas{max-width:100%;background:#0b0f14;border-radius:8px;display:block}
+.cap{font-size:12px;color:var(--mut);text-align:center;margin-top:6px}
+.eq{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:8px;padding:10px 13px;margin:12px 0;font-size:14px;overflow-x:auto}
+.metrics{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.metric{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 13px;min-width:108px}
+.metric .k{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+.metric .v{font-size:18px;font-weight:680;margin-top:2px}.metric .v small{font-size:11px;color:var(--mut);font-weight:400}
+.metric.good{border-color:var(--acc)}.metric.bad{border-color:var(--bad)}
+table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}th:first-child,td:first-child{text-align:left}th{color:var(--mut);font-weight:500}
+.note{font-size:13px;color:var(--mut);margin-top:12px}
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="index.html">← EMtools</a>
+  <h1 data-i18n="title">Lignes de transmission & guides d'onde</h1>
+  <span class="sub" data-i18n="sub">impédance, TOS, microstrip, guide, fibre</span>
+  <div class="lang"><button id="lf" class="on" onclick="setLang('fr')">FR</button><button id="le" onclick="setLang('en')">EN</button></div>
+</header>
+<div class="wrap">
+  <div class="tabs">
+    <button id="tab-line" class="on" onclick="showTab('line')" data-i18n="t.line">1 · Ligne & TOS</button>
+    <button id="tab-micro" onclick="showTab('micro')" data-i18n="t.micro">2 · Impédance (microstrip…)</button>
+    <button id="tab-wg" onclick="showTab('wg')" data-i18n="t.wg">3 · Guide d'onde</button>
+    <button id="tab-fiber" onclick="showTab('fiber')" data-i18n="t.fiber">4 · Fibre optique</button>
+  </div>
+
+  <!-- ════ 1 · LIGNE & TOS ════ -->
+  <div id="pane-line">
+    <div class="card">
+      <h2 data-i18n="li.h">Adaptation, réflexion et TOS</h2>
+      <p class="lead" data-i18n="li.lead">Quand une charge Z<sub>L</sub> n'est pas égale à l'impédance caractéristique Z₀, une partie de l'onde est <b>réfléchie</b> : coefficient Γ = (Z<sub>L</sub>−Z₀)/(Z<sub>L</sub>+Z₀). Il en résulte une onde stationnaire (TOS / VSWR) et une impédance d'entrée qui <b>tourne</b> le long de la ligne. L'adaptation (Z<sub>L</sub> = Z₀) annule la réflexion.</p>
+      <div class="eq">Γ = (Z<sub>L</sub>−Z₀)/(Z<sub>L</sub>+Z₀) &nbsp;·&nbsp; TOS = (1+|Γ|)/(1−|Γ|) &nbsp;·&nbsp; Z<sub>in</sub>(d) = Z₀·(Z<sub>L</sub>+jZ₀tanβd)/(Z₀+jZ<sub>L</sub>tanβd)</div>
+      <div class="grid2">
+        <div>
+          <label data-i18n="li.z0">Impédance caractéristique Z₀ (Ω)</label>
+          <input type="number" id="z0" value="50" step="1" oninput="lineCalc()">
+          <label data-i18n="li.zl">Charge Z_L = R + jX (Ω)</label>
+          <div class="row"><input type="number" id="rl" value="100" step="1" oninput="lineCalc()"><input type="number" id="xl" value="40" step="1" oninput="lineCalc()"></div>
+          <label><span data-i18n="li.len">Longueur de ligne d (λ)</span> <b class="muted" id="ld-v"></b></label>
+          <div class="rng"><input type="range" id="ld" min="0" max="1" value="0.25" step="0.01" oninput="lineCalc()"><b id="ld-b"></b></div>
+          <div class="metrics" id="li-metrics"></div>
+        </div>
+        <div>
+          <canvas id="cv-line" width="460" height="280"></canvas>
+          <div class="cap" data-i18n="li.cap">Onde stationnaire |V(z)| le long de la ligne (z=0 à la charge, vers le générateur)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ 2 · IMPEDANCE ════ -->
+  <div id="pane-micro" style="display:none">
+    <div class="card">
+      <h2 data-i18n="mi.h">Impédance caractéristique d'une ligne planaire / coaxiale</h2>
+      <p class="lead" data-i18n="mi.lead">L'impédance Z₀ dépend de la géométrie et du diélectrique. Pour une <b>microstrip</b> (piste de largeur W sur substrat d'épaisseur h, permittivité ε<sub>r</sub>), on utilise les formules de Hammerstad. Régler W pour viser 50 Ω est la base du routage RF.</p>
+      <div class="grid2">
+        <div>
+          <label data-i18n="mi.type">Type de ligne</label>
+          <select id="ltype" onchange="microCalc()">
+            <option value="microstrip" selected>Microstrip</option>
+            <option value="stripline">Stripline (triplaque)</option>
+            <option value="coax">Coaxial</option>
+          </select>
+          <label data-i18n="mi.er">Permittivité ε_r du substrat</label>
+          <input type="number" id="er" value="4.4" step="0.1" oninput="microCalc()">
+          <div id="p-microstrip">
+            <label data-i18n="mi.h2">Épaisseur substrat h (mm)</label>
+            <input type="number" id="ms-h" value="1.6" step="0.1" oninput="microCalc()">
+            <label><span data-i18n="mi.w">Largeur de piste W (mm)</span> <b class="muted" id="ms-w-v"></b></label>
+            <div class="rng"><input type="range" id="ms-w" min="0.1" max="10" value="3" step="0.05" oninput="microCalc()"><b id="ms-w-b"></b></div>
+          </div>
+          <div id="p-stripline" style="display:none">
+            <label data-i18n="mi.b">Écart entre plans b (mm)</label><input type="number" id="sl-b" value="1.6" step="0.1" oninput="microCalc()">
+            <label data-i18n="mi.w">Largeur de piste W (mm)</label><input type="number" id="sl-w" value="0.8" step="0.05" oninput="microCalc()">
+          </div>
+          <div id="p-coax" style="display:none">
+            <label data-i18n="mi.din">Diamètre âme d (mm)</label><input type="number" id="cx-d" value="0.9" step="0.05" oninput="microCalc()">
+            <label data-i18n="mi.dout">Diamètre blindage D (mm)</label><input type="number" id="cx-D" value="3" step="0.1" oninput="microCalc()">
+          </div>
+          <label data-i18n="mi.freq">Fréquence (GHz) — pour λ guidée</label>
+          <input type="number" id="mfreq" value="2.45" step="0.1" oninput="microCalc()">
+        </div>
+        <div>
+          <div class="metrics" id="mi-metrics"></div>
+          <div id="mi-hint" class="note"></div>
+          <table id="mi-table"></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ 3 · GUIDE D'ONDE ════ -->
+  <div id="pane-wg" style="display:none">
+    <div class="card">
+      <h2 data-i18n="wg.h">Guide d'onde rectangulaire</h2>
+      <p class="lead" data-i18n="wg.lead">Un guide métallique creux (a×b) ne propage qu'au-dessus d'une <b>fréquence de coupure</b> propre à chaque mode : f<sub>c</sub>(m,n) = (c/2√ε<sub>r</sub>)·√((m/a)²+(n/b)²). Le mode fondamental TE₁₀ fixe la bande d'usage mono-mode. La longueur d'onde guidée s'allonge près de la coupure.</p>
+      <div class="eq">f<sub>c,TE10</sub> = c/(2a√ε<sub>r</sub>) &nbsp;·&nbsp; λ<sub>g</sub> = λ / √(1−(f<sub>c</sub>/f)²)</div>
+      <div class="grid2">
+        <div>
+          <label data-i18n="wg.preset">Guide standard</label>
+          <select id="wg-preset" onchange="wgPreset()">
+            <option value="22.86,10.16">WR-90 — bande X (8–12 GHz)</option>
+            <option value="15.8,7.9">WR-62 — bande Ku</option>
+            <option value="10.16,5.08">WR-42 — bande K</option>
+            <option value="72.14,34.04">WR-284 — bande S</option>
+            <option value="custom" data-i18n="wg.custom">Personnalisé…</option>
+          </select>
+          <label data-i18n="wg.a">Grand côté a (mm)</label><input type="number" id="wg-a" value="22.86" step="0.1" oninput="wgCalc()">
+          <label data-i18n="wg.b">Petit côté b (mm)</label><input type="number" id="wg-b" value="10.16" step="0.1" oninput="wgCalc()">
+          <label data-i18n="wg.er">Remplissage ε_r</label><input type="number" id="wg-er" value="1" step="0.1" oninput="wgCalc()">
+          <label data-i18n="wg.f">Fréquence de travail (GHz)</label><input type="number" id="wg-f" value="10" step="0.1" oninput="wgCalc()">
+          <div class="metrics" id="wg-metrics"></div>
+        </div>
+        <div>
+          <h3 data-i18n="wg.modes">Fréquences de coupure des modes</h3>
+          <table id="wg-table"></table>
+          <p class="note" data-i18n="wg.note">Bande mono-mode = de f<sub>c</sub>(TE₁₀) au prochain mode (TE₂₀ ou TE₀₁). En pratique on travaille à ~1,25–1,9× la coupure du TE₁₀.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ 4 · FIBRE ════ -->
+  <div id="pane-fiber" style="display:none">
+    <div class="card">
+      <h2 data-i18n="fi.h">Fibre optique : ouverture numérique et modes</h2>
+      <p class="lead" data-i18n="fi.lead">La lumière est guidée par réflexion totale entre un cœur (indice n₁) et une gaine (n₂ &lt; n₁). L'<b>ouverture numérique</b> NA = √(n₁²−n₂²) fixe l'angle d'acceptation. Le <b>nombre V</b> (fréquence normalisée) décide du régime : V &lt; 2,405 → <b>monomode</b> ; sinon multimode avec ≈ V²/2 modes.</p>
+      <div class="eq">NA = √(n₁²−n₂²) &nbsp;·&nbsp; V = (2π a / λ)·NA &nbsp;·&nbsp; monomode si V &lt; 2,405</div>
+      <div class="grid2">
+        <div>
+          <label data-i18n="fi.n1">Indice du cœur n₁</label><input type="number" id="fi-n1" value="1.4475" step="0.0001" oninput="fiberCalc()">
+          <label data-i18n="fi.n2">Indice de la gaine n₂</label><input type="number" id="fi-n2" value="1.444" step="0.0001" oninput="fiberCalc()">
+          <label data-i18n="fi.a">Rayon du cœur a (µm)</label><input type="number" id="fi-a" value="4.1" step="0.1" oninput="fiberCalc()">
+          <label data-i18n="fi.lam">Longueur d'onde λ (nm)</label>
+          <select id="fi-lam" onchange="fiberCalc()"><option value="850">850 nm</option><option value="1310" selected>1310 nm</option><option value="1550">1550 nm</option></select>
+          <div class="btns" style="display:flex;gap:8px;margin-top:10px">
+            <button class="metric" style="cursor:pointer" onclick="fiPreset('smf')" data-i18n="fi.smf">Monomode (SMF-28)</button>
+            <button class="metric" style="cursor:pointer" onclick="fiPreset('mmf')" data-i18n="fi.mmf">Multimode (50 µm)</button>
+          </div>
+        </div>
+        <div>
+          <div class="metrics" id="fi-metrics"></div>
+          <div id="fi-verdict"></div>
+          <p class="note" data-i18n="fi.note">λ de coupure : en dessous, la fibre redevient multimode. Une fibre « monomode » l'est seulement au-dessus de sa λ de coupure (≈ 1260 nm pour la SMF-28). NA élevée = plus de lumière captée mais plus de dispersion modale.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const C0=3e8;
+function met(k,v,u,cls){return `<div class="metric ${cls||''}"><div class="k">${k}</div><div class="v">${v} <small>${u||''}</small></div></div>`;}
+
+// ════ 1 · LIGNE & TOS ════
+function cdiv(ar,ai,br,bi){const d=br*br+bi*bi;return[(ar*br+ai*bi)/d,(ai*br-ar*bi)/d];}
+function lineCalc(){
+  const Z0=parseFloat(document.getElementById('z0').value)||50;
+  const R=parseFloat(document.getElementById('rl').value)||0, X=parseFloat(document.getElementById('xl').value)||0;
+  const d=parseFloat(document.getElementById('ld').value); document.getElementById('ld-b').textContent=d.toFixed(2)+" λ";
+  // Γ = (ZL-Z0)/(ZL+Z0)
+  const g=cdiv(R-Z0,X,R+Z0,X), gm=Math.hypot(g[0],g[1]);
+  const vswr=gm<1?(1+gm)/(1-gm):Infinity, rl=gm>0?-20*Math.log10(gm):Infinity;
+  // Zin(d) : βd=2π d ; tan
+  const bd=2*Math.PI*d, t=Math.tan(bd);
+  // ZL + jZ0 t  ;  Z0 + jZL t
+  const numR=R, numI=X+Z0*t, denR=Z0-X*t, denI=R*t;
+  const zin=cdiv(numR,numI,denR,denI); const zinR=Z0*zin[0], zinI=Z0*zin[1];
+  document.getElementById('li-metrics').innerHTML=
+    met("|Γ|",gm.toFixed(3),"",gm<0.1?'good':(gm>0.5?'bad':''))+
+    met("TOS / VSWR",isFinite(vswr)?vswr.toFixed(2):"∞","")+
+    met(T('li.rl'),isFinite(rl)?rl.toFixed(1):"∞","dB")+
+    met(T('li.zin'),zinR.toFixed(0)+(zinI>=0?"+":"")+zinI.toFixed(0)+"j","Ω");
+  // onde stationnaire |V(z)| = |1 + Γ e^{-2jβz}|
+  const cv=document.getElementById('cv-line'),x=cv.getContext('2d');x.clearRect(0,0,cv.width,cv.height);
+  const W=cv.width,H=cv.height,mL=44,mR=14,mT=14,mB=28,pw=W-mL-mR,ph=H-mT-mB;
+  const vmax=1+gm,vmin=Math.abs(1-gm); const X2=z=>mL+z*pw, Y=v=>mT+ph-(v/ (vmax*1.1))*ph;
+  x.strokeStyle="#2d3742";x.beginPath();x.moveTo(mL,mT);x.lineTo(mL,mT+ph);x.lineTo(mL+pw,mT+ph);x.stroke();
+  x.fillStyle="#8b97a3";x.font="10px sans-serif";x.textAlign="right";
+  for(let gg=0;gg<=4;gg++){const v=vmax*1.1*gg/4;x.fillText(v.toFixed(2),mL-4,Y(v)+3);}
+  x.textAlign="center";for(let gg=0;gg<=4;gg++){const z=gg/4;x.fillText(z.toFixed(2)+"λ",X2(z),mT+ph+14);}
+  x.fillText(T('li.pos'),mL+pw/2,H-2);
+  // courbe
+  x.strokeStyle="#4db6a4";x.lineWidth=2.4;x.beginPath();
+  for(let px=0;px<=pw;px++){const z=px/pw; const vr=1+gm*Math.cos(g[1]?Math.atan2(g[1],g[0])-2*2*Math.PI*z*0:0);
+    const ph2=Math.atan2(g[1],g[0])-4*Math.PI*z; const vv=Math.hypot(1+gm*Math.cos(ph2),gm*Math.sin(ph2));
+    px?x.lineTo(mL+px,Y(vv)):x.moveTo(mL+px,Y(vv));}
+  x.stroke();
+  // ligne d sélectionnée
+  x.strokeStyle="#e0884b";x.setLineDash([3,3]);x.beginPath();x.moveTo(X2(d),mT);x.lineTo(X2(d),mT+ph);x.stroke();x.setLineDash([]);
+}
+
+// ════ 2 · IMPEDANCE ════
+function microstripZ0(er,h,W){
+  const u=W/h;
+  let ee=(er+1)/2+(er-1)/2/Math.sqrt(1+12/u); if(u<1)ee+=(er-1)/2*0.04*Math.pow(1-u,2);
+  let Z0; if(u<=1)Z0=60/Math.sqrt(ee)*Math.log(8/u+u/4); else Z0=120*Math.PI/(Math.sqrt(ee)*(u+1.393+0.667*Math.log(u+1.444)));
+  return {Z0,ee};
+}
+function microCalc(){
+  const type=document.getElementById('ltype').value, er=parseFloat(document.getElementById('er').value)||4.4, f=parseFloat(document.getElementById('mfreq').value)*1e9;
+  ['microstrip','stripline','coax'].forEach(p=>document.getElementById('p-'+p).style.display=type===p?'block':'none');
+  let Z0,ee,extra='';
+  if(type==='microstrip'){
+    const h=parseFloat(document.getElementById('ms-h').value)||1.6, W=parseFloat(document.getElementById('ms-w').value)||3;
+    document.getElementById('ms-w-b').textContent=W.toFixed(2)+" mm";
+    const r=microstripZ0(er,h,W); Z0=r.Z0; ee=r.ee;
+    // largeur pour 50 Ω (bisection)
+    let lo=0.05,hi=30; for(let i=0;i<40;i++){const mid=(lo+hi)/2; if(microstripZ0(er,h,mid).Z0>50)lo=mid; else hi=mid;}
+    const w50=(lo+hi)/2; extra=T('mi.w50')+" : <b>"+w50.toFixed(2)+" mm</b> (W/h="+(w50/h).toFixed(2)+")";
+  } else if(type==='stripline'){
+    const b=parseFloat(document.getElementById('sl-b').value)||1.6, W=parseFloat(document.getElementById('sl-w').value)||0.8;
+    const We=(W/b>0.35)?W:W-b*Math.pow(0.35-W/b,2); Z0=30*Math.PI/Math.sqrt(er)*b/(We+0.441*b); ee=er;
+  } else { const d=parseFloat(document.getElementById('cx-d').value)||0.9, D=parseFloat(document.getElementById('cx-D').value)||3;
+    Z0=60/Math.sqrt(er)*Math.log(D/d); ee=er; }
+  const lam0=C0/f, lamg=lam0/Math.sqrt(ee);
+  document.getElementById('mi-metrics').innerHTML=
+    met("Z₀",Z0.toFixed(1),"Ω",Math.abs(Z0-50)<3?'good':'')+
+    met("ε_eff",ee.toFixed(2),"")+
+    met(T('mi.lamg'),(lamg*1000).toFixed(1),"mm");
+  document.getElementById('mi-hint').innerHTML=extra;
+  // λ/4 et λ/2 physiques
+  document.getElementById('mi-table').innerHTML=
+    '<tr><th>'+T('mi.elec')+'</th><th>'+T('mi.phys')+' (mm)</th></tr>'+
+    `<tr><td>λ/4</td><td>${(lamg/4*1000).toFixed(2)}</td></tr><tr><td>λ/2</td><td>${(lamg/2*1000).toFixed(2)}</td></tr><tr><td>λg</td><td>${(lamg*1000).toFixed(2)}</td></tr>`;
+}
+
+// ════ 3 · GUIDE ════
+function wgPreset(){const v=document.getElementById('wg-preset').value; if(v==='custom')return; const p=v.split(',');document.getElementById('wg-a').value=p[0];document.getElementById('wg-b').value=p[1];wgCalc();}
+function wgCalc(){
+  const a=(parseFloat(document.getElementById('wg-a').value)||22.86)/1000, b=(parseFloat(document.getElementById('wg-b').value)||10.16)/1000;
+  const er=parseFloat(document.getElementById('wg-er').value)||1, f=parseFloat(document.getElementById('wg-f').value)*1e9;
+  const cm=C0/Math.sqrt(er);
+  const fc=(m,n)=>cm/2*Math.sqrt((m/a)**2+(n/b)**2);
+  const modes=[['TE10',1,0],['TE20',2,0],['TE01',0,1],['TE11',1,1],['TE21',2,1]].map(M=>[M[0],fc(M[1],M[2])]).sort((p,q)=>p[1]-q[1]);
+  const f10=modes[0][1], f2=modes[1][1];
+  const lam0=C0/f, fcr=f10/f, lamg=f>f10?lam0/Math.sqrt(1-(f10/f)**2):Infinity;
+  document.getElementById('wg-metrics').innerHTML=
+    met("f_c TE₁₀",(f10/1e9).toFixed(2),"GHz")+
+    met(T('wg.band'),(f10/1e9).toFixed(2)+"–"+(f2/1e9).toFixed(2),"GHz")+
+    met("λg @ "+(f/1e9)+"GHz",isFinite(lamg)?(lamg*1000).toFixed(1):"—","mm",f>f10?'good':'bad');
+  let html='<tr><th>Mode</th><th>f_c (GHz)</th><th>'+T('wg.prop')+'</th></tr>';
+  for(const M of modes)html+=`<tr><td>${M[0]}</td><td>${(M[1]/1e9).toFixed(2)}</td><td>${f>M[1]?'✓':'—'}</td></tr>`;
+  document.getElementById('wg-table').innerHTML=html;
+}
+
+// ════ 4 · FIBRE ════
+function fiPreset(k){if(k==='smf'){document.getElementById('fi-n1').value=1.4475;document.getElementById('fi-n2').value=1.444;document.getElementById('fi-a').value=4.1;document.getElementById('fi-lam').value='1310';}
+  else{document.getElementById('fi-n1').value=1.49;document.getElementById('fi-n2').value=1.47;document.getElementById('fi-a').value=25;document.getElementById('fi-lam').value='850';}fiberCalc();}
+function fiberCalc(){
+  const n1=parseFloat(document.getElementById('fi-n1').value)||1.45, n2=parseFloat(document.getElementById('fi-n2').value)||1.44;
+  const a=(parseFloat(document.getElementById('fi-a').value)||4)*1e-6, lam=parseFloat(document.getElementById('fi-lam').value)*1e-9;
+  const NA=Math.sqrt(Math.max(0,n1*n1-n2*n2)), theta=Math.asin(Math.min(1,NA))*180/Math.PI;
+  const V=2*Math.PI*a/lam*NA, lamc=2*Math.PI*a*NA/2.405*1e9; // nm
+  const single=V<2.405, nmodes=single?1:Math.round(V*V/2);
+  document.getElementById('fi-metrics').innerHTML=
+    met("NA",NA.toFixed(3),"")+
+    met(T('fi.acc'),"±"+theta.toFixed(1),"°")+
+    met("V",V.toFixed(2),"",single?'good':'')+
+    met(T('fi.modes'),single?"1":("≈"+nmodes),"")+
+    met(T('fi.lamc'),lamc.toFixed(0),"nm");
+  const v=single?T('fi.single'):T('fi.multi');
+  document.getElementById('fi-verdict').innerHTML='<div class="metric '+(single?'good':'')+'" style="margin-top:10px"><div class="k">'+T('fi.regime')+'</div><div class="v">'+v+'</div></div>';
+}
+
+// ════ ONGLETS ════
+function showTab(t){['line','micro','wg','fiber'].forEach(p=>{document.getElementById('pane-'+p).style.display=p===t?'block':'none';document.getElementById('tab-'+p).classList.toggle('on',p===t);});
+  if(t==='line')lineCalc(); if(t==='micro')microCalc(); if(t==='wg')wgCalc(); if(t==='fiber')fiberCalc();}
+
+// ════ I18N ════
+const I18N={
+ title:{fr:"Lignes de transmission & guides d'onde",en:"Transmission lines & waveguides"},
+ sub:{fr:"impédance, TOS, microstrip, guide, fibre",en:"impedance, VSWR, microstrip, waveguide, fiber"},
+ 't.line':{fr:"1 · Ligne & TOS",en:"1 · Line & VSWR"},'t.micro':{fr:"2 · Impédance (microstrip…)",en:"2 · Impedance (microstrip…)"},'t.wg':{fr:"3 · Guide d'onde",en:"3 · Waveguide"},'t.fiber':{fr:"4 · Fibre optique",en:"4 · Optical fiber"},
+ 'li.h':{fr:"Adaptation, réflexion et TOS",en:"Matching, reflection and VSWR"},
+ 'li.lead':{fr:"Quand une charge Z<sub>L</sub> n'est pas égale à l'impédance caractéristique Z₀, une partie de l'onde est <b>réfléchie</b> : Γ = (Z<sub>L</sub>−Z₀)/(Z<sub>L</sub>+Z₀). D'où une onde stationnaire (TOS) et une impédance d'entrée qui <b>tourne</b> le long de la ligne. L'adaptation (Z<sub>L</sub> = Z₀) annule la réflexion.",en:"When a load Z<sub>L</sub> differs from the characteristic impedance Z₀, part of the wave is <b>reflected</b>: Γ = (Z<sub>L</sub>−Z₀)/(Z<sub>L</sub>+Z₀). This gives a standing wave (VSWR) and an input impedance that <b>rotates</b> along the line. Matching (Z<sub>L</sub> = Z₀) cancels the reflection."},
+ 'li.z0':{fr:"Impédance caractéristique Z₀ (Ω)",en:"Characteristic impedance Z₀ (Ω)"},'li.zl':{fr:"Charge Z_L = R + jX (Ω)",en:"Load Z_L = R + jX (Ω)"},'li.len':{fr:"Longueur de ligne d (λ)",en:"Line length d (λ)"},
+ 'li.rl':{fr:"Pertes par réflexion",en:"Return loss"},'li.zin':{fr:"Z_in(d)",en:"Z_in(d)"},'li.pos':{fr:"position (longueurs d'onde)",en:"position (wavelengths)"},
+ 'li.cap':{fr:"Onde stationnaire |V(z)| le long de la ligne (z=0 à la charge, vers le générateur)",en:"Standing wave |V(z)| along the line (z=0 at load, toward the generator)"},
+ 'mi.h':{fr:"Impédance caractéristique d'une ligne planaire / coaxiale",en:"Characteristic impedance of a planar / coaxial line"},
+ 'mi.lead':{fr:"L'impédance Z₀ dépend de la géométrie et du diélectrique. Pour une <b>microstrip</b> (piste W sur substrat h, ε<sub>r</sub>), on utilise les formules de Hammerstad. Régler W pour viser 50 Ω est la base du routage RF.",en:"Z₀ depends on geometry and dielectric. For a <b>microstrip</b> (trace W on substrate h, ε<sub>r</sub>) the Hammerstad formulas apply. Tuning W to hit 50 Ω is the basis of RF routing."},
+ 'mi.type':{fr:"Type de ligne",en:"Line type"},'mi.er':{fr:"Permittivité ε_r du substrat",en:"Substrate permittivity ε_r"},'mi.h2':{fr:"Épaisseur substrat h (mm)",en:"Substrate height h (mm)"},'mi.w':{fr:"Largeur de piste W (mm)",en:"Trace width W (mm)"},
+ 'mi.b':{fr:"Écart entre plans b (mm)",en:"Plate spacing b (mm)"},'mi.din':{fr:"Diamètre âme d (mm)",en:"Inner diameter d (mm)"},'mi.dout':{fr:"Diamètre blindage D (mm)",en:"Shield diameter D (mm)"},'mi.freq':{fr:"Fréquence (GHz) — pour λ guidée",en:"Frequency (GHz) — for guided λ"},
+ 'mi.lamg':{fr:"λ guidée",en:"guided λ"},'mi.w50':{fr:"W pour 50 Ω",en:"W for 50 Ω"},'mi.elec':{fr:"Longueur élec.",en:"Electrical length"},'mi.phys':{fr:"Longueur physique",en:"Physical length"},
+ 'wg.h':{fr:"Guide d'onde rectangulaire",en:"Rectangular waveguide"},
+ 'wg.lead':{fr:"Un guide métallique creux (a×b) ne propage qu'au-dessus d'une <b>fréquence de coupure</b> propre à chaque mode : f<sub>c</sub>(m,n) = (c/2√ε<sub>r</sub>)·√((m/a)²+(n/b)²). Le mode TE₁₀ fixe la bande mono-mode. La longueur d'onde guidée s'allonge près de la coupure.",en:"A hollow metal guide (a×b) only propagates above a <b>cutoff frequency</b> specific to each mode: f<sub>c</sub>(m,n) = (c/2√ε<sub>r</sub>)·√((m/a)²+(n/b)²). The TE₁₀ mode sets the single-mode band. The guided wavelength lengthens near cutoff."},
+ 'wg.preset':{fr:"Guide standard",en:"Standard guide"},'wg.custom':{fr:"Personnalisé…",en:"Custom…"},'wg.a':{fr:"Grand côté a (mm)",en:"Broad wall a (mm)"},'wg.b':{fr:"Petit côté b (mm)",en:"Narrow wall b (mm)"},'wg.er':{fr:"Remplissage ε_r",en:"Filling ε_r"},'wg.f':{fr:"Fréquence de travail (GHz)",en:"Operating frequency (GHz)"},
+ 'wg.modes':{fr:"Fréquences de coupure des modes",en:"Mode cutoff frequencies"},'wg.band':{fr:"Bande mono-mode",en:"Single-mode band"},'wg.prop':{fr:"Propage ?",en:"Propagates?"},
+ 'wg.note':{fr:"Bande mono-mode = de f<sub>c</sub>(TE₁₀) au prochain mode. En pratique on travaille à ~1,25–1,9× la coupure du TE₁₀.",en:"Single-mode band = from f<sub>c</sub>(TE₁₀) to the next mode. In practice one works at ~1.25–1.9× the TE₁₀ cutoff."},
+ 'fi.h':{fr:"Fibre optique : ouverture numérique et modes",en:"Optical fiber: numerical aperture and modes"},
+ 'fi.lead':{fr:"La lumière est guidée par réflexion totale entre un cœur (n₁) et une gaine (n₂ &lt; n₁). L'<b>ouverture numérique</b> NA = √(n₁²−n₂²) fixe l'angle d'acceptation. Le <b>nombre V</b> décide du régime : V &lt; 2,405 → <b>monomode</b> ; sinon multimode (≈ V²/2 modes).",en:"Light is guided by total internal reflection between a core (n₁) and cladding (n₂ &lt; n₁). The <b>numerical aperture</b> NA = √(n₁²−n₂²) sets the acceptance angle. The <b>V number</b> decides the regime: V &lt; 2.405 → <b>single-mode</b>; otherwise multimode (≈ V²/2 modes)."},
+ 'fi.n1':{fr:"Indice du cœur n₁",en:"Core index n₁"},'fi.n2':{fr:"Indice de la gaine n₂",en:"Cladding index n₂"},'fi.a':{fr:"Rayon du cœur a (µm)",en:"Core radius a (µm)"},'fi.lam':{fr:"Longueur d'onde λ (nm)",en:"Wavelength λ (nm)"},
+ 'fi.smf':{fr:"Monomode (SMF-28)",en:"Single-mode (SMF-28)"},'fi.mmf':{fr:"Multimode (50 µm)",en:"Multimode (50 µm)"},
+ 'fi.acc':{fr:"Angle d'acceptation",en:"Acceptance angle"},'fi.modes':{fr:"Nombre de modes",en:"Number of modes"},'fi.lamc':{fr:"λ de coupure",en:"Cutoff λ"},'fi.regime':{fr:"Régime",en:"Regime"},'fi.single':{fr:"Monomode",en:"Single-mode"},'fi.multi':{fr:"Multimode",en:"Multimode"},
+ 'fi.note':{fr:"λ de coupure : en dessous, la fibre redevient multimode. Une fibre « monomode » l'est seulement au-dessus de sa λ de coupure (≈ 1260 nm pour la SMF-28). NA élevée = plus de lumière captée mais plus de dispersion modale.",en:"Cutoff λ: below it, the fiber becomes multimode again. A \"single-mode\" fiber only is above its cutoff λ (≈ 1260 nm for SMF-28). Higher NA = more light captured but more modal dispersion."}
+};
+let LANG='fr';
+function T(k){return I18N[k]?I18N[k][LANG]:'';}
+function setLang(l){LANG=l;document.getElementById('lf').classList.toggle('on',l==='fr');document.getElementById('le').classList.toggle('on',l==='en');
+  document.querySelectorAll('[data-i18n]').forEach(e=>{const k=e.getAttribute('data-i18n');if(I18N[k])e.innerHTML=I18N[k][l];});
+  document.documentElement.lang=l;const cur=['line','micro','wg','fiber'].find(p=>document.getElementById('pane-'+p).style.display!=='none');showTab(cur||'line');}
+
+showTab('line');
+</script>
+</body>
+</html>
