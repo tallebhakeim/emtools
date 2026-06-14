@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GPS — comment ça marche — EMtools</title>
+<style>
+:root{--bg:#0f1419;--panel:#1a2129;--panel2:#222b35;--ink:#e6edf3;--mut:#8b97a3;--acc:#4db6a4;--acc2:#e0884b;--line:#2d3742;--bad:#e05a5a;--sat:#6fb6d6}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+header{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+header h1{font-size:19px;margin:0;font-weight:650}header .sub{color:var(--mut);font-size:13px}
+.lang{margin-left:auto;display:flex;gap:6px}
+.lang button{background:var(--panel2);color:var(--mut);border:1px solid var(--line);border-radius:7px;padding:5px 11px;cursor:pointer;font-size:13px}
+.lang button.on{background:var(--acc);color:#06231d;border-color:var(--acc);font-weight:650}
+.wrap{max-width:1040px;margin:0 auto;padding:20px 22px 90px}
+a.back{color:var(--acc);text-decoration:none;font-size:13px}
+.tabs{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap}
+.tabs button{background:var(--panel2);color:var(--mut);border:1px solid var(--line);border-radius:9px;padding:8px 14px;cursor:pointer;font-size:13.5px}
+.tabs button.on{background:var(--acc);color:#06231d;border-color:var(--acc);font-weight:650}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:18px}
+.card h2{font-size:16px;margin:0 0 6px}.card h3{font-size:13px;margin:18px 0 8px;text-transform:uppercase;letter-spacing:.05em;color:var(--acc)}
+.lead{color:var(--mut);font-size:14px;margin:0 0 14px}
+.grid2{display:grid;grid-template-columns:330px 1fr;gap:18px;align-items:start}
+@media(max-width:780px){.grid2{grid-template-columns:1fr}}
+label{display:block;font-size:12.5px;color:var(--mut);margin:10px 0 4px}
+input[type=number],select{width:100%;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px}
+input[type=range]{width:100%}.rng{display:flex;align-items:center;gap:10px}.rng input[type=range]{flex:1}.rng b{min-width:78px;text-align:right;font-variant-numeric:tabular-nums}
+.chk{display:flex;align-items:center;gap:8px;font-size:13.5px}.chk input{width:auto}
+canvas{max-width:100%;background:#0b0f14;border-radius:8px;display:block}
+.cap{font-size:12px;color:var(--mut);text-align:center;margin-top:6px}
+.eq{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:8px;padding:10px 13px;margin:12px 0;font-size:14px;overflow-x:auto}
+.metrics{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.metric{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 13px;min-width:118px}
+.metric .k{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+.metric .v{font-size:18px;font-weight:680;margin-top:2px}.metric .v small{font-size:11px;color:var(--mut)}
+.metric.good{border-color:var(--acc)}.metric.bad{border-color:var(--bad)}
+table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}th:first-child,td:first-child{text-align:left}th{color:var(--mut);font-weight:500}
+.note{font-size:13px;color:var(--mut);margin-top:12px}
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="index.html">← EMtools</a>
+  <h1 data-i18n="title">GPS — comment ça marche</h1>
+  <span class="sub" data-i18n="sub">trilatération, constellation, signal, relativité</span>
+  <div class="lang"><button id="lf" class="on" onclick="setLang('fr')">FR</button><button id="le" onclick="setLang('en')">EN</button></div>
+</header>
+<div class="wrap">
+  <div class="tabs">
+    <button id="tab-tri" class="on" onclick="showTab('tri')" data-i18n="t.tri">1 · Trilatération & horloge</button>
+    <button id="tab-cst" onclick="showTab('cst')" data-i18n="t.cst">2 · Constellation & GDOP</button>
+    <button id="tab-sig" onclick="showTab('sig')" data-i18n="t.sig">3 · Signal & temps de vol</button>
+    <button id="tab-rel" onclick="showTab('rel')" data-i18n="t.rel">4 · Relativité & précision</button>
+  </div>
+
+  <!-- ════ 1 · TRILATÉRATION ════ -->
+  <div id="pane-tri">
+    <div class="card">
+      <h2 data-i18n="tr.h">Se positionner par les distances : la trilatération</h2>
+      <p class="lead" data-i18n="tr.lead">Chaque satellite émet l'heure d'émission. Le récepteur mesure le <b>temps de vol</b> → une <b>distance</b> = c·Δt. Une distance le place sur un cercle (sphère en 3D) ; deux cercles → deux points ; <b>trois</b> lèvent l'ambiguïté en 2D. Mais l'horloge du récepteur est imprécise : ce <b>biais d'horloge</b> décale toutes les distances de la même quantité → une inconnue de plus. En 3D il faut donc <b>4 satellites</b> (x, y, z + horloge).</p>
+      <div class="eq">ρ_i = ‖p − s_i‖ + c·b &nbsp;(pseudo-distance) &nbsp;→&nbsp; 4 inconnues (x, y, z, b) → <b>4 satellites</b></div>
+      <div class="grid2">
+        <div>
+          <label><span data-i18n="tr.nsat">Nombre de satellites (2D)</span> <b class="muted" id="tr-n-v"></b></label>
+          <div class="rng"><input type="range" id="tr-n" min="2" max="4" value="3" oninput="tri()"><b id="tr-n-b"></b></div>
+          <label><span data-i18n="tr.bias">Biais d'horloge récepteur</span> <b class="muted" id="tr-b-v"></b></label>
+          <div class="rng"><input type="range" id="tr-b" min="-30" max="30" value="0" step="1" oninput="tri()"><b id="tr-b-b"></b></div>
+          <label><span data-i18n="tr.noise">Bruit de mesure</span> <b class="muted" id="tr-noise-v"></b></label>
+          <div class="rng"><input type="range" id="tr-noise" min="0" max="100" value="0" oninput="tri()"><b id="tr-noise-b"></b></div>
+          <div class="metrics" id="tr-metrics"></div>
+          <p class="note" data-i18n="tr.note">Le récepteur ne connaît PAS son horloge : il résout x, y <b>et</b> le biais d'horloge à partir des pseudo-distances (moindres carrés). Avec assez de satellites, la position trouvée (●) tombe sur la vraie (✕) <i>et</i> l'horloge est recalée — c'est pour ça qu'un GPS donne aussi l'heure très précisément.</p>
+        </div>
+        <div>
+          <canvas id="cv-tri" width="440" height="400"></canvas>
+          <div class="cap" data-i18n="tr.cap">Plan 2D (km) : satellites ▲, cercles de pseudo-distance, vraie position ✕, position calculée ●</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ 2 · CONSTELLATION & GDOP ════ -->
+  <div id="pane-cst" style="display:none">
+    <div class="card">
+      <h2 data-i18n="cs.h">La constellation et la géométrie (GDOP)</h2>
+      <p class="lead" data-i18n="cs.lead">~31 satellites sur 6 plans orbitaux à <b>20 200 km</b> (orbite moyenne, période ~11 h 58), pour qu'au moins 4 soient toujours visibles. La précision dépend de leur <b>géométrie</b> : des satellites bien <b>étalés</b> dans le ciel donnent un bon GDOP (faible) ; s'ils sont <b>groupés</b>, le GDOP explose (mauvaise précision). C'est la « dilution de précision ».</p>
+      <div class="eq">GDOP = √(trace[(HᵀH)⁻¹]) &nbsp; · &nbsp; erreur position ≈ GDOP × erreur de mesure (UERE)</div>
+      <div class="grid2">
+        <div>
+          <label data-i18n="cs.geo">Géométrie</label>
+          <select id="cs-geo" onchange="cst()">
+            <option value="good" selected data-i18n="cs.good">Bonne (satellites étalés)</option>
+            <option value="bad" data-i18n="cs.bad">Mauvaise (satellites groupés)</option>
+          </select>
+          <label><span data-i18n="cs.mask">Masque d'élévation (°)</span> <b class="muted" id="cs-mask-v"></b></label>
+          <div class="rng"><input type="range" id="cs-mask" min="0" max="30" value="5" oninput="cst()"><b id="cs-mask-b"></b></div>
+          <label><span data-i18n="cs.n">Satellites en vue</span> <b class="muted" id="cs-n-v"></b></label>
+          <div class="rng"><input type="range" id="cs-n" min="4" max="12" value="8" oninput="cst()"><b id="cs-n-b"></b></div>
+          <div class="metrics" id="cs-metrics"></div>
+          <p class="note" data-i18n="cs.note">Skyplot : le zénith est au centre, l'horizon au bord ; l'azimut fait le tour. Sous le masque d'élévation, un satellite est masqué (bâtiments, relief). PDOP/HDOP/VDOP = dilution sur la position 3D / horizontale / verticale.</p>
+        </div>
+        <div>
+          <canvas id="cv-sky" width="360" height="360"></canvas>
+          <div class="cap" data-i18n="cs.cap">Skyplot — satellites visibles (bleu) / masqués (gris) ; centre = zénith, bord = horizon</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ 3 · SIGNAL & TEMPS DE VOL ════ -->
+  <div id="pane-sig" style="display:none">
+    <div class="card">
+      <h2 data-i18n="sg.h">Le signal : temps de vol et corrélation du code</h2>
+      <p class="lead" data-i18n="sg.lead">Le satellite émet sur <b>L1 = 1575,42 MHz</b> (et L2, L5) un signal très faible (sous le bruit !) modulé par un <b>code pseudo-aléatoire (PRN)</b> propre à chaque satellite. Le récepteur génère le même code et le <b>corrèle</b> avec le signal reçu : le pic de corrélation donne le <b>retard</b> → la pseudo-distance. C'est l'étalement de spectre (CDMA) qui permet de tout extraire du bruit et de séparer les satellites.</p>
+      <div class="grid2">
+        <div>
+          <h3 data-i18n="sg.tof">Temps de vol</h3>
+          <label data-i18n="sg.alt">Altitude satellite (km)</label>
+          <input type="number" id="sg-alt" value="20200" step="100" oninput="sig()">
+          <label><span data-i18n="sg.elev">Élévation vue du sol (°)</span> <b class="muted" id="sg-el-v"></b></label>
+          <div class="rng"><input type="range" id="sg-el" min="5" max="90" value="90" oninput="sig()"><b id="sg-el-b"></b></div>
+          <div class="metrics" id="sg-metrics"></div>
+          <p class="note" data-i18n="sg.note2">Code C/A : 1,023 Mchip/s, longueur 1023, se répète chaque ms ; 1 chip ≈ 293 m. Mesurer la phase du code à mieux que 1 % d'un chip → quelques mètres.</p>
+        </div>
+        <div>
+          <label><span data-i18n="sg.lag">Décalage du code local (chips)</span> <b class="muted" id="sg-lag-v"></b></label>
+          <div class="rng"><input type="range" id="sg-lag" min="-30" max="30" value="0" oninput="sig()"><b id="sg-lag-b"></b></div>
+          <canvas id="cv-corr" width="440" height="230"></canvas>
+          <div class="cap" data-i18n="sg.corr">Autocorrélation du code PRN : pic étroit au bon décalage, ~0 ailleurs → mesure précise du retard</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ 4 · RELATIVITÉ & PRÉCISION ════ -->
+  <div id="pane-rel" style="display:none">
+    <div class="card">
+      <h2 data-i18n="re.h">Relativité : pourquoi 38 µs/jour comptent</h2>
+      <p class="lead" data-i18n="re.lead">Deux effets relativistes décalent l'horloge embarquée. <b>Relativité générale</b> : plus haut = gravité plus faible → l'horloge du satellite <b>avance</b> (+45,7 µs/jour à 20 200 km). <b>Relativité restreinte</b> : le satellite va vite → son horloge <b>retarde</b> (−7,2 µs/jour). Net : <b>+38,5 µs/jour</b>. Non corrigé, ça décale la position de ~<b>11 km/jour</b> ! Les horloges sont pré-réglées pour compenser.</p>
+      <div class="eq">Δ_GR = (GM/c²)(1/R_T − 1/r)·t &nbsp;·&nbsp; Δ_SR = −(v²/2c²)·t &nbsp;·&nbsp; erreur ≈ c·Δ_net</div>
+      <div class="grid2">
+        <div>
+          <label><span data-i18n="re.alt">Altitude orbitale (km)</span> <b class="muted" id="re-alt-v"></b></label>
+          <div class="rng"><input type="range" id="re-alt" min="300" max="36000" value="20200" step="100" oninput="rel()"><b id="re-alt-b"></b></div>
+          <div class="btns" style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+            <button class="metric" style="cursor:pointer" onclick="setAlt(400)" data-i18n="re.iss">ISS 400 km</button>
+            <button class="metric" style="cursor:pointer" onclick="setAlt(20200)">GPS 20 200 km</button>
+            <button class="metric" style="cursor:pointer" onclick="setAlt(35786)" data-i18n="re.geo">GEO 35 786 km</button>
+          </div>
+          <div class="metrics" id="re-metrics"></div>
+          <p class="note" data-i18n="re.note">À basse altitude (ISS) la vitesse domine → l'horloge <b>retarde</b> (net négatif). Vers <b>3 200 km</b> les deux effets se compensent. Au-dessus (GPS, GEO) la gravité domine → l'horloge <b>avance</b>.</p>
+        </div>
+        <div>
+          <canvas id="cv-rel" width="440" height="220"></canvas>
+          <div class="cap" data-i18n="re.cap">Décalage d'horloge (µs/jour) vs altitude : GR (+), SR (−), net</div>
+          <h3 data-i18n="re.budget">Budget d'erreur & corrections</h3>
+          <table id="re-table"></table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const C=299792458, GM=3.986004418e14, RT=6371000;
+function met(k,v,u,cls){return `<div class="metric ${cls||''}"><div class="k">${k}</div><div class="v">${v} <small>${u||''}</small></div></div>`;}
+// solveur linéaire (Gauss, pivot)
+function solveLin(A,b){const n=b.length;for(let i=0;i<n;i++){let p=i;for(let r=i+1;r<n;r++)if(Math.abs(A[r][i])>Math.abs(A[p][i]))p=r;[A[i],A[p]]=[A[p],A[i]];[b[i],b[p]]=[b[p],b[i]];for(let r=i+1;r<n;r++){const f=A[r][i]/A[i][i];for(let c=i;c<n;c++)A[r][c]-=f*A[i][c];b[r]-=f*b[i];}}const x=new Array(n);for(let i=n-1;i>=0;i--){let s=b[i];for(let c=i+1;c<n;c++)s-=A[i][c]*x[c];x[i]=s/A[i][i];}return x;}
+function matInv(M){const n=M.length,A=M.map((r,i)=>[...r,...Array.from({length:n},(_,j)=>i===j?1:0)]);
+  for(let i=0;i<n;i++){let p=i;for(let r=i+1;r<n;r++)if(Math.abs(A[r][i])>Math.abs(A[p][i]))p=r;[A[i],A[p]]=[A[p],A[i]];const d=A[i][i];for(let c=0;c<2*n;c++)A[i][c]/=d;
+    for(let r=0;r<n;r++)if(r!==i){const f=A[r][i];for(let c=0;c<2*n;c++)A[r][c]-=f*A[i][c];}}
+  return A.map(r=>r.slice(n));}
+function jet(t){t=Math.max(0,Math.min(1,t));const r=Math.max(0,Math.min(1,1.5-Math.abs(4*t-3))),g=Math.max(0,Math.min(1,1.5-Math.abs(4*t-2))),b=Math.max(0,Math.min(1,1.5-Math.abs(4*t-1)));return[Math.round(255*r),Math.round(255*g),Math.round(255*b)];}
+
+// ════ 1 · TRILATÉRATION ════
+const TRUE=[42,38]; // vraie position (km)
+const SATS=[[12,78],[80,72],[20,10],[88,22]]; // positions satellites (km)
+function tri(){
+  const n=parseInt(document.getElementById('tr-n').value), bias=parseFloat(document.getElementById('tr-b').value), noise=parseFloat(document.getElementById('tr-noise').value)/100*2;
+  document.getElementById('tr-n-b').textContent=n; document.getElementById('tr-b-b').textContent=bias+" km"; document.getElementById('tr-noise-b').textContent=(noise*1000).toFixed(0)+" m";
+  const sats=SATS.slice(0,n);
+  // pseudo-distances mesurées = vraie distance + biais + bruit (déterministe)
+  const pr=sats.map((s,i)=>Math.hypot(TRUE[0]-s[0],TRUE[1]-s[1])+bias+(noise?noise*Math.sin(i*2.7+1):0));
+  // résout (x,y,b) par Gauss-Newton (besoin n>=3)
+  let X=[50,50,0], conv=n>=3;
+  if(conv){for(let it=0;it<30;it++){const J=[],f=[];
+    for(let i=0;i<sats.length;i++){const dx=X[0]-sats[i][0],dy=X[1]-sats[i][1],d=Math.hypot(dx,dy)||1e-6;J.push([dx/d,dy/d,1]);f.push(d+X[2]-pr[i]);}
+    const A=[[0,0,0],[0,0,0],[0,0,0]],g=[0,0,0];
+    for(let a=0;a<3;a++){for(let b=0;b<3;b++){let s=0;for(let i=0;i<J.length;i++)s+=J[i][a]*J[i][b];A[a][b]=s;}let gg=0;for(let i=0;i<J.length;i++)gg+=J[i][a]*f[i];g[a]=-gg;}
+    const dX=solveLin(A.map(r=>r.slice()),g.slice()); X=X.map((v,i)=>v+dX[i]); if(Math.hypot(dX[0],dX[1])<1e-9)break;}}
+  const err=conv?Math.hypot(X[0]-TRUE[0],X[1]-TRUE[1])*1000:NaN;
+  document.getElementById('tr-metrics').innerHTML=
+    met(T('tr.unk'),"x, y, b","")+met(T('tr.solv'),conv?(err<50?'✓':'~'):'✗',conv?(err<1?'< 1 m':err.toFixed(0)+' m'):T('tr.under'),conv&&err<50?'good':'bad')+
+    met(T('tr.bfound'),conv?X[2].toFixed(1):'—',"km");
+  // dessin
+  const cv=document.getElementById('cv-tri'),x=cv.getContext('2d');x.clearRect(0,0,cv.width,cv.height);
+  const W=cv.width,H=cv.height,sc=Math.min(W,H)/100,PX=v=>v*sc,PY=v=>H-v*sc;
+  x.strokeStyle="#1c242d";x.lineWidth=1;for(let g=0;g<=100;g+=20){x.beginPath();x.moveTo(PX(g),0);x.lineTo(PX(g),H);x.moveTo(0,PY(g));x.lineTo(W,PY(g));x.stroke();}
+  // cercles de pseudo-distance
+  sats.forEach((s,i)=>{x.strokeStyle="rgba(111,182,214,0.7)";x.lineWidth=1.5;x.beginPath();x.arc(PX(s[0]),PY(s[1]),Math.max(0,pr[i])*sc,0,2*Math.PI);x.stroke();
+    x.fillStyle="#6fb6d6";x.beginPath();x.moveTo(PX(s[0]),PY(s[1])-7);x.lineTo(PX(s[0])-6,PY(s[1])+5);x.lineTo(PX(s[0])+6,PY(s[1])+5);x.closePath();x.fill();
+    x.fillStyle="#8b97a3";x.font="10px sans-serif";x.textAlign="center";x.fillText("S"+(i+1),PX(s[0]),PY(s[1])-10);});
+  // vraie position ✕
+  x.strokeStyle="#e0884b";x.lineWidth=2.5;const tx=PX(TRUE[0]),ty=PY(TRUE[1]);x.beginPath();x.moveTo(tx-7,ty-7);x.lineTo(tx+7,ty+7);x.moveTo(tx+7,ty-7);x.lineTo(tx-7,ty+7);x.stroke();
+  // position calculée ●
+  if(conv){x.fillStyle=err<50?"#4db6a4":"#e05a5a";x.beginPath();x.arc(PX(X[0]),PY(X[1]),6,0,2*Math.PI);x.fill();}
+}
+
+// ════ 2 · CONSTELLATION & GDOP ════
+const GEO_GOOD=[[20,75],[140,60],[260,55],[330,40],[70,30],[200,25],[300,15],[110,80],[180,45],[40,50],[240,70],[150,20]];
+const GEO_BAD=[[30,70],[45,65],[55,72],[35,58],[60,60],[40,50],[50,55],[48,68],[38,62],[52,48],[42,75],[58,52]];
+function cst(){
+  const geo=document.getElementById('cs-geo').value==='good'?GEO_GOOD:GEO_BAD;
+  const mask=parseFloat(document.getElementById('cs-mask').value), nReq=parseInt(document.getElementById('cs-n').value);
+  document.getElementById('cs-mask-b').textContent=mask+"°"; document.getElementById('cs-n-b').textContent=nReq;
+  const all=geo.slice(0,nReq).map(([az,el])=>({az,el,vis:el>=mask}));
+  const vis=all.filter(s=>s.vis);
+  // GDOP : H = lignes [-ex,-ey,-ez,1], e=cosEl·(sinAz,cosAz), ez=sinEl
+  let gdop=NaN,pdop=NaN,hdop=NaN,vdop=NaN;
+  if(vis.length>=4){const H=vis.map(s=>{const e=s.el*Math.PI/180,a=s.az*Math.PI/180,ex=Math.cos(e)*Math.sin(a),ey=Math.cos(e)*Math.cos(a),ez=Math.sin(e);return[-ex,-ey,-ez,1];});
+    const HtH=[[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+    for(let a=0;a<4;a++)for(let b=0;b<4;b++){let s=0;for(const r of H)s+=r[a]*r[b];HtH[a][b]=s;}
+    try{const Q=matInv(HtH);gdop=Math.sqrt(Q[0][0]+Q[1][1]+Q[2][2]+Q[3][3]);pdop=Math.sqrt(Q[0][0]+Q[1][1]+Q[2][2]);hdop=Math.sqrt(Q[0][0]+Q[1][1]);vdop=Math.sqrt(Q[2][2]);}catch(e){}}
+  const q=gdop<2?'good':(gdop>5?'bad':'');
+  document.getElementById('cs-metrics').innerHTML=
+    met(T('cs.vis'),vis.length,"",vis.length>=4?'good':'bad')+met("GDOP",isFinite(gdop)?gdop.toFixed(1):'—',"",q)+met("PDOP",isFinite(pdop)?pdop.toFixed(1):'—',"")+met("HDOP / VDOP",(isFinite(hdop)?hdop.toFixed(1):'—')+" / "+(isFinite(vdop)?vdop.toFixed(1):'—'),"");
+  // skyplot
+  const cv=document.getElementById('cv-sky'),x=cv.getContext('2d');x.clearRect(0,0,cv.width,cv.height);
+  const cx=cv.width/2,cy=cv.height/2,R=Math.min(cv.width,cv.height)/2-18;
+  x.strokeStyle="#243039";for(const el of [0,30,60]){x.beginPath();x.arc(cx,cy,R*(1-el/90),0,2*Math.PI);x.stroke();}
+  x.beginPath();x.arc(cx,cy,R,0,2*Math.PI);x.strokeStyle="#3a4754";x.stroke();
+  for(let a=0;a<360;a+=45){x.strokeStyle="#1c242d";x.beginPath();x.moveTo(cx,cy);x.lineTo(cx+R*Math.sin(a*Math.PI/180),cy-R*Math.cos(a*Math.PI/180));x.stroke();}
+  // masque
+  x.fillStyle="rgba(224,90,90,0.07)";x.beginPath();x.arc(cx,cy,R,0,2*Math.PI);x.arc(cx,cy,R*(1-mask/90),0,2*Math.PI,true);x.fill();
+  x.fillStyle="#8b97a3";x.font="10px sans-serif";x.textAlign="center";x.fillText("N",cx,cy-R-5);x.fillText("S",cx,cy+R+12);x.fillText("E",cx+R+8,cy+3);x.fillText("O",cx-R-8,cy+3);
+  all.forEach((s,i)=>{const rr=R*(1-s.el/90),px=cx+rr*Math.sin(s.az*Math.PI/180),py=cy-rr*Math.cos(s.az*Math.PI/180);
+    x.fillStyle=s.vis?"#6fb6d6":"#3a4754";x.beginPath();x.arc(px,py,6,0,2*Math.PI);x.fill();
+    x.fillStyle=s.vis?"#06231d":"#8b97a3";x.font="9px sans-serif";x.fillText(i+1,px,py+3);});
+}
+
+// ════ 3 · SIGNAL & TEMPS DE VOL ════
+let PRN=null;
+function genPRN(){ // m-séquence longueur 1023 (LFSR 10 bits, poly x^10+x^3+1) -> ±1
+  let reg=new Array(10).fill(1); const seq=[];
+  for(let i=0;i<1023;i++){const out=reg[9];seq.push(out?1:-1);const fb=reg[9]^reg[2];for(let k=9;k>0;k--)reg[k]=reg[k-1];reg[0]=fb;}
+  return seq;
+}
+function sig(){
+  if(!PRN)PRN=genPRN();
+  const alt=parseFloat(document.getElementById('sg-alt').value)*1000, el=parseFloat(document.getElementById('sg-el').value), lag=parseInt(document.getElementById('sg-lag').value);
+  document.getElementById('sg-el-b').textContent=el+"°"; document.getElementById('sg-lag-b').textContent=lag;
+  // distance oblique : r=RT+alt ; loi des cosinus avec angle d'élévation
+  const r=RT+alt, elr=el*Math.PI/180;
+  const range=Math.sqrt(RT*RT*Math.sin(elr)*Math.sin(elr)+r*r-RT*RT)-RT*Math.sin(elr);
+  const tof=range/C;
+  document.getElementById('sg-metrics').innerHTML=
+    met(T('sg.range'),(range/1000).toFixed(0),"km")+met(T('sg.toff'),(tof*1000).toFixed(2),"ms")+met("λ (L1)",(C/1575.42e6*100).toFixed(1),"cm")+met(T('sg.chip'),(C/1.023e6).toFixed(0),"m");
+  // autocorrélation (cyclique) — calcule autour de quelques décalages + le décalage choisi
+  const N=PRN.length, ac=l=>{let s=0;for(let i=0;i<N;i++)s+=PRN[i]*PRN[(i+l+N)%N];return s/N;};
+  const cv=document.getElementById('cv-corr'),x=cv.getContext('2d');x.clearRect(0,0,cv.width,cv.height);
+  const W=cv.width,Hc=cv.height,mL=36,mB=22,mT=10,pw=W-mL-12,ph=Hc-mT-mB;
+  const L=40; const X=l=>mL+(l+L)/(2*L)*pw, Y=v=>mT+ph-(v+0.2)/(1.2)*ph;
+  x.strokeStyle="#2d3742";x.beginPath();x.moveTo(mL,Y(0));x.lineTo(mL+pw,Y(0));x.moveTo(mL,mT);x.lineTo(mL,mT+ph);x.stroke();
+  x.fillStyle="#8b97a3";x.font="10px sans-serif";x.textAlign="right";x.fillText("1",mL-4,Y(1)+3);x.fillText("0",mL-4,Y(0)+3);
+  x.textAlign="center";for(const l of [-40,-20,0,20,40])x.fillText(l,X(l),mT+ph+13);x.fillText(T('sg.lagx'),mL+pw/2,Hc-1);
+  x.strokeStyle="#4db6a4";x.lineWidth=1.5;x.beginPath();for(let l=-L;l<=L;l++){const v=ac(l);l===-L?x.moveTo(X(l),Y(v)):x.lineTo(X(l),Y(v));}x.stroke();
+  // décalage choisi
+  const vL=ac(lag);x.strokeStyle="#e0884b";x.setLineDash([3,3]);x.beginPath();x.moveTo(X(lag),mT);x.lineTo(X(lag),mT+ph);x.stroke();x.setLineDash([]);
+  x.fillStyle="#e0884b";x.beginPath();x.arc(X(lag),Y(vL),5,0,2*Math.PI);x.fill();x.textAlign="left";x.fillText("R="+vL.toFixed(2),X(lag)+7,Y(vL)-4);
+}
+
+// ════ 4 · RELATIVITÉ & PRÉCISION ════
+function setAlt(a){document.getElementById('re-alt').value=a;rel();}
+function rel(){
+  const h=parseFloat(document.getElementById('re-alt').value)*1000, r=RT+h, v=Math.sqrt(GM/r);
+  document.getElementById('re-alt-b').textContent=(h/1000).toFixed(0)+" km";
+  const day=86400;
+  const gr=(GM/(C*C))*(1/RT-1/r)*day*1e6;   // µs/jour (positif : satellite avance)
+  const sr=-(v*v/(2*C*C))*day*1e6;          // µs/jour (négatif)
+  const net=gr+sr, errKm=net*1e-6*C/1000;
+  document.getElementById('re-metrics').innerHTML=
+    met(T('re.gr'),"+"+gr.toFixed(1),"µs/j")+met(T('re.sr'),sr.toFixed(1),"µs/j")+met(T('re.net'),(net>0?'+':'')+net.toFixed(1),"µs/j",Math.abs(net)<1?'':'')+met(T('re.err'),(errKm>0?'+':'')+errKm.toFixed(1),"km/j",Math.abs(errKm)>1?'bad':'');
+  // courbe vs altitude
+  const cv=document.getElementById('cv-rel'),x=cv.getContext('2d');x.clearRect(0,0,cv.width,cv.height);
+  const W=cv.width,Hc=cv.height,mL=40,mB=22,mT=10,pw=W-mL-12,ph=Hc-mT-mB, Amax=36000;
+  const grF=a=>(GM/(C*C))*(1/RT-1/(RT+a*1000))*day*1e6, srF=a=>-((GM/(RT+a*1000))/(2*C*C))*day*1e6;
+  const ymax=60,ymin=-15; const X=a=>mL+a/Amax*pw, Y=val=>mT+ph-(val-ymin)/(ymax-ymin)*ph;
+  x.strokeStyle="#2d3742";x.beginPath();x.moveTo(mL,Y(0));x.lineTo(mL+pw,Y(0));x.moveTo(mL,mT);x.lineTo(mL,mT+ph);x.stroke();
+  x.fillStyle="#8b97a3";x.font="10px sans-serif";x.textAlign="right";for(const g of [-15,0,20,40,60])x.fillText(g,mL-4,Y(g)+3);
+  x.textAlign="center";for(const a of [0,10000,20000,30000])x.fillText((a/1000)+"k",X(a),mT+ph+13);x.fillText(T('re.altx'),mL+pw/2,Hc-1);
+  const curve=(fn,col)=>{x.strokeStyle=col;x.lineWidth=2;x.beginPath();for(let a=300;a<=Amax;a+=300){const yy=Y(fn(a));a===300?x.moveTo(X(a),yy):x.lineTo(X(a),yy);}x.stroke();};
+  curve(grF,"#4db6a4");curve(srF,"#e0884b");curve(a=>grF(a)+srF(a),"#b48ad8");
+  x.fillStyle="#4db6a4";x.textAlign="left";x.fillText("GR",mL+pw*0.7,Y(grF(25000))-4);x.fillStyle="#e0884b";x.fillText("SR",mL+pw*0.7,Y(srF(25000))+12);x.fillStyle="#b48ad8";x.fillText("net",mL+pw*0.5,Y(grF(15000)+srF(15000))-4);
+  x.strokeStyle="#6fb6d6";x.setLineDash([3,3]);x.beginPath();x.moveTo(X(h/1000),mT);x.lineTo(X(h/1000),mT+ph);x.stroke();x.setLineDash([]);
+  // budget d'erreur
+  document.getElementById('re-table').innerHTML=
+    '<tr><th>'+T('re.src')+'</th><th>'+T('re.mono')+'</th></tr>'+
+    `<tr><td>${T('re.iono')}</td><td>~5 m</td></tr><tr><td>${T('re.sat')}</td><td>~1,5 m</td></tr><tr><td>${T('re.tropo')}</td><td>~0,5 m</td></tr><tr><td>${T('re.multi')}</td><td>~0,6 m</td></tr>`+
+    `<tr style="color:var(--acc)"><td>${T('re.tot')} × GDOP</td><td>~5–10 m</td></tr>`+
+    `<tr><td>SBAS (EGNOS/WAAS)</td><td>~1–2 m</td></tr><tr><td>DGPS</td><td>~1 m</td></tr><tr style="color:var(--acc2)"><td>RTK</td><td>~1–2 cm</td></tr>`;
+}
+
+// ════ ONGLETS ════
+function showTab(t){['tri','cst','sig','rel'].forEach(p=>{document.getElementById('pane-'+p).style.display=p===t?'block':'none';document.getElementById('tab-'+p).classList.toggle('on',p===t);});
+  if(t==='tri')tri(); if(t==='cst')cst(); if(t==='sig')sig(); if(t==='rel')rel();}
+
+// ════ I18N ════
+const I18N={
+ title:{fr:"GPS — comment ça marche",en:"GPS — how it works"},
+ sub:{fr:"trilatération, constellation, signal, relativité",en:"trilateration, constellation, signal, relativity"},
+ 't.tri':{fr:"1 · Trilatération & horloge",en:"1 · Trilateration & clock"},'t.cst':{fr:"2 · Constellation & GDOP",en:"2 · Constellation & GDOP"},'t.sig':{fr:"3 · Signal & temps de vol",en:"3 · Signal & time of flight"},'t.rel':{fr:"4 · Relativité & précision",en:"4 · Relativity & accuracy"},
+ 'tr.h':{fr:"Se positionner par les distances : la trilatération",en:"Positioning by distances: trilateration"},
+ 'tr.lead':{fr:"Chaque satellite émet l'heure d'émission. Le récepteur mesure le <b>temps de vol</b> → une <b>distance</b> = c·Δt. Une distance le place sur un cercle (sphère en 3D) ; deux cercles → deux points ; <b>trois</b> lèvent l'ambiguïté en 2D. Mais l'horloge du récepteur est imprécise : ce <b>biais d'horloge</b> décale toutes les distances de la même quantité → une inconnue de plus. En 3D il faut donc <b>4 satellites</b> (x, y, z + horloge).",en:"Each satellite broadcasts its emission time. The receiver measures the <b>time of flight</b> → a <b>distance</b> = c·Δt. One distance puts it on a circle (sphere in 3D); two circles → two points; <b>three</b> remove the ambiguity in 2D. But the receiver's clock is imprecise: this <b>clock bias</b> shifts all distances by the same amount → one extra unknown. In 3D you therefore need <b>4 satellites</b> (x, y, z + clock)."},
+ 'tr.nsat':{fr:"Nombre de satellites (2D)",en:"Number of satellites (2D)"},'tr.bias':{fr:"Biais d'horloge récepteur",en:"Receiver clock bias"},'tr.noise':{fr:"Bruit de mesure",en:"Measurement noise"},
+ 'tr.unk':{fr:"Inconnues",en:"Unknowns"},'tr.solv':{fr:"Position trouvée",en:"Position found"},'tr.bfound':{fr:"Biais estimé",en:"Estimated bias"},'tr.under':{fr:"indéterminé",en:"underdetermined"},
+ 'tr.note':{fr:"Le récepteur ne connaît PAS son horloge : il résout x, y <b>et</b> le biais d'horloge à partir des pseudo-distances (moindres carrés). Avec assez de satellites, la position trouvée (●) tombe sur la vraie (✕) <i>et</i> l'horloge est recalée — c'est pour ça qu'un GPS donne aussi l'heure très précisément.",en:"The receiver does NOT know its clock: it solves x, y <b>and</b> the clock bias from the pseudoranges (least squares). With enough satellites the computed position (●) lands on the true one (✕) <i>and</i> the clock is corrected — that's why a GPS also gives very accurate time."},
+ 'tr.cap':{fr:"Plan 2D (km) : satellites ▲, cercles de pseudo-distance, vraie position ✕, position calculée ●",en:"2D plane (km): satellites ▲, pseudorange circles, true position ✕, computed position ●"},
+ 'cs.h':{fr:"La constellation et la géométrie (GDOP)",en:"The constellation and geometry (GDOP)"},
+ 'cs.lead':{fr:"~31 satellites sur 6 plans orbitaux à <b>20 200 km</b> (orbite moyenne, période ~11 h 58), pour qu'au moins 4 soient toujours visibles. La précision dépend de leur <b>géométrie</b> : des satellites bien <b>étalés</b> donnent un bon GDOP (faible) ; <b>groupés</b>, le GDOP explose. C'est la « dilution de précision ».",en:"~31 satellites on 6 orbital planes at <b>20,200 km</b> (medium orbit, ~11 h 58 period), so at least 4 are always visible. Accuracy depends on their <b>geometry</b>: well-<b>spread</b> satellites give a good (low) GDOP; <b>clustered</b>, GDOP blows up. This is the \"dilution of precision\"."},
+ 'cs.geo':{fr:"Géométrie",en:"Geometry"},'cs.good':{fr:"Bonne (satellites étalés)",en:"Good (spread satellites)"},'cs.bad':{fr:"Mauvaise (satellites groupés)",en:"Bad (clustered satellites)"},'cs.mask':{fr:"Masque d'élévation (°)",en:"Elevation mask (°)"},'cs.n':{fr:"Satellites en vue",en:"Satellites in view"},'cs.vis':{fr:"Visibles",en:"Visible"},
+ 'cs.note':{fr:"Skyplot : le zénith est au centre, l'horizon au bord ; l'azimut fait le tour. Sous le masque d'élévation, un satellite est masqué (bâtiments, relief). PDOP/HDOP/VDOP = dilution sur la position 3D / horizontale / verticale.",en:"Skyplot: zenith at centre, horizon at edge; azimuth around. Below the elevation mask a satellite is blocked (buildings, terrain). PDOP/HDOP/VDOP = dilution on 3D / horizontal / vertical position."},
+ 'cs.cap':{fr:"Skyplot — satellites visibles (bleu) / masqués (gris) ; centre = zénith, bord = horizon",en:"Skyplot — visible (blue) / blocked (grey) satellites; centre = zenith, edge = horizon"},
+ 'sg.h':{fr:"Le signal : temps de vol et corrélation du code",en:"The signal: time of flight and code correlation"},
+ 'sg.lead':{fr:"Le satellite émet sur <b>L1 = 1575,42 MHz</b> (et L2, L5) un signal très faible (sous le bruit !) modulé par un <b>code pseudo-aléatoire (PRN)</b> propre à chaque satellite. Le récepteur génère le même code et le <b>corrèle</b> avec le signal reçu : le pic de corrélation donne le <b>retard</b> → la pseudo-distance. C'est l'étalement de spectre (CDMA) qui permet de tout extraire du bruit et de séparer les satellites.",en:"The satellite transmits on <b>L1 = 1575.42 MHz</b> (and L2, L5) a very weak signal (below noise!) modulated by a <b>pseudo-random code (PRN)</b> unique to each satellite. The receiver generates the same code and <b>correlates</b> it with the received signal: the correlation peak gives the <b>delay</b> → the pseudorange. Spread spectrum (CDMA) is what extracts it from noise and separates the satellites."},
+ 'sg.tof':{fr:"Temps de vol",en:"Time of flight"},'sg.alt':{fr:"Altitude satellite (km)",en:"Satellite altitude (km)"},'sg.elev':{fr:"Élévation vue du sol (°)",en:"Elevation from ground (°)"},
+ 'sg.range':{fr:"Distance",en:"Range"},'sg.toff':{fr:"Temps de vol",en:"Time of flight"},'sg.chip':{fr:"1 chip C/A",en:"1 C/A chip"},
+ 'sg.note2':{fr:"Code C/A : 1,023 Mchip/s, longueur 1023, se répète chaque ms ; 1 chip ≈ 293 m. Mesurer la phase du code à mieux que 1 % d'un chip → quelques mètres.",en:"C/A code: 1.023 Mchip/s, length 1023, repeats every ms; 1 chip ≈ 293 m. Measuring code phase to better than 1 % of a chip → a few metres."},
+ 'sg.lag':{fr:"Décalage du code local (chips)",en:"Local code offset (chips)"},'sg.corr':{fr:"Autocorrélation du code PRN : pic étroit au bon décalage, ~0 ailleurs → mesure précise du retard",en:"PRN code autocorrelation: sharp peak at the right offset, ~0 elsewhere → precise delay measurement"},'sg.lagx':{fr:"décalage (chips)",en:"offset (chips)"},
+ 're.h':{fr:"Relativité : pourquoi 38 µs/jour comptent",en:"Relativity: why 38 µs/day matter"},
+ 're.lead':{fr:"Deux effets relativistes décalent l'horloge embarquée. <b>Relativité générale</b> : plus haut = gravité plus faible → l'horloge du satellite <b>avance</b> (+45,7 µs/jour à 20 200 km). <b>Relativité restreinte</b> : le satellite va vite → son horloge <b>retarde</b> (−7,2 µs/jour). Net : <b>+38,5 µs/jour</b>. Non corrigé, ça décale la position de ~<b>11 km/jour</b> ! Les horloges sont pré-réglées pour compenser.",en:"Two relativistic effects shift the onboard clock. <b>General relativity</b>: higher = weaker gravity → the satellite clock <b>runs faster</b> (+45.7 µs/day at 20,200 km). <b>Special relativity</b>: the satellite moves fast → its clock <b>runs slower</b> (−7.2 µs/day). Net: <b>+38.5 µs/day</b>. Uncorrected, that drifts the position by ~<b>11 km/day</b>! The clocks are pre-tuned to compensate."},
+ 're.alt':{fr:"Altitude orbitale (km)",en:"Orbital altitude (km)"},'re.iss':{fr:"ISS 400 km",en:"ISS 400 km"},'re.geo':{fr:"GEO 35 786 km",en:"GEO 35,786 km"},
+ 're.gr':{fr:"Relativité générale",en:"General relativity"},'re.sr':{fr:"Relativité restreinte",en:"Special relativity"},'re.net':{fr:"Net",en:"Net"},'re.err':{fr:"Erreur position",en:"Position error"},
+ 're.note':{fr:"À basse altitude (ISS) la vitesse domine → l'horloge <b>retarde</b> (net négatif). Vers <b>3 200 km</b> les deux effets se compensent. Au-dessus (GPS, GEO) la gravité domine → l'horloge <b>avance</b>.",en:"At low altitude (ISS) speed dominates → the clock <b>runs slow</b> (net negative). Around <b>3,200 km</b> the two effects cancel. Above (GPS, GEO) gravity dominates → the clock <b>runs fast</b>."},
+ 're.cap':{fr:"Décalage d'horloge (µs/jour) vs altitude : GR (+), SR (−), net",en:"Clock drift (µs/day) vs altitude: GR (+), SR (−), net"},'re.altx':{fr:"altitude (km)",en:"altitude (km)"},
+ 're.budget':{fr:"Budget d'erreur & corrections",en:"Error budget & corrections"},'re.src':{fr:"Source",en:"Source"},'re.mono':{fr:"GPS mono-fréq.",en:"Single-freq GPS"},
+ 're.iono':{fr:"Ionosphère",en:"Ionosphere"},'re.sat':{fr:"Horloge/orbite sat.",en:"Sat clock/orbit"},'re.tropo':{fr:"Troposphère",en:"Troposphere"},'re.multi':{fr:"Multitrajet",en:"Multipath"},'re.tot':{fr:"Total (UERE)",en:"Total (UERE)"}
+};
+let LANG='fr';
+function T(k){return I18N[k]?I18N[k][LANG]:'';}
+function setLang(l){LANG=l;document.getElementById('lf').classList.toggle('on',l==='fr');document.getElementById('le').classList.toggle('on',l==='en');
+  document.querySelectorAll('[data-i18n]').forEach(e=>{const k=e.getAttribute('data-i18n');if(I18N[k])e.innerHTML=I18N[k][l];});
+  document.documentElement.lang=l;const cur=['tri','cst','sig','rel'].find(p=>document.getElementById('pane-'+p).style.display!=='none');showTab(cur||'tri');}
+
+showTab('tri');
+</script>
+</body>
+</html>

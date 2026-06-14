@@ -223,6 +223,16 @@ footer a{color:var(--text2)}
       </div>
     </a>
 
+    <a class="card live" href="gps.html">
+      <div class="ico">🛰️</div>
+      <h3 data-i18n="gps.title">GPS — comment ça marche</h3>
+      <p data-i18n="gps.desc">Trilatération interactive (pourquoi 4 satellites : x, y, z + biais d'horloge), constellation et GDOP (dilution de précision, skyplot), signal L1 et corrélation du code C/A, temps de vol, et l'effet relativiste (+38 µs/jour → 11 km/jour) avec le budget d'erreur (SBAS, DGPS, RTK).</p>
+      <div class="tags">
+        <span class="badge ok" data-i18n="gps.badge">trilatération · GDOP · relativité</span>
+        <span class="badge free" data-i18n="badge.free">accès libre</span>
+      </div>
+    </a>
+
     <div class="card soon">
       <div>
         <div class="ico" style="opacity:.5">＋</div>
@@ -311,6 +321,10 @@ const I18N={
   'sec.desc':{fr:"Générations 1G→6G (pourquoi la vidéo dès la 3G, évolution des antennes), niveaux de référence ICNIRP 1998 & 2020, distances de sécurité (PIRE, E = √(30·P·G)/d, limite champ proche 2D²/λ, multi-bandes), cartographie et périmètres de sécurité autour d'une station de base (diagramme sectoriel/MSI, azimut, multi-antennes).",
               en:"Mobile generations 1G→6G (why video from 3G, antenna evolution), ICNIRP 1998 & 2020 reference levels, safety distances (EIRP, E = √(30·P·G)/d, near-field limit 2D²/λ, multi-band), mapping and safety perimeters around a base station (sectoral/MSI pattern, azimuth, multi-antenna)."},
   'sec.badge':{fr:"ICNIRP · stations de base", en:"ICNIRP · base stations"},
+  'gps.title':{fr:"GPS — comment ça marche", en:"GPS — how it works"},
+  'gps.desc':{fr:"Trilatération interactive (pourquoi 4 satellites : x, y, z + biais d'horloge), constellation et GDOP (dilution de précision, skyplot), signal L1 et corrélation du code C/A, temps de vol, et l'effet relativiste (+38 µs/jour → 11 km/jour) avec le budget d'erreur (SBAS, DGPS, RTK).",
+              en:"Interactive trilateration (why 4 satellites: x, y, z + clock bias), constellation and GDOP (dilution of precision, skyplot), L1 signal and C/A code correlation, time of flight, and the relativistic effect (+38 µs/day → 11 km/day) with the error budget (SBAS, DGPS, RTK)."},
+  'gps.badge':{fr:"trilatération · GDOP · relativité", en:"trilateration · GDOP · relativity"},
   'ant.title':{fr:"Antennes", en:"Antennas"},
   'ant.desc':{fr:"Outils sur les antennes : antennes filaires (méthode des moments — dipôle, Yagi, environnements de fils, champ proche) et réseaux d'antennes (dépointage du faisceau). Cornet et patch à venir.",
               en:"Antenna tools: wire antennas (Method of Moments — dipole, Yagi, wire environments, near field) and antenna arrays (beam steering). Horn and patch coming soon."},
