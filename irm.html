@@ -177,6 +177,14 @@ b.hl{color:var(--acc2)}
       </select>
       <label><span data-i18n="ks.frac">Fraction conservée</span> <b class="muted" id="ks-frac-v"></b></label>
       <div class="rng"><input type="range" id="ks-frac" min="2" max="100" value="15" oninput="kspace()"><b id="ks-frac-b"></b></div>
+      <div class="btns">
+        <select id="ks-order">
+          <option value="centric" data-i18n="ks.centric">Remplissage centrique (centre → bords)</option>
+          <option value="linear" data-i18n="ks.linear">Remplissage linéaire (haut → bas)</option>
+        </select>
+        <button id="ks-anim-btn" onclick="ksAnimate()" data-i18n="ks.anim">▶ Animer le remplissage</button>
+      </div>
+      <p class="note" data-i18n="ks.animnote">Pendant l'acquisition, le k-space se remplit ligne par ligne (chaque pas d'encodage de phase). Le centre (acquis tôt en mode centrique) fixe le contraste ; les bords affinent les détails.</p>
       <p class="note" data-i18n="ks.note">Sous-échantillonner le centre = images plus rapides mais floues (base de l'IRM rapide / parallèle / compressed sensing). L'image source est la coupe cérébrale de l'onglet <b>Contraste</b> (pondération courante).</p>
     </div>
   </div>
@@ -189,15 +197,26 @@ b.hl{color:var(--acc2)}
       <div class="eq">S = ρ · (1 − e<sup>−TR/T₁</sup>) · e<sup>−TE/T₂</sup></div>
       <div class="grid2">
         <div>
+          <label data-i18n="ct.seqt">Type de séquence</label>
+          <select id="seqtype" onchange="onSeqType()">
+            <option value="se" data-i18n="ct.se">Écho de spin</option>
+            <option value="ir" data-i18n="ct.ir">Inversion-récupération (STIR / FLAIR)</option>
+          </select>
           <div class="btns">
             <button onclick="setSeq(500,14)" data-i18n="ct.pT1">Pondéré T₁</button>
             <button onclick="setSeq(4000,14)" data-i18n="ct.pPD">Densité ρ</button>
             <button onclick="setSeq(4000,100)" data-i18n="ct.pT2">Pondéré T₂</button>
+            <button onclick="setIR(4000,180,40)" title="annule la graisse">STIR</button>
+            <button onclick="setIR(9000,1700,100)" title="annule le LCR">FLAIR</button>
           </div>
           <label><span>TR (ms)</span> <b class="muted" id="tr-v"></b></label>
-          <div class="rng"><input type="range" id="tr" min="50" max="5000" value="500" step="10" oninput="contrast()"><b id="tr-b"></b></div>
+          <div class="rng"><input type="range" id="tr" min="50" max="9000" value="500" step="10" oninput="contrast()"><b id="tr-b"></b></div>
           <label><span>TE (ms)</span> <b class="muted" id="te-v"></b></label>
           <div class="rng"><input type="range" id="te" min="2" max="250" value="14" step="2" oninput="contrast()"><b id="te-b"></b></div>
+          <div id="ti-row" style="display:none">
+            <label><span data-i18n="ct.ti">TI — temps d'inversion (ms)</span> <b class="muted" id="ti-v"></b></label>
+            <div class="rng"><input type="range" id="ti" min="50" max="3000" value="1700" step="10" oninput="contrast()"><b id="ti-b"></b></div>
+          </div>
           <div id="ct-weight" class="metric" style="margin-top:12px"></div>
           <table id="ct-table"></table>
         </div>
@@ -237,6 +256,20 @@ b.hl{color:var(--acc2)}
             <span data-i18n="sa.bridge">🧍 Calcule le SAR local et l'échauffement (ΔT, CEM43) sur une vraie coupe anatomique :</span>
             <a href="voxel.html">→ Dosimétrie sur fantôme voxel</a>
           </div>
+        </div>
+      </div>
+      <h3 data-i18n="im.h">Effet d'un implant conducteur (effet d'antenne RF)</h3>
+      <p class="lead" data-i18n="im.lead">Un implant métallique allongé (sonde de pacemaker, fil de neurostimulateur, guide) se comporte comme une <b>antenne</b> : il capte le champ RF et concentre l'énergie à ses <b>extrémités</b>. L'effet est maximal quand sa longueur ≈ λ/2 dans les tissus (<b>résonance demi-onde</b>) → le SAR local au bout peut être multiplié par 10 à 100. C'est le principal danger des implants en IRM.</p>
+      <div class="grid2">
+        <div>
+          <label><span data-i18n="im.len">Longueur de l'implant (cm)</span> <b class="muted" id="im-len-v"></b></label>
+          <div class="rng"><input type="range" id="im-len" min="2" max="60" value="20" step="1" oninput="implant()"><b id="im-len-b"></b></div>
+          <div class="metrics" id="im-metrics"></div>
+          <div id="im-verdict"></div>
+        </div>
+        <div>
+          <canvas id="cv-implant" width="440" height="200"></canvas>
+          <div class="cap" data-i18n="im.cap">Facteur d'amplification du SAR local vs longueur de l'implant (pic à L = λ/2 dans les tissus)</div>
         </div>
       </div>
     </div>
@@ -305,14 +338,17 @@ function buildBrain(){
     LBL[y*N+x]=v;
   }
 }
-function signal(t,TR,TE){const m=MR[t]; if(m.rho<=0)return 0;
-  return m.rho*(1-Math.exp(-TR/m.T1))*Math.exp(-TE/m.T2);}
-function contrastImage(TR,TE){
+function signal(t,s){const m=MR[t]; if(m.rho<=0)return 0;
+  // écho de spin : 1−e^{−TR/T1} ; inversion-récupération : |1−2e^{−TI/T1}+e^{−TR/T1}|
+  const lon = s.ir ? Math.abs(1-2*Math.exp(-s.TI/m.T1)+Math.exp(-s.TR/m.T1)) : (1-Math.exp(-s.TR/m.T1));
+  return m.rho*lon*Math.exp(-s.TE/m.T2);}
+function contrastImage(s){
   const img=new Float64Array(N*N); let mx=1e-9;
-  for(let p=0;p<N*N;p++){const s=signal(LBL[p],TR,TE); img[p]=s; if(s>mx)mx=s;}
+  for(let p=0;p<N*N;p++){const v=signal(LBL[p],s); img[p]=v; if(v>mx)mx=v;}
   for(let p=0;p<N*N;p++)img[p]/=mx;
   return img;
 }
+function curSeq(){return {TR:+document.getElementById('tr').value, TE:+document.getElementById('te').value, TI:+document.getElementById('ti').value, ir:document.getElementById('seqtype').value==='ir'};}
 
 // ════════════════════════════ RENDU ════════════════════════════
 function drawGray(cvId,img,gamma){
@@ -400,9 +436,9 @@ function encCalc(){
 }
 
 // ════════════════════════════ 4 · K-SPACE ════════════════════════════
+let ksAnim=null;
 function kspace(){
-  const TR=+(document.getElementById('tr')?.value||4000), TE=+(document.getElementById('te')?.value||14);
-  const img=contrastImage(TR,TE);
+  const img=contrastImage(curSeq());
   document.getElementById('ks-frac-b').textContent=document.getElementById('ks-frac').value+" %";
   drawGray('cv-ks-img',img,0.7);
   // FFT
@@ -431,20 +467,52 @@ function kspace(){
   for(let p=0;p<N*N;p++)rec[p]/=rmx;
   drawGray('cv-ks-rec',rec,0.7);
 }
+function ksAnimate(){
+  if(ksAnim){cancelAnimationFrame(ksAnim);ksAnim=null;}
+  const img=contrastImage(curSeq()); drawGray('cv-ks-img',img,0.7);
+  const re=Float64Array.from(img), im=new Float64Array(N*N); fft2d(re,im,false);
+  let kmax=1e-9; for(let p=0;p<N*N;p++){const v=Math.log(1+Math.hypot(re[p],im[p]));if(v>kmax)kmax=v;}
+  // ordre des lignes d'encodage de phase (ky centré −N/2..N/2−1)
+  const order=[], o=document.getElementById('ks-order').value;
+  if(o==='linear'){for(let k=-N/2;k<N/2;k++)order.push(k);}
+  else{order.push(0);for(let k=1;k<=N/2;k++){order.push(k);if(-k>=-N/2)order.push(-k);}}
+  const acquired=new Uint8Array(N); let step=0; const per=2;
+  const btn=document.getElementById('ks-anim-btn'); btn.textContent='⏳ '+T('ks.acq');
+  function frame(){
+    for(let q=0;q<per&&step<order.length;q++,step++)acquired[(order[step]+N)%N]=1;
+    // couverture k-space (fftshift)
+    const kdisp=new Float64Array(N*N);
+    for(let ky=0;ky<N;ky++)if(acquired[ky])for(let kx=0;kx<N;kx++){const sy=(ky+N/2)%N,sx=(kx+N/2)%N;kdisp[sy*N+sx]=Math.log(1+Math.hypot(re[ky*N+kx],im[ky*N+kx]))/kmax;}
+    drawGray('cv-ks-k',kdisp,1);
+    // reconstruction des lignes acquises
+    const mr=Float64Array.from(re), mi=Float64Array.from(im);
+    for(let ky=0;ky<N;ky++)if(!acquired[ky])for(let kx=0;kx<N;kx++){mr[ky*N+kx]=0;mi[ky*N+kx]=0;}
+    fft2d(mr,mi,true);
+    const rec=new Float64Array(N*N); let rmx=1e-9;
+    for(let p=0;p<N*N;p++){rec[p]=Math.hypot(mr[p],mi[p]);if(rec[p]>rmx)rmx=rec[p];}
+    for(let p=0;p<N*N;p++)rec[p]/=rmx; drawGray('cv-ks-rec',rec,0.7);
+    if(step<order.length)ksAnim=requestAnimationFrame(frame);
+    else {ksAnim=null;btn.textContent='▶ '+T('ks.again');}
+  }
+  frame();
+}
 
 // ════════════════════════════ 5 · CONTRASTE ════════════════════════════
-function setSeq(tr,te){document.getElementById('tr').value=tr;document.getElementById('te').value=te;contrast();}
+function setSeq(tr,te){document.getElementById('seqtype').value='se';document.getElementById('ti-row').style.display='none';document.getElementById('tr').value=tr;document.getElementById('te').value=te;contrast();}
+function setIR(tr,ti,te){document.getElementById('seqtype').value='ir';document.getElementById('ti-row').style.display='block';document.getElementById('tr').value=tr;document.getElementById('ti').value=ti;document.getElementById('te').value=te;contrast();}
+function onSeqType(){document.getElementById('ti-row').style.display=document.getElementById('seqtype').value==='ir'?'block':'none';contrast();}
 function contrast(){
-  const TR=+document.getElementById('tr').value, TE=+document.getElementById('te').value;
-  document.getElementById('tr-b').textContent=TR+" ms"; document.getElementById('te-b').textContent=TE+" ms";
-  drawGray('cv-ct',contrastImage(TR,TE),0.8);
-  // pondération auto
-  let w=T('ct.wMix'); if(TR<800&&TE<30)w=T('ct.wT1'); else if(TR>1500&&TE>60)w=T('ct.wT2'); else if(TR>1500&&TE<30)w=T('ct.wPD');
+  const s=curSeq();
+  document.getElementById('tr-b').textContent=s.TR+" ms"; document.getElementById('te-b').textContent=s.TE+" ms"; document.getElementById('ti-b').textContent=s.TI+" ms";
+  drawGray('cv-ct',contrastImage(s),0.8);
+  let w;
+  if(s.ir){ w = s.TI<400 ? T('ct.wSTIR') : (s.TI>1200 ? T('ct.wFLAIR') : T('ct.wIR')); }
+  else { w=T('ct.wMix'); if(s.TR<800&&s.TE<30)w=T('ct.wT1'); else if(s.TR>1500&&s.TE>60)w=T('ct.wT2'); else if(s.TR>1500&&s.TE<30)w=T('ct.wPD'); }
   document.getElementById('ct-weight').innerHTML='<div class="k">'+T('ct.weight')+'</div><div class="v">'+w+'</div>';
   let html='<tr><th>'+T('ct.tis')+'</th><th>T₁</th><th>T₂</th><th>'+T('ct.sig')+'</th></tr>';
-  const show=[3,4,5,6,1]; let smax=1e-9; show.forEach(t=>{const s=signal(t,TR,TE);if(s>smax)smax=s;});
-  for(const t of show){const m=MR[t], s=signal(t,TR,TE), pct=Math.round(s/smax*100);
-    html+=`<tr><td>${T('tis.'+m.n)||m.n}</td><td>${m.T1}</td><td>${m.T2}</td><td><span style="display:inline-block;width:${pct}%;min-width:2px;height:9px;background:var(--acc);border-radius:2px;vertical-align:middle"></span> ${(s).toFixed(2)}</td></tr>`;}
+  const show=[3,4,5,6,1]; let smax=1e-9; show.forEach(t=>{const v=signal(t,s);if(v>smax)smax=v;});
+  for(const t of show){const m=MR[t], v=signal(t,s), pct=Math.round(v/smax*100);
+    html+=`<tr><td>${T('tis.'+m.n)||m.n}</td><td>${m.T1}</td><td>${m.T2}</td><td><span style="display:inline-block;width:${pct}%;min-width:2px;height:9px;background:var(--acc);border-radius:2px;vertical-align:middle"></span> ${(v).toFixed(2)}</td></tr>`;}
   document.getElementById('ct-table').innerHTML=html;
   if(document.getElementById('pane-kspace').style.display!=='none')kspace();
 }
@@ -466,6 +534,32 @@ function sarEst(){
   else if(sarWB<4){cls="warnbox";msg="⚠ "+T('sa.first');}
   else{cls="warnbox";msg="✗ "+T('sa.over');}
   document.getElementById('sa-verdict').innerHTML='<div class="'+cls+'" style="margin-top:10px">'+msg+'</div>';
+  lastSarWB=sarWB; if(document.getElementById('im-len'))implant();
+}
+let lastSarWB=0.36;
+function implant(){
+  const L=+document.getElementById('im-len').value; document.getElementById('im-len-b').textContent=L+" cm";
+  const b0=+document.getElementById('sa-b0').value, f=GAMMA*b0, er=80;
+  const half=(C0/f)/Math.sqrt(er)/2*100; // λ/2 dans les tissus, en cm
+  const Fmax=80, w=0.32*half, fac=l=>1+(Fmax-1)*Math.exp(-(((l-half)/w)**2));
+  const factor=fac(L), localSAR=lastSarWB*factor;
+  document.getElementById('im-metrics').innerHTML=
+    met(T('im.half'),half.toFixed(1),"cm")+met(T('im.factor'),"×"+factor.toFixed(0),"")+met(T('im.local'),localSAR.toFixed(1),"W/kg");
+  let cls,msg; if(localSAR<10){cls="metric";msg="✓ "+T('im.ok');} else if(localSAR<20){cls="warnbox";msg="⚠ "+T('im.warn');} else {cls="warnbox";msg="✗ "+T('im.bad');}
+  document.getElementById('im-verdict').innerHTML='<div class="'+cls+'" style="margin-top:10px">'+msg+'</div>';
+  const cv=document.getElementById('cv-implant'),x=cv.getContext('2d');x.clearRect(0,0,cv.width,cv.height);
+  const W=cv.width,H=cv.height,mL=44,mR=12,mT=12,mB=26,pw=W-mL-mR,ph=H-mT-mB,Lmax=60,ymax=Fmax;
+  const X=l=>mL+l/Lmax*pw, Y=v=>mT+ph-Math.min(v,ymax)/ymax*ph;
+  x.strokeStyle="#2d3742";x.beginPath();x.moveTo(mL,mT);x.lineTo(mL,mT+ph);x.lineTo(mL+pw,mT+ph);x.stroke();
+  x.fillStyle="#8b97a3";x.font="10px sans-serif";x.textAlign="right";
+  for(let g=0;g<=4;g++){const v=ymax*g/4;x.fillText("×"+v.toFixed(0),mL-3,Y(v)+3);}
+  x.textAlign="center";for(let g=0;g<=6;g++){const l=Lmax*g/6;x.fillText(l.toFixed(0),X(l),mT+ph+13);}
+  x.fillText(T('im.lenx'),mL+pw/2,H-1);
+  x.strokeStyle="#4db6a4";x.setLineDash([4,3]);x.beginPath();x.moveTo(X(half),mT);x.lineTo(X(half),mT+ph);x.stroke();x.setLineDash([]);
+  x.fillStyle="#4db6a4";x.textAlign="left";x.fillText("λ/2",X(half)+4,mT+10);
+  x.strokeStyle="#e0884b";x.lineWidth=2.2;x.beginPath();
+  for(let px=0;px<=pw;px++){const l=px/pw*Lmax,py=Y(fac(l));px?x.lineTo(mL+px,py):x.moveTo(mL+px,py);}x.stroke();
+  x.fillStyle="#fff";x.beginPath();x.arc(X(L),Y(factor),4,0,2*Math.PI);x.fill();
 }
 function sarTable(){
   const rows=[[T('sa.wbody'),"2","4"],[T('sa.head'),"3,2","3,2"],[T('sa.local_t'),"10","20"],[T('sa.limb'),"20","40"]];
@@ -481,6 +575,7 @@ function showTab(t){
     document.getElementById('pane-'+p).style.display=p===t?'block':'none';
     document.getElementById('tab-'+p).classList.toggle('on',p===t);});
   if(blochAnim&&t!=='bloch'){cancelAnimationFrame(blochAnim);blochAnim=null;}
+  if(ksAnim&&t!=='kspace'){cancelAnimationFrame(ksAnim);ksAnim=null;}
   if(t==='larmor')larmor();
   if(t==='bloch')bloch();
   if(t==='enc')encCalc();
@@ -529,6 +624,17 @@ const I18N={
  'ct.weight':{fr:"Pondération",en:"Weighting"},'ct.wT1':{fr:"T₁",en:"T₁"},'ct.wT2':{fr:"T₂",en:"T₂"},'ct.wPD':{fr:"Densité ρ",en:"Proton density"},'ct.wMix':{fr:"mixte",en:"mixed"},
  'ct.tis':{fr:"Tissu",en:"Tissue"},'ct.sig':{fr:"Signal",en:"Signal"},
  'tis.CSF':{fr:"LCR",en:"CSF"},'tis.GM':{fr:"Subst. grise",en:"Gray matter"},'tis.WM':{fr:"Subst. blanche",en:"White matter"},'tis.Lesion':{fr:"Lésion",en:"Lesion"},'tis.Scalp':{fr:"Graisse",en:"Fat"},
+ 'ct.seqt':{fr:"Type de séquence",en:"Sequence type"},'ct.se':{fr:"Écho de spin",en:"Spin echo"},'ct.ir':{fr:"Inversion-récupération (STIR / FLAIR)",en:"Inversion recovery (STIR / FLAIR)"},'ct.ti':{fr:"TI — temps d'inversion (ms)",en:"TI — inversion time (ms)"},
+ 'ct.wSTIR':{fr:"STIR (graisse annulée)",en:"STIR (fat nulled)"},'ct.wFLAIR':{fr:"FLAIR (LCR annulé)",en:"FLAIR (CSF nulled)"},'ct.wIR':{fr:"Inversion-récup.",en:"Inversion recovery"},
+ 'ks.centric':{fr:"Remplissage centrique (centre → bords)",en:"Centric filling (centre → edges)"},'ks.linear':{fr:"Remplissage linéaire (haut → bas)",en:"Linear filling (top → bottom)"},
+ 'ks.anim':{fr:"▶ Animer le remplissage",en:"▶ Animate the filling"},'ks.acq':{fr:"acquisition…",en:"acquiring…"},'ks.again':{fr:"Rejouer",en:"Replay"},
+ 'ks.animnote':{fr:"Pendant l'acquisition, le k-space se remplit ligne par ligne (chaque pas d'encodage de phase). Le centre (acquis tôt en mode centrique) fixe le contraste ; les bords affinent les détails.",en:"During acquisition, k-space fills line by line (each phase-encoding step). The centre (acquired early in centric mode) sets the contrast; the edges sharpen the detail."},
+ 'im.h':{fr:"Effet d'un implant conducteur (effet d'antenne RF)",en:"Conductive-implant effect (RF antenna effect)"},
+ 'im.lead':{fr:"Un implant métallique allongé (sonde de pacemaker, fil de neurostimulateur, guide) se comporte comme une <b>antenne</b> : il capte le champ RF et concentre l'énergie à ses <b>extrémités</b>. L'effet est maximal quand sa longueur ≈ λ/2 dans les tissus (<b>résonance demi-onde</b>) → le SAR local au bout peut être multiplié par 10 à 100. C'est le principal danger des implants en IRM.",en:"An elongated metallic implant (pacemaker lead, neurostimulator wire, guidewire) acts as an <b>antenna</b>: it picks up the RF field and concentrates energy at its <b>tips</b>. The effect peaks when its length ≈ λ/2 in tissue (<b>half-wave resonance</b>) → local tip SAR can be amplified 10–100×. This is the main implant hazard in MRI."},
+ 'im.len':{fr:"Longueur de l'implant (cm)",en:"Implant length (cm)"},'im.lenx':{fr:"longueur (cm)",en:"length (cm)"},
+ 'im.cap':{fr:"Facteur d'amplification du SAR local vs longueur de l'implant (pic à L = λ/2 dans les tissus)",en:"Local-SAR amplification factor vs implant length (peak at L = λ/2 in tissue)"},
+ 'im.half':{fr:"λ/2 tissu",en:"λ/2 tissue"},'im.factor':{fr:"Amplification",en:"Amplification"},'im.local':{fr:"SAR local (bout)",en:"Local SAR (tip)"},
+ 'im.ok':{fr:"SAR local sous la limite (< 10 W/kg)",en:"Local SAR under limit (< 10 W/kg)"},'im.warn':{fr:"1er niveau (10–20 W/kg) — risque d'échauffement",en:"First level (10–20 W/kg) — heating risk"},'im.bad':{fr:"Dépassement — échauffement potentiellement dangereux !",en:"Exceeded — potentially dangerous heating!"},
  'sa.h':{fr:"SAR en IRM — la sécurité RF",en:"SAR in MRI — RF safety"},
  'sa.lead':{fr:"Chaque impulsion RF dépose de l'énergie : c'est le <b>SAR</b> (W/kg), qui échauffe les tissus. C'est <b>la</b> contrainte dosimétrique de l'IRM, encadrée par <b>IEC 60601-2-33</b>. Le SAR croît fortement avec le champ et l'agressivité de la séquence.",en:"Every RF pulse deposits energy: the <b>SAR</b> (W/kg), which heats tissue. It is MRI's key dosimetric constraint, governed by <b>IEC 60601-2-33</b>. SAR rises sharply with field strength and sequence aggressiveness."},
  'sa.eq':{fr:"SAR ∝ B₀² · α² · (N<sub>impulsions</sub> / TR) — double le champ → ×4 le SAR (à séquence égale)",en:"SAR ∝ B₀² · α² · (N<sub>pulses</sub> / TR) — double the field → ×4 the SAR (same sequence)"},
