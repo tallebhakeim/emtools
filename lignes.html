@@ -105,6 +105,11 @@ th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}th:fi
             <option value="2" data-i18n="ex.s2">Empilement — 2 couches</option>
             <option value="3" data-i18n="ex.s3">Empilement — 3 couches</option>
           </select>
+          <label data-i18n="ex.meth">Méthode d'extraction</label>
+          <select id="ex-meth" onchange="extract()">
+            <option value="nrw" selected data-i18n="ex.mnrw">NRW (milieu homogène)</option>
+            <option value="tmm" data-i18n="ex.mtmm">TMM — structure connue (couche par couche)</option>
+          </select>
           <div id="ex-l1"><div class="row"><div><label data-i18n="ex.lay">Couche 1</label>
             <select id="ex-m1" onchange="extract()"><option value="ptfe">PTFE — ε≈2,1</option><option value="fr4">FR4 — ε≈4,4</option><option value="alumina">Alumine — ε≈9,8</option><option value="muscle" selected>Muscle</option><option value="fat">Graisse</option><option value="water">Eau — ε≈78</option></select></div>
             <div><label>d₁ (mm)</label><input type="number" id="ex-d1" value="5" step="0.5" oninput="extract()"></div></div></div>
@@ -369,6 +374,34 @@ function stackS(layers,f){
   const den=Cadd(Cadd(A,B),Cadd(Cc,D));
   return {S11:Cdiv(Csub(Cadd(A,B),Cadd(Cc,D)),den), S21:Cdiv([2,0],den)};
 }
+// résolution linéaire (Gauss, pivot partiel)
+function solveLin(A,b){const n=b.length;
+  for(let i=0;i<n;i++){let p=i;for(let r=i+1;r<n;r++)if(Math.abs(A[r][i])>Math.abs(A[p][i]))p=r;[A[i],A[p]]=[A[p],A[i]];[b[i],b[p]]=[b[p],b[i]];
+    for(let r=i+1;r<n;r++){const f=A[r][i]/A[i][i];for(let c=i;c<n;c++)A[r][c]-=f*A[i][c];b[r]-=f*b[i];}}
+  const x=new Array(n);for(let i=n-1;i>=0;i--){let s=b[i];for(let c=i+1;c<n;c++)s-=A[i][c]*x[c];x[i]=s/A[i][i];}return x;}
+// extraction TMM : connaissant les épaisseurs, ajuste ε (μ=1) de chaque couche pour
+// reproduire S11/S21 mesurés (Levenberg-Marquardt sur le modèle transfer-matrix stackS)
+function tmmFit(layers,fGHz,init){
+  const N=layers.length, nF=Math.max(N,2); const freqs=[];
+  for(let i=0;i<nF;i++)freqs.push(fGHz*(1+0.12*(i-(nF-1)/2))*1e9);
+  const meas=freqs.map(ff=>stackS(layers.map(L=>({eps:matEps(L.mat,ff),d:L.d})),ff));
+  let x=[]; for(let i=0;i<N;i++)x.push(init?init[0]:8, init?init[1]:-1);
+  const model=(xx,ff)=>stackS([...Array(N)].map((_,i)=>({eps:[xx[2*i],xx[2*i+1]],d:layers[i].d})),ff);
+  const resid=xx=>{const r=[];freqs.forEach((ff,k)=>{const s=model(xx,ff);r.push(s.S11[0]-meas[k].S11[0],s.S11[1]-meas[k].S11[1],s.S21[0]-meas[k].S21[0],s.S21[1]-meas[k].S21[1]);});return r;};
+  let lam=1e-2;
+  for(let it=0;it<80;it++){
+    const r=resid(x),M=r.length,n=x.length, J=Array.from({length:M},()=>new Array(n).fill(0));
+    for(let j=0;j<n;j++){const h=Math.max(1e-6,Math.abs(x[j])*1e-6),xj=x.slice();xj[j]+=h;const rj=resid(xj);for(let i=0;i<M;i++)J[i][j]=(rj[i]-r[i])/h;}
+    const Aa=Array.from({length:n},()=>new Array(n).fill(0)),g=new Array(n).fill(0);
+    for(let a=0;a<n;a++){for(let b=0;b<n;b++){let s=0;for(let i=0;i<M;i++)s+=J[i][a]*J[i][b];Aa[a][b]=s;}let gg=0;for(let i=0;i<M;i++)gg+=J[i][a]*r[i];g[a]=-gg;}
+    for(let a=0;a<n;a++)Aa[a][a]+=lam*(Aa[a][a]+1e-9);
+    const dx=solveLin(Aa.map(row=>row.slice()),g.slice());
+    const xn=x.map((v,i)=>v+dx[i]), c0=r.reduce((s,v)=>s+v*v,0), c1=resid(xn).reduce((s,v)=>s+v*v,0);
+    if(c1<c0){x=xn;lam*=0.4;}else lam*=2.5; if(c1<1e-13)break;
+  }
+  const fc=fGHz*1e9, trueEps=layers.map(L=>matEps(L.mat,fc));
+  return {fitted:[...Array(N)].map((_,i)=>[x[2*i],x[2*i+1]]), trueEps, residual:Math.sqrt(resid(x).reduce((s,v)=>s+v*v,0)/(4*nF))};
+}
 function extract(){
   const f=parseFloat(document.getElementById('ex-freq').value)*1e9, noise=parseFloat(document.getElementById('ex-noise').value), ncfg=parseInt(document.getElementById('ex-cfg').value);
   document.getElementById('ex-noise-b').textContent=noise+" %";
@@ -383,6 +416,22 @@ function extract(){
   const phaseLen=layers.reduce((s,L)=>s+Math.abs(Csqrt(L.eps)[0])*L.d,0), dlam=phaseLen*f/C0;
   document.getElementById('ex-metrics').innerHTML=
     met("|S₁₁|",Cabs(S11).toFixed(3),"")+met("|S₂₁|",Cabs(S21).toFixed(3),"")+met("Σd/λ",dlam.toFixed(2),"",dlam<0.45?'good':'bad');
+  // ── méthode TMM : ajustement couche par couche (structure connue) ──
+  const meth=document.getElementById('ex-meth').value;
+  if(meth==='tmm'&&ncfg>=2){
+    const fit=tmmFit(layers,f/1e9,[R.eps[0],R.eps[1]]);
+    let h2='<tr><th></th>'; layers.forEach((L,i)=>h2+=`<th>${T('ex.layn')} ${i+1}</th>`); h2+='</tr>';
+    const rw=(lbl,vals,bold)=>{let r=`<tr><td>${lbl}</td>`;vals.forEach(v=>r+=`<td>${bold?('<b>'+v+'</b>'):v}</td>`);return r+'</tr>';};
+    h2+=rw("ε′ "+T('ex.tvrai'),fit.trueEps.map(e=>e[0].toFixed(1)),false);
+    h2+=rw("ε′ "+T('ex.tfit'),fit.fitted.map(e=>e[0].toFixed(1)),true);
+    h2+=rw("ε″ "+T('ex.tvrai'),fit.trueEps.map(e=>(-e[1]).toFixed(2)),false);
+    h2+=rw("ε″ "+T('ex.tfit'),fit.fitted.map(e=>(-e[1]).toFixed(2)),true);
+    document.getElementById('ex-table').innerHTML=h2;
+    const ok=fit.fitted.every((e,i)=>Math.abs(e[0]-fit.trueEps[i][0])/Math.max(1,fit.trueEps[i][0])<0.1);
+    document.getElementById('ex-note2').innerHTML='<b style="color:var(--acc)">'+T('ex.tmmnote')+'</b>';
+    document.getElementById('ex-verdict').innerHTML='<div class="metric '+(ok?'good':'')+'" style="margin-top:10px"><div class="v" style="font-size:13px">'+(ok?'✓ '+T('ex.tmmok'):'≈ '+T('ex.tmmpart'))+' · '+T('ex.resid')+' '+fit.residual.toExponential(1)+'</div></div>';
+    return;
+  }
   let html='<tr><th></th>';
   if(ncfg===1)html+='<th>'+T('ex.true')+'</th><th>'+T('ex.extr')+'</th></tr>';
   else {layers.forEach((L,i)=>html+=`<th>${T('ex.layn')} ${i+1}</th>`); html+='<th>'+T('ex.eff')+'</th></tr>';}
@@ -649,6 +698,10 @@ const I18N={
  'ex.mat':{fr:"Matériau (vérité terrain)",en:"Material (ground truth)"},'ex.freq':{fr:"Fréquence (GHz)",en:"Frequency (GHz)"},'ex.d':{fr:"Épaisseur de la lame d (mm)",en:"Slab thickness d (mm)"},'ex.noise':{fr:"Bruit de mesure",en:"Measurement noise"},
  'ex.true':{fr:"Vérité",en:"True"},'ex.extr':{fr:"Extrait",en:"Extracted"},
  'ex.cfg':{fr:"Configuration",en:"Configuration"},'ex.single':{fr:"Lame simple",en:"Single slab"},'ex.s2':{fr:"Empilement — 2 couches",en:"Stack — 2 layers"},'ex.s3':{fr:"Empilement — 3 couches",en:"Stack — 3 layers"},
+ 'ex.meth':{fr:"Méthode d'extraction",en:"Extraction method"},'ex.mnrw':{fr:"NRW (milieu homogène)",en:"NRW (homogeneous medium)"},'ex.mtmm':{fr:"TMM — structure connue (couche par couche)",en:"TMM — known structure (layer by layer)"},
+ 'ex.tvrai':{fr:"(vrai)",en:"(true)"},'ex.tfit':{fr:"(TMM)",en:"(TMM)"},'ex.resid':{fr:"résidu",en:"residual"},
+ 'ex.tmmok':{fr:"Chaque couche retrouvée",en:"Each layer recovered"},'ex.tmmpart':{fr:"Ajustement approché (dispersion)",en:"Approximate fit (dispersion)"},
+ 'ex.tmmnote':{fr:"Connaissant les épaisseurs, on ajuste ε de chaque couche (modèle transfer-matrix = même TMM que la dosimétrie) jusqu'à reproduire S₁₁/S₂₁ → on retrouve les couches une par une, là où NRW ne donnait qu'un milieu effectif.",en:"Knowing the thicknesses, we fit each layer's ε (transfer-matrix model = same TMM as the dosimetry tool) to reproduce S₁₁/S₂₁ → the layers are recovered one by one, where NRW only gave an effective medium."},
  'ex.lay':{fr:"Couche 1",en:"Layer 1"},'ex.lay2':{fr:"Couche 2",en:"Layer 2"},'ex.lay3':{fr:"Couche 3",en:"Layer 3"},'ex.layn':{fr:"Couche",en:"Layer"},'ex.eff':{fr:"Effectif",en:"Effective"},
  'ex.effnote':{fr:"L'extraction NRW suppose une lame homogène : sur un empilement, elle ne rend qu'un ε,μ « effectif » (mélange des couches, dépend de l'ordre et de la fréquence) — il ne correspond à aucune couche réelle.",en:"NRW assumes a homogeneous slab: on a stack it returns only an \"effective\" ε,μ (a blend of the layers, depending on order and frequency) — matching no real layer."},
  'ex.effv':{fr:"Paramètres effectifs (≠ couches réelles)",en:"Effective parameters (≠ real layers)"},
