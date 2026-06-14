@@ -127,6 +127,8 @@ details.help code{background:var(--bg);padding:1px 4px;border-radius:4px;font-si
             <option value="aflt" data-i18n="pre.aflt">Filtre actif passe-bas (AOP)</option>
           </select>
         </div>
+        <div class="ctrl" style="justify-content:flex-end"><label data-i18n="lbl.importasc">Importer LTspice</label>
+          <input type="file" id="asc-file" accept=".asc" style="font-size:.82rem"></div>
       </div>
       <textarea id="netlist" spellcheck="false"></textarea>
       <details class="help">
@@ -650,6 +652,40 @@ function buildDefaultSch(){   // diviseur RC passe-bas par défaut
 function initSch(){const cv=$('sch');cv.addEventListener('mousedown',schDown);cv.addEventListener('mousemove',schMove);window.addEventListener('mouseup',schUp);
   buildDefaultSch();syncNet();drawSch();}
 
+// ═══════════════ Import LTspice .asc → netlist ═══════════════
+const ASC_PINS={res:[[16,16],[16,96]],res2:[[16,16],[16,96]],cap:[[16,0],[16,64]],ind:[[16,16],[16,96]],ind2:[[16,16],[16,96]],voltage:[[0,16],[0,96]],current:[[0,0],[0,80]],diode:[[16,0],[16,64]]};
+const ASC_TYPE={res:'R',res2:'R',cap:'C',ind:'L',ind2:'L',voltage:'V',current:'I',diode:'D'};
+function ascRot(p,r){const x=p[0],y=p[1];switch(r){case'R90':return[-y,x];case'R180':return[-x,-y];case'R270':return[y,-x];case'M0':return[-x,y];case'M90':return[y,x];case'M180':return[x,-y];case'M270':return[-y,-x];default:return[x,y];}}
+function ascVal(v){return (v||'').replace(/[µμ]/g,'u');}
+function ascSrc(v){v=(v||'').trim();const m=v.match(/^SINE\((.*)\)/i);if(m)return 'SIN('+m[1].replace(/[µμ]/g,'u')+')';if(/^AC/i.test(v))return ascVal(v);if(/^PULSE|^PWL|^EXP/i.test(v))return 'DC 0';if(!isNaN(parseFloat(v)))return 'DC '+ascVal(v);return 'AC 1';}
+function importAsc(text){
+  const wires=[],flags=[],symbols=[]; let cur=null;
+  for(const ln of text.split(/\r?\n/)){const t=ln.trim();const p=t.split(/\s+/);
+    if(p[0]==='WIRE'){wires.push([+p[1],+p[2],+p[3],+p[4]]);cur=null;}
+    else if(p[0]==='FLAG'){flags.push({x:+p[1],y:+p[2],label:p[3]});cur=null;}
+    else if(p[0]==='SYMBOL'){cur={type:p[1],x:+p[2],y:+p[3],rot:p[4]||'R0',name:null,value:null};symbols.push(cur);}
+    else if(p[0]==='SYMATTR'&&cur){if(p[1]==='InstName')cur.name=p[2];else if(p[1]==='Value')cur.value=t.replace(/^SYMATTR\s+Value\s+/,'');}}
+  const par={},key=(x,y)=>x+','+y,find=k=>{if(!(k in par))par[k]=k;while(par[k]!==k){par[k]=par[par[k]];k=par[k];}return k;},uni=(a,b)=>{par[find(a)]=find(b);};
+  wires.forEach(w=>uni(key(w[0],w[1]),key(w[2],w[3])));
+  const flagRoot={}; flags.forEach(f=>{const k=key(f.x,f.y);find(k);if(f.label in flagRoot)uni(k,flagRoot[f.label]);else flagRoot[f.label]=k;});
+  const rootName={};let ni=0;
+  Object.keys(flagRoot).forEach(lab=>{rootName[find(flagRoot[lab])]=(lab==='0')?'0':lab;});
+  const nameOf=(x,y)=>{const rt=find(key(x,y));if(!(rt in rootName))rootName[rt]='n'+(++ni);return rootName[rt];};
+  const out=['* Importé de LTspice (.asc)'],warn=[];
+  symbols.forEach(s=>{const tp=ASC_TYPE[s.type];
+    if(!tp){warn.push((s.name||'?')+' ('+s.type+')');return;}
+    const pins=ASC_PINS[s.type].map(q=>{const r=ascRot(q,s.rot);return [s.x+r[0],s.y+r[1]];});
+    const n1=nameOf(pins[0][0],pins[0][1]),n2=nameOf(pins[1][0],pins[1][1]),nm=s.name||tp+'x';
+    if('RLC'.includes(tp))out.push(nm+' '+n1+' '+n2+' '+ascVal(s.value));
+    else if(tp==='D')out.push(nm+' '+n1+' '+n2);
+    else out.push(nm+' '+n1+' '+n2+' '+ascSrc(s.value));});
+  return {netlist:out.join('\n'),warnings:warn};
+}
+function decodeAsc(buf){const u=new Uint8Array(buf);
+  if(u[0]===0xFF&&u[1]===0xFE)return new TextDecoder('utf-16le').decode(u);
+  if(u[0]===0xFE&&u[1]===0xFF)return new TextDecoder('utf-16be').decode(u);
+  return new TextDecoder('windows-1252').decode(u);}   // ANSI/Latin-1 (µ = 0xB5), sinon ASCII compatible
+
 // ═══════════════ i18n ═══════════════
 let LANG='fr'; try{LANG=localStorage.getItem('emtools_lang')||'fr';}catch(e){}
 const I18N={
@@ -664,7 +700,7 @@ const I18N={
  'tool.sel':{fr:'Sélection',en:'Select'},'tool.wire':{fr:'Fil',en:'Wire'},'tool.v':{fr:'Source V',en:'V source'},'tool.i':{fr:'Source I',en:'I source'},'tool.gnd':{fr:'Masse',en:'Ground'},'tool.del':{fr:'Supprimer',en:'Delete'},'tool.rot':{fr:'⟳ Rotation',en:'⟳ Rotate'},'tool.clear':{fr:'Tout effacer',en:'Clear all'},'tool.probe':{fr:'🔍 Sonde',en:'🔍 Probe'},
  'sch.hint':{fr:"Clique un outil puis le quadrillage pour poser un composant (orientation via ⟳). Outil « Fil » : clic-clic entre deux points. Les bornes qui se touchent (ou reliées par un fil) forment un même nœud. Place une Masse = nœud 0. Sélectionne un composant pour éditer sa valeur. Outil « 🔍 Sonde » : clique un nœud/fil pour ne tracer que celui-là (re-clic = enlève).",
             en:"Click a tool then the grid to drop a component (orientation via ⟳). 'Wire' tool: click-click between two points. Terminals that touch (or joined by a wire) form one node. Place a Ground = node 0. Select a component to edit its value. '🔍 Probe' tool: click a node/wire to plot only that one (click again to remove)."},
- 'lbl.preset':{fr:'Exemple',en:'Example'},
+ 'lbl.preset':{fr:'Exemple',en:'Example'},'lbl.importasc':{fr:'Importer LTspice (.asc)',en:'Import LTspice (.asc)'},
  'pre.lp':{fr:'Filtre passe-bas RC',en:'RC low-pass filter'},'pre.hp':{fr:'Filtre passe-haut CR',en:'CR high-pass filter'},
  'pre.bp':{fr:'Passe-bande RLC série',en:'Series RLC band-pass'},'pre.res':{fr:'Résonance série — surtension Q',en:'Series resonance — Q overvoltage'},
  'pre.tank':{fr:'Tank RLC parallèle (impédance)',en:'Parallel RLC tank (impedance)'},'pre.ring':{fr:'Transitoire — sonnerie RLC',en:'Transient — RLC ringing'},'pre.rc':{fr:"Transitoire — charge d'un RC",en:'Transient — RC charging'},
@@ -707,6 +743,11 @@ function applyLang(){
   $('plot-title').textContent=t(MODE==='ac'?'p.bode':'p.tran');
 }
 function toggleLang(){LANG=LANG==='fr'?'en':'fr';try{localStorage.setItem('emtools_lang',LANG);}catch(e){}applyLang();redraw();}
+$('asc-file').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
+  r.onload=()=>{try{const {netlist,warnings}=importAsc(decodeAsc(r.result)); setInput('net'); $('netlist').value=netlist; run();
+    if(warnings.length)status('⚠ Importé. Composants non supportés (ignorés) : '+warnings.join(', ')+'. Ne simuleront pas — modèle propriétaire/non linéaire.',true);
+    else status('✓ Schéma LTspice importé.');}catch(err){status('Échec import .asc : '+err.message,true);} e.target.value='';};
+  r.readAsArrayBuffer(f);});
 applyLang(); loadPreset('lp'); initSch(); setInput('sch'); run();
 window.addEventListener('resize',()=>{redraw(); if(INPUT==='sch')drawSch();});
 </script>
