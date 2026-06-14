@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CEM — Compatibilité électromagnétique — EMtools</title>
+<style>
+:root{--bg:#0f1419;--panel:#1a2129;--panel2:#222b35;--ink:#e6edf3;--mut:#8b97a3;--acc:#4db6a4;--acc2:#e0884b;--line:#2d3742;--bad:#e05a5a;--blu:#6fb6d6;--mag:#b48ad8;--grn:#7fc77f}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+header{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+header h1{font-size:19px;margin:0;font-weight:650}header .sub{color:var(--mut);font-size:13px}
+.lang{margin-left:auto;display:flex;gap:6px}
+.lang button{background:var(--panel2);color:var(--mut);border:1px solid var(--line);border-radius:7px;padding:5px 11px;cursor:pointer;font-size:13px}
+.lang button.on{background:var(--acc);color:#06231d;border-color:var(--acc);font-weight:650}
+.wrap{max-width:1040px;margin:0 auto;padding:20px 22px 90px}
+a.back{color:var(--acc);text-decoration:none;font-size:13px}
+.tabs{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap}
+.tabs button{background:var(--panel2);color:var(--mut);border:1px solid var(--line);border-radius:9px;padding:8px 13px;cursor:pointer;font-size:13px}
+.tabs button.on{background:var(--acc);color:#06231d;border-color:var(--acc);font-weight:650}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:18px}
+.card h2{font-size:16px;margin:0 0 6px}
+.lead{color:var(--mut);font-size:14px;margin:0 0 14px}
+.grid2{display:grid;grid-template-columns:320px 1fr;gap:18px;align-items:start}
+@media(max-width:780px){.grid2{grid-template-columns:1fr}}
+label{display:block;font-size:12.5px;color:var(--mut);margin:10px 0 4px}
+input[type=number],select{width:100%;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px}
+input[type=range]{width:100%}.rng{display:flex;align-items:center;gap:10px}.rng input[type=range]{flex:1}.rng b{min-width:84px;text-align:right;font-variant-numeric:tabular-nums}
+.row{display:flex;gap:10px}.row>*{flex:1}
+canvas{max-width:100%;background:#0b0f14;border-radius:8px;display:block}
+.cap{font-size:12px;color:var(--mut);text-align:center;margin-top:6px}
+.eq{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:8px;padding:10px 13px;margin:12px 0;font-size:13.5px;overflow-x:auto}
+.metrics{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.metric{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 13px;min-width:110px}
+.metric .k{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+.metric .v{font-size:17px;font-weight:680;margin-top:2px}.metric .v small{font-size:11px;color:var(--mut)}
+.metric.good{border-color:var(--acc)}.metric.bad{border-color:var(--bad)}
+.note{font-size:13px;color:var(--mut);margin-top:12px}
+.lg{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;margin-top:6px}.lg span{display:inline-flex;align-items:center;gap:5px}.lg i{width:14px;height:3px;border-radius:2px;display:inline-block}
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="index.html">← EMtools</a>
+  <h1 data-i18n="title">CEM — Compatibilité électromagnétique</h1>
+  <span class="sub" data-i18n="sub">diaphonie · modes commun/différentiel · CISPR · blindage · ESD</span>
+  <div class="lang"><button id="lf" class="on" onclick="setLang('fr')">FR</button><button id="le" onclick="setLang('en')">EN</button></div>
+</header>
+<div class="wrap">
+  <div class="tabs">
+    <button id="tab-xt" class="on" onclick="showTab('xt')" data-i18n="t.xt">1 · Diaphonie</button>
+    <button id="tab-cmdm" onclick="showTab('cmdm')" data-i18n="t.cmdm">2 · Mode commun/différentiel & filtrage</button>
+    <button id="tab-cisp" onclick="showTab('cisp')" data-i18n="t.cisp">3 · Émission conduite & CISPR</button>
+    <button id="tab-shld" onclick="showTab('shld')" data-i18n="t.shld">4 · Blindage</button>
+    <button id="tab-esd" onclick="showTab('esd')" data-i18n="t.esd">5 · ESD</button>
+  </div>
+
+  <!-- ═══ 1 · DIAPHONIE ═══ -->
+  <div id="pane-xt">
+    <div class="card">
+      <h2 data-i18n="xt.h">La diaphonie (crosstalk) entre deux liaisons</h2>
+      <p class="lead" data-i18n="xt.lead">Un circuit « générateur » bruyant couple de l'énergie vers un circuit « victime » voisin, par <b>capacité mutuelle</b> C_m (champ électrique) et <b>inductance mutuelle</b> L_m (champ magnétique). À l'extrémité <b>proche</b> (NEXT) les deux contributions <b>s'ajoutent</b> ; à l'extrémité <b>lointaine</b> (FEXT) elles se <b>soustraient</b> et peuvent s'annuler. On dérive C_m, L_m de la géométrie (deux fils au-dessus d'un plan de masse).</p>
+      <div class="eq">V_NE = jω·ℓ·[ a·L_m·I_G + b·C_m·V_G ] &nbsp;·&nbsp; V_FE = jω·ℓ·[ −c·L_m·I_G + b·C_m·V_G ] &nbsp; (a,b,c : diviseurs des charges)</div>
+      <div class="grid2">
+        <div>
+          <label data-i18n="xt.geo">Hauteur h · écart s · rayon fil r_w (mm)</label>
+          <div class="row"><input type="number" id="xt-h" value="10" step="1" oninput="xt()"><input type="number" id="xt-s" value="3" step="0.5" oninput="xt()"><input type="number" id="xt-rw" value="0.3" step="0.05" oninput="xt()"></div>
+          <label data-i18n="xt.len">Longueur de parallélisme ℓ (m)</label>
+          <input type="number" id="xt-len" value="1" step="0.1" oninput="xt()">
+          <label data-i18n="xt.rg">Générateur : R_source · R_charge (Ω)</label>
+          <div class="row"><input type="number" id="xt-rs" value="50" step="10" oninput="xt()"><input type="number" id="xt-rl" value="50" step="10" oninput="xt()"></div>
+          <label data-i18n="xt.rr">Victime : R_proche (NE) · R_loin (FE) (Ω)</label>
+          <div class="row"><input type="number" id="xt-rne" value="50" step="10" oninput="xt()"><input type="number" id="xt-rfe" value="50" step="10" oninput="xt()"></div>
+          <div class="metrics" id="xt-metrics"></div>
+        </div>
+        <div>
+          <canvas id="cv-xt" width="440" height="290"></canvas>
+          <div class="lg" id="xt-lg"></div>
+          <div class="cap" data-i18n="xt.cap">Couplage NEXT / FEXT vs fréquence (dB). Pointillé = contributions capacitive et inductive du FEXT : lorsqu'elles coïncident (terminaisons équilibrées, k→1), leur soustraction fait s'effondrer le FEXT.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 2 · CM/DM ═══ -->
+  <div id="pane-cmdm" style="display:none">
+    <div class="card">
+      <h2 data-i18n="cm.h">Modes commun / différentiel & filtrage CEM</h2>
+      <p class="lead" data-i18n="cm.lead">Sur deux conducteurs, tout courant se décompose en <b>mode différentiel</b> (I_DM = (I₁−I₂)/2, le signal utile, aller-retour entre fils) et <b>mode commun</b> (I_CM = (I₁+I₂)/2, le bruit qui circule en phase et <b>rayonne</b> via la masse). Les filtres CEM ciblent chaque mode : <b>self de mode commun</b> (impédance élevée au CM, transparente au DM), condensateurs <b>Y</b> (CM vers la masse) et <b>X</b> (DM entre lignes).</p>
+      <div class="eq">I₁ = I_CM + I_DM &nbsp;·&nbsp; I₂ = I_CM − I_DM &nbsp;·&nbsp; self MC : Z_CM = jωL_CM (flux additionnés), Z_DM ≈ 0 (flux annulés)</div>
+      <div class="grid2">
+        <div>
+          <label><span data-i18n="cm.i1">Courant fil 1 · I₁ (mA)</span></label>
+          <div class="rng"><input type="range" id="cm-i1" min="-10" max="10" value="6" step="0.5" oninput="cm()"><b id="cm-i1-b"></b></div>
+          <label data-i18n="cm.i2">Courant fil 2 · I₂ (mA)</label>
+          <div class="rng"><input type="range" id="cm-i2" min="-10" max="10" value="-4" step="0.5" oninput="cm()"><b id="cm-i2-b"></b></div>
+          <label data-i18n="cm.lcm">Self de mode commun L_CM (mH)</label>
+          <input type="number" id="cm-lcm" value="1" step="0.1" oninput="cm()">
+          <label data-i18n="cm.cy">Condensateur Y (CM, nF) · X (DM, nF)</label>
+          <div class="row"><input type="number" id="cm-cy" value="2.2" step="0.1" oninput="cm()"><input type="number" id="cm-cx" value="100" step="10" oninput="cm()"></div>
+          <div class="metrics" id="cm-metrics"></div>
+        </div>
+        <div>
+          <canvas id="cv-cm" width="440" height="120"></canvas>
+          <div class="cap" data-i18n="cm.cap1">Décomposition CM / DM des courants des deux fils</div>
+          <canvas id="cv-cmf" width="440" height="200" style="margin-top:10px"></canvas>
+          <div class="lg" id="cm-lg"></div>
+          <div class="cap" data-i18n="cm.cap2">Perte d'insertion des filtres : CM (self + Y, pente −40 dB/déc) et DM (X)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 3 · CISPR ═══ -->
+  <div id="pane-cisp" style="display:none">
+    <div class="card">
+      <h2 data-i18n="ci.h">Émission conduite : spectre d'horloge vs gabarit CISPR</h2>
+      <p class="lead" data-i18n="ci.lead">Un signal trapézoïdal (horloge, découpage) a un spectre dont l'<b>enveloppe</b> est plate, puis chute à <b>−20 dB/déc</b> au-delà de f₁ = 1/(π·t_w), puis <b>−40 dB/déc</b> au-delà de f₂ = 1/(π·t_r). Ralentir les <b>fronts</b> (t_r) abaisse le contenu haute fréquence. On compare le spectre (après couplage/filtrage) aux gabarits <b>CISPR 32 / 22</b> d'émission conduite (quasi-crête, 0,15–30 MHz).</p>
+      <div class="eq">|c_n| = 2·A·D·|sinc(nπD)|·|sinc(nπ·t_r/T)| &nbsp;·&nbsp; f₁ = 1/(π·t_w) &nbsp;·&nbsp; f₂ = 1/(π·t_r)</div>
+      <div class="grid2">
+        <div>
+          <label data-i18n="ci.f0">Fréquence d'horloge f₀ (MHz)</label>
+          <input type="number" id="ci-f0" value="0.5" step="0.1" oninput="ci()">
+          <label data-i18n="ci.amp">Amplitude A (V) · rapport cyclique D (%)</label>
+          <div class="row"><input type="number" id="ci-a" value="3.3" step="0.1" oninput="ci()"><input type="number" id="ci-d" value="50" step="5" oninput="ci()"></div>
+          <label><span data-i18n="ci.tr">Temps de montée t_r (ns)</span> <b class="muted" id="ci-tr-v"></b></label>
+          <div class="rng"><input type="range" id="ci-tr" min="1" max="200" value="20" step="1" oninput="ci()"><b id="ci-tr-b"></b></div>
+          <label data-i18n="ci.att">Atténuation couplage + filtre (dB)</label>
+          <div class="rng"><input type="range" id="ci-att" min="0" max="120" value="60" step="2" oninput="ci()"><b id="ci-att-b"></b></div>
+          <label data-i18n="ci.cls">Gabarit</label>
+          <select id="ci-cls" onchange="ci()"><option value="B" data-i18n="ci.clsB">CISPR Classe B (résidentiel)</option><option value="A" data-i18n="ci.clsA">CISPR Classe A (industriel)</option></select>
+          <div class="metrics" id="ci-metrics"></div>
+        </div>
+        <div>
+          <canvas id="cv-cisp" width="440" height="290"></canvas>
+          <div class="lg" id="ci-lg"></div>
+          <div class="cap" data-i18n="ci.cap">Raies harmoniques (après atténuation) + enveloppe, vs gabarit CISPR. Rouge = dépassement.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 4 · BLINDAGE ═══ -->
+  <div id="pane-shld" style="display:none">
+    <div class="card">
+      <h2 data-i18n="sh.h">Efficacité de blindage (Schelkunoff)</h2>
+      <p class="lead" data-i18n="sh.lead">Une paroi métallique atténue par <b>réflexion</b> R (désadaptation d'impédance d'onde) et <b>absorption</b> A (pertes par courants induits, ∝ épaisseur/profondeur de peau), plus une correction de réflexions multiples M. SE = R + A + M. Leçon clé : un bon conducteur mince réfléchit très bien en HF, mais le <b>champ magnétique basse fréquence</b> est difficile à blinder (il faut de la perméabilité µ_r ou de l'épaisseur).</p>
+      <div class="eq">δ = 1/√(π·f·µ·σ) &nbsp;·&nbsp; A = 8,686·t/δ (dB) &nbsp;·&nbsp; R_plan = 168 + 10·log₁₀(σ_r/(µ_r·f)) (dB)</div>
+      <div class="grid2">
+        <div>
+          <label data-i18n="sh.mat">Matériau</label>
+          <select id="sh-mat" onchange="shMat();shld()">
+            <option value="cu" data-i18n="sh.cu">Cuivre (σ_r=1, µ_r=1)</option>
+            <option value="al" data-i18n="sh.al">Aluminium (σ_r=0,61, µ_r=1)</option>
+            <option value="steel" data-i18n="sh.steel">Acier (σ_r=0,1, µ_r=200)</option>
+            <option value="mu" data-i18n="sh.mu">Mu-métal (σ_r=0,03, µ_r=20000)</option>
+            <option value="custom" data-i18n="sh.custom">Personnalisé…</option>
+          </select>
+          <div class="row"><div><label>σ_r</label><input type="number" id="sh-sr" value="1" step="0.01" oninput="shld()"></div><div><label>µ_r</label><input type="number" id="sh-mr" value="1" step="1" oninput="shld()"></div></div>
+          <label data-i18n="sh.t">Épaisseur t (mm)</label>
+          <input type="number" id="sh-t" value="1" step="0.1" oninput="shld()">
+          <label data-i18n="sh.src">Type de source</label>
+          <select id="sh-src" onchange="shld()"><option value="plane" data-i18n="sh.plane">Onde plane (champ lointain)</option><option value="mag" data-i18n="sh.magn">Champ magnétique (proche)</option><option value="elec" data-i18n="sh.elec">Champ électrique (proche)</option></select>
+          <label data-i18n="sh.r">Distance source r (m, champ proche)</label>
+          <input type="number" id="sh-r" value="1" step="0.1" oninput="shld()">
+          <div class="metrics" id="sh-metrics"></div>
+        </div>
+        <div>
+          <canvas id="cv-shld" width="440" height="290"></canvas>
+          <div class="lg" id="sh-lg"></div>
+          <div class="cap" data-i18n="sh.cap">SE = réflexion + absorption (+ réflexions multiples) vs fréquence (log–log).</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 5 · ESD ═══ -->
+  <div id="pane-esd" style="display:none">
+    <div class="card">
+      <h2 data-i18n="es.h">Décharge électrostatique (IEC 61000-4-2)</h2>
+      <p class="lead" data-i18n="es.lead">La norme <b>IEC 61000-4-2</b> définit la forme d'onde de courant d'une décharge ESD au contact : un <b>premier pic très rapide</b> (montée ~0,8 ns, ≈ 3,75 A/kV) suivi d'une traîne de quelques dizaines de ns. Son spectre s'étend du continu jusqu'au GHz → l'ESD couple <b>partout</b>. Points de contrôle normatifs : I_pic, I à 30 ns (≈2 A/kV) et 60 ns (≈1 A/kV).</p>
+      <div class="eq">i(t) = (I₁/k₁)·(t/τ₁)ⁿ/(1+(t/τ₁)ⁿ)·e^{−t/τ₂} + (I₂/k₂)·(t/τ₃)ⁿ/(1+(t/τ₃)ⁿ)·e^{−t/τ₄} &nbsp; (deux fonctions de Heidler)</div>
+      <div class="grid2">
+        <div>
+          <label data-i18n="es.v">Niveau de tension d'essai</label>
+          <select id="es-v" onchange="esd()"><option value="2">2 kV (niveau 1)</option><option value="4">4 kV (niveau 2)</option><option value="6">6 kV (niveau 3)</option><option value="8" selected>8 kV (niveau 4)</option></select>
+          <div class="metrics" id="es-metrics"></div>
+          <p class="note" data-i18n="es.note">Le premier pic dépend de la rapidité du front (sub-ns) : c'est lui qui injecte le contenu très haute fréquence responsable des dysfonctionnements logiques. La traîne porte l'essentiel de la charge/énergie.</p>
+        </div>
+        <div>
+          <canvas id="cv-esd" width="440" height="240"></canvas>
+          <div class="cap" data-i18n="es.cap1">Courant de décharge i(t) — premier pic (0–10 ns) + traîne, avec points de contrôle IEC à 30 et 60 ns</div>
+          <canvas id="cv-esds" width="440" height="170" style="margin-top:10px"></canvas>
+          <div class="cap" data-i18n="es.cap2">Densité spectrale du courant (large bande, jusqu'au GHz)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const MU0=4*Math.PI*1e-7, EPS0=8.854e-12, C0=2.998e8, SIG_CU=5.8e7;
+function met(k,v,u,cls){return `<div class="metric ${cls||''}"><div class="k">${k}</div><div class="v">${v} <small>${u||''}</small></div></div>`;}
+function lgItem(c,t){return `<span><i style="background:${c}"></i>${t}</span>`;}
+function fmtHz(f){return f>=1e9?(f/1e9).toFixed(2)+' GHz':f>=1e6?(f/1e6).toFixed(2)+' MHz':f>=1e3?(f/1e3).toFixed(1)+' kHz':f.toFixed(0)+' Hz';}
+
+// ── traceur générique dB vs log-fréquence ──
+function plotLF(cv,cfg){
+  const c=cv.getContext('2d'),W=cv.width,H=cv.height;c.clearRect(0,0,W,H);
+  const mL=46,mR=12,mT=12,mB=30,pw=W-mL-mR,ph=H-mT-mB;
+  const lx1=Math.log10(cfg.xmin),lx2=Math.log10(cfg.xmax),y0=cfg.ymin,y1=cfg.ymax;
+  const X=f=>mL+(Math.log10(f)-lx1)/(lx2-lx1)*pw, Y=v=>mT+ph-(Math.min(Math.max(v,y0),y1)-y0)/(y1-y0)*ph;
+  // grille décades
+  c.font='10px sans-serif';c.textAlign='center';
+  for(let d=Math.ceil(lx1);d<=Math.floor(lx2);d++){const f=Math.pow(10,d),Xx=X(f);
+    c.strokeStyle='#1c2630';c.beginPath();c.moveTo(Xx,mT);c.lineTo(Xx,mT+ph);c.stroke();
+    c.fillStyle='#8b97a3';c.fillText(fmtHz(f),Xx,mT+ph+13);}
+  // grille y
+  c.textAlign='right';const ystep=cfg.ystep||((y1-y0)>200?50:(y1-y0)>100?20:20);
+  for(let v=Math.ceil(y0/ystep)*ystep;v<=y1;v+=ystep){const Yy=Y(v);c.strokeStyle='#161e26';c.beginPath();c.moveTo(mL,Yy);c.lineTo(mL+pw,Yy);c.stroke();c.fillStyle='#8b97a3';c.fillText(v+'',mL-4,Yy+3);}
+  c.strokeStyle='#3a4754';c.lineWidth=1;c.strokeRect(mL,mT,pw,ph);
+  // axes labels
+  c.fillStyle='#8b97a3';c.textAlign='center';c.fillText(cfg.xlab||'Hz',mL+pw/2,H-2);
+  c.save();c.translate(11,mT+ph/2);c.rotate(-Math.PI/2);c.fillText(cfg.ylab||'dB',0,0);c.restore();
+  // masques (zones)
+  (cfg.masks||[]).forEach(m=>{c.strokeStyle=m.col;c.lineWidth=2;c.setLineDash(m.dash||[6,3]);c.beginPath();m.pts.forEach((p,i)=>{const Xx=X(p[0]),Yy=Y(p[1]);i?c.lineTo(Xx,Yy):c.moveTo(Xx,Yy);});c.stroke();c.setLineDash([]);});
+  // stems
+  (cfg.stems||[]).forEach(s=>{s.x.forEach((f,i)=>{if(f<cfg.xmin||f>cfg.xmax)return;const Xx=X(f),Yy=Y(s.y[i]);c.strokeStyle=s.col;c.lineWidth=1.4;c.beginPath();c.moveTo(Xx,Y(y0));c.lineTo(Xx,Yy);c.stroke();c.fillStyle=s.over&&s.over[i]?'#e05a5a':s.col;c.beginPath();c.arc(Xx,Yy,2.4,0,7);c.fill();});});
+  // courbes
+  (cfg.curves||[]).forEach(cu=>{c.strokeStyle=cu.col;c.lineWidth=cu.w||2;c.setLineDash(cu.dash||[]);c.beginPath();let st=false;
+    cu.x.forEach((f,i)=>{if(f<cfg.xmin||f>cfg.xmax)return;const Xx=X(f),Yy=Y(cu.y[i]);st?c.lineTo(Xx,Yy):c.moveTo(Xx,Yy);st=true;});c.stroke();c.setLineDash([]);});
+  // marqueurs verticaux
+  (cfg.vmark||[]).forEach(m=>{const Xx=X(m.f);c.strokeStyle=m.col;c.setLineDash([3,3]);c.beginPath();c.moveTo(Xx,mT);c.lineTo(Xx,mT+ph);c.stroke();c.setLineDash([]);if(m.t){c.fillStyle=m.col;c.font='10px sans-serif';c.textAlign='left';c.fillText(m.t,Xx+3,mT+10);}});
+  return {X,Y};
+}
+
+// ═══ 1 · DIAPHONIE ═══
+function xtParams(){
+  const h=+v('xt-h')/1e3, s=+v('xt-s')/1e3, rw=+v('xt-rw')/1e3;
+  const Lg=MU0/(2*Math.PI)*Math.log(2*h/rw);
+  const Lm=MU0/(4*Math.PI)*Math.log(1+(2*h/s)*(2*h/s));
+  const den=Lg*Lg-Lm*Lm;
+  const Cm=Lm/(C0*C0*den);            // F/m (capacité mutuelle de couplage)
+  return {Lg,Lm,Cm};
+}
+function xt(){
+  const {Lg,Lm,Cm}=xtParams();
+  const L=+v('xt-len'), Rs=+v('xt-rs'), Rl=+v('xt-rl'), Rne=+v('xt-rne'), Rfe=+v('xt-rfe');
+  const IG=1/(Rs+Rl), VG=Rl/(Rs+Rl);          // Vs=1 normalisé
+  const a=Rne/(Rne+Rfe), b=Rne*Rfe/(Rne+Rfe), cc=Rfe/(Rne+Rfe);
+  const fvalid=C0/(10*L);
+  const F=[],NE=[],FE=[],FEc=[],FEl=[];
+  for(let lf=3;lf<=9;lf+=0.04){const f=Math.pow(10,lf),w=2*Math.PI*f;F.push(f);
+    const Vind=w*Lm*L*IG, Vcap=w*Cm*L*VG;
+    NE.push(20*Math.log10(a*Vind+b*Vcap));
+    FE.push(20*Math.log10(Math.abs(b*Vcap-cc*Vind)));
+    FEc.push(20*Math.log10(b*Vcap)); FEl.push(20*Math.log10(cc*Vind));}
+  const dB=(arr,f)=>{let i=F.findIndex(x=>x>=f);return i<0?arr[arr.length-1]:arr[i];};
+  // fréquence d'annulation FEXT : b*Cm*VG = cc*Lm*IG (indépendant de f)
+  const ratio=(b*Cm*VG)/(cc*Lm*IG);
+  plotLF($('cv-xt'),{xmin:1e3,xmax:1e9,ymin:-160,ymax:0,ystep:20,xlab:'fréquence (Hz)',ylab:'couplage (dB)',
+    curves:[{x:F,y:NE,col:'#e0884b',w:2.2},{x:F,y:FE,col:'#4db6a4',w:2.2},{x:F,y:FEc,col:'#6fb6d6',dash:[4,3],w:1},{x:F,y:FEl,col:'#b48ad8',dash:[4,3],w:1}],
+    vmark:[{f:fvalid,col:'#e05a5a',t:'ℓ=λ/10'}]});
+  $('xt-lg').innerHTML=lgItem('#e0884b','NEXT (V_NE)')+lgItem('#4db6a4','FEXT (V_FE)')+lgItem('#6fb6d6','FEXT capacitif')+lgItem('#b48ad8','FEXT inductif');
+  $('xt-metrics').innerHTML=
+    met('L_m',(Lm*1e9).toFixed(1),'nH/m')+met('C_m',(Cm*1e12).toFixed(2),'pF/m')+
+    met('NEXT @1MHz',dB(NE,1e6).toFixed(1),'dB')+met(T('xt.fcanc'),isFinite(ratio)?'k='+ratio.toFixed(2):'—','',Math.abs(ratio-1)<0.15?'good':'');
+}
+
+// ═══ 2 · CM/DM ═══
+function cm(){
+  const I1=+v('cm-i1'), I2=+v('cm-i2'); $('cm-i1-b').textContent=I1+' mA'; $('cm-i2-b').textContent=I2+' mA';
+  const Icm=(I1+I2)/2, Idm=(I1-I2)/2;
+  // schéma décomposition (barres)
+  const cv=$('cv-cm'),c=cv.getContext('2d');c.clearRect(0,0,cv.width,cv.height);const W=cv.width,H=cv.height;
+  const bars=[['I₁',I1,'#6fb6d6'],['I₂',I2,'#6fb6d6'],['I_CM',Icm,'#e0884b'],['I_DM',Idm,'#4db6a4']];
+  const x0=70,bw=64,gap=22,mid=H/2,sc=4;
+  c.strokeStyle='#3a4754';c.beginPath();c.moveTo(50,mid);c.lineTo(W-10,mid);c.stroke();
+  bars.forEach((b,i)=>{const X=x0+i*(bw+gap),hh=b[1]*sc;c.fillStyle=b[2];c.fillRect(X,mid-Math.max(hh,0),bw,Math.abs(hh));
+    c.fillStyle='#e6edf3';c.font='600 11px sans-serif';c.textAlign='center';c.fillText(b[0],X+bw/2,b[1]>=0?mid+14:mid-4);
+    c.fillStyle='#8b97a3';c.font='10px sans-serif';c.fillText(b[1].toFixed(1),X+bw/2,b[1]>=0?mid-Math.abs(hh)-4:mid+Math.abs(hh)+13);});
+  c.fillStyle='#8b97a3';c.font='10px sans-serif';c.textAlign='left';c.fillText(T('cm.mes'),52,14);c.fillText(T('cm.dec'),x0+2*(bw+gap)-6,14);
+  c.strokeStyle='#2d3742';c.setLineDash([4,3]);c.beginPath();c.moveTo(x0+2*(bw+gap)-11,8);c.lineTo(x0+2*(bw+gap)-11,H-6);c.stroke();c.setLineDash([]);
+  // filtres : perte d'insertion CM (self+Y) et DM (X)
+  const Lcm=+v('cm-lcm')*1e-3, Cy=+v('cm-cy')*1e-9, Cx=+v('cm-cx')*1e-9;
+  const Rcm=25, Rdm=100;                       // impédances de mode typiques
+  const F=[],ILcm=[],ILdm=[];
+  const ilSeriesShunt=(f,Ls,Cs,R)=>{const w=2*Math.PI*f; const ZL=[0,w*Ls]; const YC=[0,w*Cs];
+    // H0 = R/(R+R)=0.5 ; H = Zp/(R+ZL+Zp) avec Zp = R || (1/YC)
+    const Zc=[0,Cs>0?-1/(w*Cs):-1e12]; const Zp=cpar([R,0],Zc); const num=Zp; const den=cadd(cadd([R,0],ZL),Zp);
+    const H=cdiv(num,den); const H0=0.5; return 20*Math.log10(H0/cabs(H));};
+  for(let lf=3;lf<=8;lf+=0.04){const f=Math.pow(10,lf);F.push(f);
+    ILcm.push(ilSeriesShunt(f,Lcm,2*Cy,Rcm));   // CM : self série + 2·Cy shunt
+    ILdm.push(ilSeriesShunt(f,0,Cx,Rdm));}      // DM : Cx shunt (pas de self)
+  const fcm=1/(2*Math.PI*Math.sqrt(Lcm*2*Cy)), fdm=1/(2*Math.PI*Cx*(Rdm/2));
+  plotLF($('cv-cmf'),{xmin:1e3,xmax:1e8,ymin:0,ymax:100,ystep:20,xlab:'fréquence (Hz)',ylab:'perte d\'insertion (dB)',
+    curves:[{x:F,y:ILcm,col:'#e0884b',w:2.2},{x:F,y:ILdm,col:'#4db6a4',w:2.2}],
+    vmark:[{f:fcm,col:'#e0884b'},{f:fdm,col:'#4db6a4'}]});
+  $('cm-lg').innerHTML=lgItem('#e0884b','CM (self L_CM + Y)')+lgItem('#4db6a4','DM (condensateur X)');
+  $('cm-metrics').innerHTML=
+    met('I_CM',Icm.toFixed(2),'mA',Math.abs(Icm)>Math.abs(Idm)?'bad':'')+met('I_DM',Idm.toFixed(2),'mA')+
+    met(T('cm.fcm'),fmtHz(fcm),'')+met(T('cm.fdm'),fmtHz(fdm),'');
+}
+const cadd=(a,b)=>[a[0]+b[0],a[1]+b[1]], cmul=(a,b)=>[a[0]*b[0]-a[1]*b[1],a[0]*b[1]+a[1]*b[0]];
+const cdiv=(a,b)=>{const d=b[0]*b[0]+b[1]*b[1];return [(a[0]*b[0]+a[1]*b[1])/d,(a[1]*b[0]-a[0]*b[1])/d];};
+const cabs=a=>Math.hypot(a[0],a[1]);
+const cpar=(a,b)=>cdiv(cmul(a,b),cadd(a,b));
+
+// ═══ 3 · CISPR ═══
+function cisprMask(cls,f){ // dBµV quasi-crête conduit, f en Hz
+  const fk=f; if(cls==='A'){ if(fk<0.5e6)return 79; return 73; }
+  // classe B : 66→56 (0,15–0,5 décroissant log), 56 (0,5–5), 60 (5–30)
+  if(fk<0.5e6){return 66-(66-56)*(Math.log10(fk/0.15e6)/Math.log10(0.5/0.15));}
+  if(fk<5e6)return 56; return 60;
+}
+function ci(){
+  const f0=+v('ci-f0')*1e6, A=+v('ci-a'), D=+v('ci-d')/100, tr=+v('ci-tr')*1e-9, att=+v('ci-att'), cls=v('ci-cls');
+  $('ci-tr-b').textContent=(+v('ci-tr'))+' ns'; $('ci-att-b').textContent=att+' dB';
+  const T0=1/f0, tw=D*T0;
+  const sinc=x=>x===0?1:Math.sin(x)/x;
+  const xs=[],ys=[],over=[];let maxOver=-1e9;
+  for(let n=1;n*f0<=30e6;n++){const f=n*f0; if(f<0.15e6)continue;
+    const cn=2*A*D*Math.abs(sinc(n*Math.PI*D))*Math.abs(sinc(n*Math.PI*tr/T0));
+    const dbuv=20*Math.log10(Math.max(cn,1e-12)/1e-6)-att;
+    xs.push(f);ys.push(dbuv);const lim=cisprMask(cls,f);over.push(dbuv>lim);maxOver=Math.max(maxOver,dbuv-lim);}
+  // enveloppe
+  const env=[],envf=[];for(let lf=Math.log10(0.15e6);lf<=Math.log10(30e6);lf+=0.03){const f=Math.pow(10,lf);envf.push(f);
+    const base=2*A*D; let e=base; const f1=1/(Math.PI*tw), f2=1/(Math.PI*tr);
+    if(f>f1)e=base*(f1/f); if(f>f2)e=base*(f1/f2)*(f2/f); // -20 puis -40
+    env.push(20*Math.log10(Math.max(e,1e-12)/1e-6)-att);}
+  const mask=[];for(let lf=Math.log10(0.15e6);lf<=Math.log10(30e6);lf+=0.02){const f=Math.pow(10,lf);mask.push([f,cisprMask(cls,f)]);}
+  const f1=1/(Math.PI*tw), f2=1/(Math.PI*tr);
+  plotLF($('cv-cisp'),{xmin:0.15e6,xmax:30e6,ymin:0,ymax:120,ystep:20,xlab:'fréquence (Hz)',ylab:'niveau (dBµV)',
+    stems:[{x:xs,y:ys,col:'#6fb6d6',over}],
+    curves:[{x:envf,y:env,col:'#e0884b',dash:[5,3],w:1.6}],
+    masks:[{pts:mask,col:'#e05a5a',dash:[7,4]}],
+    vmark:[{f:f2,col:'#b48ad8',t:'f₂'}]});
+  $('ci-lg').innerHTML=lgItem('#6fb6d6',T('ci.harm'))+lgItem('#e0884b',T('ci.env'))+lgItem('#e05a5a','CISPR '+cls);
+  $('ci-metrics').innerHTML=
+    met('f₁',fmtHz(f1),'')+met('f₂',fmtHz(f2),'')+
+    met(T('ci.marg'),(maxOver>-1e8?(maxOver>0?'+':'')+maxOver.toFixed(1):'—'),'dB',maxOver>0?'bad':'good');
+}
+
+// ═══ 4 · BLINDAGE ═══
+const SH_MAT={cu:[1,1],al:[0.61,1],steel:[0.1,200],mu:[0.03,20000]};
+function shMat(){const m=v('sh-mat');if(SH_MAT[m]){$('sh-sr').value=SH_MAT[m][0];$('sh-mr').value=SH_MAT[m][1];}}
+function shld(){
+  const sr=+v('sh-sr'), mr=+v('sh-mr'), t=+v('sh-t')/1e3, src=v('sh-src'), r=+v('sh-r');
+  const sig=SIG_CU*sr;
+  const F=[],R=[],Aa=[],SE=[];
+  for(let lf=2;lf<=10;lf+=0.04){const f=Math.pow(10,lf);F.push(f);
+    const delta=1/Math.sqrt(Math.PI*f*MU0*mr*sig);
+    const A=8.686*t/delta;
+    let Rdb;
+    if(src==='plane')Rdb=168+10*Math.log10(sr/(mr*f));
+    else if(src==='mag')Rdb=14.57+10*Math.log10(sr*f*r*r/mr);
+    else Rdb=321.7+10*Math.log10(sr/(mr*f*f*f*r*r));
+    Rdb=Math.max(Rdb,0);
+    // réflexions multiples
+    const e=Math.exp(-2*t/delta), ang=2*t/delta;
+    const M=20*Math.log10(Math.hypot(1-e*Math.cos(ang),e*Math.sin(ang)));
+    R.push(Rdb);Aa.push(A);SE.push(Math.max(Rdb+A+M,0));}
+  const at=f=>{const i=F.findIndex(x=>x>=f);return i<0?SE[SE.length-1]:SE[i];};
+  const delta1M=1/Math.sqrt(Math.PI*1e6*MU0*mr*sig);
+  plotLF($('cv-shld'),{xmin:1e2,xmax:1e10,ymin:0,ymax:300,ystep:50,xlab:'fréquence (Hz)',ylab:'atténuation (dB)',
+    curves:[{x:F,y:SE,col:'#4db6a4',w:2.4},{x:F,y:R,col:'#6fb6d6',dash:[4,3],w:1.4},{x:F,y:Aa,col:'#e0884b',dash:[4,3],w:1.4}]});
+  $('sh-lg').innerHTML=lgItem('#4db6a4','SE total')+lgItem('#6fb6d6',T('sh.refl'))+lgItem('#e0884b',T('sh.abs'));
+  $('sh-metrics').innerHTML=
+    met('SE @1MHz',at(1e6).toFixed(0),'dB')+met('SE @100MHz',at(1e8).toFixed(0),'dB')+
+    met(T('sh.skin'),(delta1M*1e6).toFixed(1),'µm @1MHz');
+}
+
+// ═══ 5 · ESD ═══
+function esdWave(t_s,Vkv){ // IEC 61000-4-2, t en s ; deux fonctions de Heidler (params 4 kV, mis à l'échelle)
+  const sc=Vkv/4;
+  const heidler=(t,I,t1,t2,n)=>{const k=Math.exp(-(t1/t2)*Math.pow(n*t2/t1,1/n));const x=Math.pow(t/t1,n);return (I/k)*x/(1+x)*Math.exp(-t/t2);};
+  const t=t_s;
+  return sc*( heidler(t,16.6,1.1e-9,2e-9,1.8) + heidler(t,9.3,12e-9,37e-9,1.8) );
+}
+function esd(){
+  const Vkv=+v('es-v');
+  // forme d'onde
+  const N=600,tmax=100e-9,T=[],I=[];let ipk=0,tpk=0;
+  for(let i=0;i<=N;i++){const tt=tmax*i/N,ii=esdWave(tt,Vkv);T.push(tt);I.push(ii);if(ii>ipk){ipk=ii;tpk=tt;}}
+  const i30=esdWave(30e-9,Vkv), i60=esdWave(60e-9,Vkv);
+  // tracé temporel
+  const cv=$('cv-esd'),c=cv.getContext('2d');c.clearRect(0,0,cv.width,cv.height);const W=cv.width,H=cv.height,mL=44,mB=26,mT=10,pw=W-mL-12,ph=H-mT-mB;
+  const X=tt=>mL+tt/tmax*pw, Y=ii=>mT+ph-ii/(ipk*1.1)*ph;
+  c.font='10px sans-serif';c.textAlign='right';for(let g=0;g<=4;g++){const val=ipk*1.1*g/4,Yy=Y(val);c.strokeStyle='#161e26';c.beginPath();c.moveTo(mL,Yy);c.lineTo(mL+pw,Yy);c.stroke();c.fillStyle='#8b97a3';c.fillText(val.toFixed(0),mL-4,Yy+3);}
+  c.textAlign='center';for(let g=0;g<=5;g++){const tt=tmax*g/5,Xx=X(tt);c.strokeStyle='#161e26';c.beginPath();c.moveTo(Xx,mT);c.lineTo(Xx,mT+ph);c.stroke();c.fillStyle='#8b97a3';c.fillText((tt*1e9).toFixed(0)+'ns',Xx,mT+ph+13);}
+  c.strokeStyle='#3a4754';c.strokeRect(mL,mT,pw,ph);
+  c.strokeStyle='#4db6a4';c.lineWidth=2.2;c.beginPath();T.forEach((tt,i)=>{const Xx=X(tt),Yy=Y(I[i]);i?c.lineTo(Xx,Yy):c.moveTo(Xx,Yy);});c.stroke();
+  // points de contrôle
+  [[30e-9,i30,'#e0884b'],[60e-9,i60,'#b48ad8']].forEach(p=>{c.fillStyle=p[2];c.beginPath();c.arc(X(p[0]),Y(p[1]),4,0,7);c.fill();c.fillStyle=p[2];c.font='10px sans-serif';c.textAlign='left';c.fillText(p[1].toFixed(1)+' A',X(p[0])+6,Y(p[1])-4);});
+  c.fillStyle='#4db6a4';c.beginPath();c.arc(X(tpk),Y(ipk),3.5,0,7);c.fill();
+  // spectre (|FFT| approx par échantillonnage analytique de la magnitude via DTFT directe sur quelques f)
+  const Fs=[],S=[];const dt=tmax/N;
+  for(let lf=6;lf<=9.3;lf+=0.05){const f=Math.pow(10,lf);let re=0,im=0;for(let i=0;i<=N;i++){const ph2=-2*Math.PI*f*T[i];re+=I[i]*Math.cos(ph2)*dt;im+=I[i]*Math.sin(ph2)*dt;}Fs.push(f);S.push(20*Math.log10(Math.hypot(re,im)+1e-15));}
+  const smax=Math.max(...S);
+  plotLF($('cv-esds'),{xmin:1e6,xmax:2e9,ymin:smax-60,ymax:smax+5,ystep:20,xlab:'fréquence (Hz)',ylab:'|I(f)| (dB)',
+    curves:[{x:Fs,y:S,col:'#6fb6d6',w:2}]});
+  $('es-metrics').innerHTML=
+    met(T('es.ipk'),ipk.toFixed(1),'A',true)+met(T('es.i30'),i30.toFixed(1),'A')+met(T('es.i60'),i60.toFixed(1),'A')+
+    met(T('es.tr'),(tpk*1e9).toFixed(2),'ns');
+}
+
+// ═══ onglets ═══
+function v(id){return document.getElementById(id).value;}
+function $(id){return document.getElementById(id);}
+function showTab(t){['xt','cmdm','cisp','shld','esd'].forEach(p=>{$('pane-'+p).style.display=p===t?'block':'none';$('tab-'+p).classList.toggle('on',p===t);});
+  if(t==='xt')xt(); if(t==='cmdm')cm(); if(t==='cisp')ci(); if(t==='shld')shld(); if(t==='esd')esd();}
+
+// ═══ i18n ═══
+const I18N={
+ title:{fr:"CEM — Compatibilité électromagnétique",en:"EMC — Electromagnetic compatibility"},
+ sub:{fr:"diaphonie · modes commun/différentiel · CISPR · blindage · ESD",en:"crosstalk · common/differential mode · CISPR · shielding · ESD"},
+ 't.xt':{fr:"1 · Diaphonie",en:"1 · Crosstalk"},'t.cmdm':{fr:"2 · Mode commun/différentiel & filtrage",en:"2 · Common/differential mode & filtering"},'t.cisp':{fr:"3 · Émission conduite & CISPR",en:"3 · Conducted emission & CISPR"},'t.shld':{fr:"4 · Blindage",en:"4 · Shielding"},'t.esd':{fr:"5 · ESD",en:"5 · ESD"},
+ 'xt.h':{fr:"La diaphonie (crosstalk) entre deux liaisons",en:"Crosstalk between two links"},
+ 'xt.lead':{fr:"Un circuit « générateur » bruyant couple de l'énergie vers un circuit « victime » voisin, par <b>capacité mutuelle</b> C_m (champ électrique) et <b>inductance mutuelle</b> L_m (champ magnétique). À l'extrémité <b>proche</b> (NEXT) les deux contributions <b>s'ajoutent</b> ; à l'extrémité <b>lointaine</b> (FEXT) elles se <b>soustraient</b> et peuvent s'annuler. On dérive C_m, L_m de la géométrie (deux fils au-dessus d'un plan de masse).",
+   en:"A noisy 'generator' circuit couples energy into a nearby 'victim' circuit through <b>mutual capacitance</b> C_m (electric field) and <b>mutual inductance</b> L_m (magnetic field). At the <b>near</b> end (NEXT) the two contributions <b>add</b>; at the <b>far</b> end (FEXT) they <b>subtract</b> and can cancel. C_m, L_m are derived from the geometry (two wires above a ground plane)."},
+ 'xt.geo':{fr:"Hauteur h · écart s · rayon fil r_w (mm)",en:"Height h · spacing s · wire radius r_w (mm)"},'xt.len':{fr:"Longueur de parallélisme ℓ (m)",en:"Parallel run length ℓ (m)"},
+ 'xt.rg':{fr:"Générateur : R_source · R_charge (Ω)",en:"Generator: R_source · R_load (Ω)"},'xt.rr':{fr:"Victime : R_proche (NE) · R_loin (FE) (Ω)",en:"Victim: R_near (NE) · R_far (FE) (Ω)"},
+ 'xt.fcanc':{fr:"Équilibre FEXT",en:"FEXT balance"},
+ 'xt.cap':{fr:"Couplage NEXT / FEXT vs fréquence (dB). Pointillé = contributions capacitive et inductive du FEXT : lorsqu'elles coïncident (terminaisons équilibrées, k→1), leur soustraction fait s'effondrer le FEXT.",en:"NEXT / FEXT coupling vs frequency (dB). Dashed = capacitive and inductive contributions to FEXT: when they coincide (balanced terminations, k→1), their subtraction collapses FEXT."},
+ 'cm.h':{fr:"Modes commun / différentiel & filtrage CEM",en:"Common / differential mode & EMC filtering"},
+ 'cm.lead':{fr:"Sur deux conducteurs, tout courant se décompose en <b>mode différentiel</b> (I_DM = (I₁−I₂)/2, le signal utile, aller-retour entre fils) et <b>mode commun</b> (I_CM = (I₁+I₂)/2, le bruit qui circule en phase et <b>rayonne</b> via la masse). Les filtres CEM ciblent chaque mode : <b>self de mode commun</b> (impédance élevée au CM, transparente au DM), condensateurs <b>Y</b> (CM vers la masse) et <b>X</b> (DM entre lignes).",
+   en:"On two conductors, any current splits into <b>differential mode</b> (I_DM = (I₁−I₂)/2, the wanted signal, looping between the wires) and <b>common mode</b> (I_CM = (I₁+I₂)/2, the in-phase noise that <b>radiates</b> via ground). EMC filters target each: <b>common-mode choke</b> (high impedance to CM, transparent to DM), <b>Y</b> caps (CM to ground) and <b>X</b> caps (DM line-to-line)."},
+ 'cm.i1':{fr:"Courant fil 1 · I₁ (mA)",en:"Wire-1 current · I₁ (mA)"},'cm.i2':{fr:"Courant fil 2 · I₂ (mA)",en:"Wire-2 current · I₂ (mA)"},
+ 'cm.lcm':{fr:"Self de mode commun L_CM (mH)",en:"Common-mode choke L_CM (mH)"},'cm.cy':{fr:"Condensateur Y (CM, nF) · X (DM, nF)",en:"Y capacitor (CM, nF) · X (DM, nF)"},
+ 'cm.cap1':{fr:"Décomposition CM / DM des courants des deux fils",en:"CM / DM decomposition of the two wire currents"},'cm.cap2':{fr:"Perte d'insertion des filtres : CM (self + Y, pente −40 dB/déc) et DM (X)",en:"Filter insertion loss: CM (choke + Y, −40 dB/dec) and DM (X)"},
+ 'cm.mes':{fr:"mesuré",en:"measured"},'cm.dec':{fr:"décomposé",en:"decomposed"},'cm.fcm':{fr:"Coupure CM",en:"CM corner"},'cm.fdm':{fr:"Coupure DM",en:"DM corner"},
+ 'ci.h':{fr:"Émission conduite : spectre d'horloge vs gabarit CISPR",en:"Conducted emission: clock spectrum vs CISPR limit"},
+ 'ci.lead':{fr:"Un signal trapézoïdal (horloge, découpage) a un spectre dont l'<b>enveloppe</b> est plate, puis chute à <b>−20 dB/déc</b> au-delà de f₁ = 1/(π·t_w), puis <b>−40 dB/déc</b> au-delà de f₂ = 1/(π·t_r). Ralentir les <b>fronts</b> (t_r) abaisse le contenu haute fréquence. On compare le spectre (après couplage/filtrage) aux gabarits <b>CISPR 32 / 22</b> d'émission conduite (quasi-crête, 0,15–30 MHz).",
+   en:"A trapezoidal signal (clock, switching) has a spectrum whose <b>envelope</b> is flat, then falls at <b>−20 dB/dec</b> beyond f₁ = 1/(π·t_w), then <b>−40 dB/dec</b> beyond f₂ = 1/(π·t_r). Slowing the <b>edges</b> (t_r) lowers the high-frequency content. The spectrum (after coupling/filtering) is compared to the <b>CISPR 32 / 22</b> conducted-emission limits (quasi-peak, 0.15–30 MHz)."},
+ 'ci.f0':{fr:"Fréquence d'horloge f₀ (MHz)",en:"Clock frequency f₀ (MHz)"},'ci.amp':{fr:"Amplitude A (V) · rapport cyclique D (%)",en:"Amplitude A (V) · duty cycle D (%)"},
+ 'ci.tr':{fr:"Temps de montée t_r (ns)",en:"Rise time t_r (ns)"},'ci.att':{fr:"Atténuation couplage + filtre (dB)",en:"Coupling + filter attenuation (dB)"},
+ 'ci.cls':{fr:"Gabarit",en:"Limit"},'ci.clsB':{fr:"CISPR Classe B (résidentiel)",en:"CISPR Class B (residential)"},'ci.clsA':{fr:"CISPR Classe A (industriel)",en:"CISPR Class A (industrial)"},
+ 'ci.cap':{fr:"Raies harmoniques (après atténuation) + enveloppe, vs gabarit CISPR. Rouge = dépassement.",en:"Harmonic lines (after attenuation) + envelope, vs CISPR limit. Red = exceedance."},
+ 'ci.harm':{fr:"harmoniques",en:"harmonics"},'ci.env':{fr:"enveloppe",en:"envelope"},'ci.marg':{fr:"Marge max",en:"Worst margin"},
+ 'sh.h':{fr:"Efficacité de blindage (Schelkunoff)",en:"Shielding effectiveness (Schelkunoff)"},
+ 'sh.lead':{fr:"Une paroi métallique atténue par <b>réflexion</b> R (désadaptation d'impédance d'onde) et <b>absorption</b> A (pertes par courants induits, ∝ épaisseur/profondeur de peau), plus une correction de réflexions multiples M. SE = R + A + M. Leçon clé : un bon conducteur mince réfléchit très bien en HF, mais le <b>champ magnétique basse fréquence</b> est difficile à blinder (il faut de la perméabilité µ_r ou de l'épaisseur).",
+   en:"A metal wall attenuates by <b>reflection</b> R (wave-impedance mismatch) and <b>absorption</b> A (induced-current losses, ∝ thickness/skin depth), plus a multiple-reflection correction M. SE = R + A + M. Key lesson: a thin good conductor reflects very well at HF, but the <b>low-frequency magnetic field</b> is hard to shield (it needs permeability µ_r or thickness)."},
+ 'sh.mat':{fr:"Matériau",en:"Material"},'sh.cu':{fr:"Cuivre (σ_r=1, µ_r=1)",en:"Copper (σ_r=1, µ_r=1)"},'sh.al':{fr:"Aluminium (σ_r=0,61, µ_r=1)",en:"Aluminium (σ_r=0.61, µ_r=1)"},'sh.steel':{fr:"Acier (σ_r=0,1, µ_r=200)",en:"Steel (σ_r=0.1, µ_r=200)"},'sh.mu':{fr:"Mu-métal (σ_r=0,03, µ_r=20000)",en:"Mu-metal (σ_r=0.03, µ_r=20000)"},'sh.custom':{fr:"Personnalisé…",en:"Custom…"},
+ 'sh.t':{fr:"Épaisseur t (mm)",en:"Thickness t (mm)"},'sh.src':{fr:"Type de source",en:"Source type"},'sh.plane':{fr:"Onde plane (champ lointain)",en:"Plane wave (far field)"},'sh.magn':{fr:"Champ magnétique (proche)",en:"Magnetic field (near)"},'sh.elec':{fr:"Champ électrique (proche)",en:"Electric field (near)"},
+ 'sh.r':{fr:"Distance source r (m, champ proche)",en:"Source distance r (m, near field)"},'sh.refl':{fr:"réflexion R",en:"reflection R"},'sh.abs':{fr:"absorption A",en:"absorption A"},'sh.skin':{fr:"Profondeur de peau",en:"Skin depth"},
+ 'sh.cap':{fr:"SE = réflexion + absorption (+ réflexions multiples) vs fréquence (log–log).",en:"SE = reflection + absorption (+ multiple reflections) vs frequency (log–log)."},
+ 'es.h':{fr:"Décharge électrostatique (IEC 61000-4-2)",en:"Electrostatic discharge (IEC 61000-4-2)"},
+ 'es.lead':{fr:"La norme <b>IEC 61000-4-2</b> définit la forme d'onde de courant d'une décharge ESD au contact : un <b>premier pic très rapide</b> (montée ~0,8 ns, ≈ 3,75 A/kV) suivi d'une traîne de quelques dizaines de ns. Son spectre s'étend du continu jusqu'au GHz → l'ESD couple <b>partout</b>. Points de contrôle normatifs : I_pic, I à 30 ns (≈2 A/kV) et 60 ns (≈1 A/kV).",
+   en:"The <b>IEC 61000-4-2</b> standard defines the current waveform of a contact ESD: a <b>very fast first peak</b> (~0.8 ns rise, ≈ 3.75 A/kV) followed by a tail of a few tens of ns. Its spectrum reaches from DC up to GHz → ESD couples <b>everywhere</b>. Normative checkpoints: I_peak, I at 30 ns (≈2 A/kV) and 60 ns (≈1 A/kV)."},
+ 'es.v':{fr:"Niveau de tension d'essai",en:"Test voltage level"},
+ 'es.note':{fr:"Le premier pic dépend de la rapidité du front (sub-ns) : c'est lui qui injecte le contenu très haute fréquence responsable des dysfonctionnements logiques. La traîne porte l'essentiel de la charge/énergie.",en:"The first peak depends on the (sub-ns) edge: it injects the very-high-frequency content that upsets logic. The tail carries most of the charge/energy."},
+ 'es.cap1':{fr:"Courant de décharge i(t) — premier pic (0–10 ns) + traîne, avec points de contrôle IEC à 30 et 60 ns",en:"Discharge current i(t) — first peak (0–10 ns) + tail, with IEC checkpoints at 30 and 60 ns"},'es.cap2':{fr:"Densité spectrale du courant (large bande, jusqu'au GHz)",en:"Current spectral density (broadband, up to GHz)"},
+ 'es.ipk':{fr:"I pic",en:"Peak I"},'es.i30':{fr:"I @30 ns",en:"I @30 ns"},'es.i60':{fr:"I @60 ns",en:"I @60 ns"},'es.tr':{fr:"Instant du pic",en:"Peak time"}
+};
+let LANG='fr';
+function T(k){return I18N[k]?I18N[k][LANG]:'';}
+function setLang(l){LANG=l;$('lf').classList.toggle('on',l==='fr');$('le').classList.toggle('on',l==='en');
+  document.querySelectorAll('[data-i18n]').forEach(e=>{const k=e.getAttribute('data-i18n');if(I18N[k])e.innerHTML=I18N[k][l];});
+  document.documentElement.lang=l;const cur=['xt','cmdm','cisp','shld','esd'].find(p=>$('pane-'+p).style.display!=='none');showTab(cur||'xt');}
+
+showTab('xt');
+</script>
+</body>
+</html>

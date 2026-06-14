@@ -243,6 +243,16 @@ footer a{color:var(--text2)}
       </div>
     </a>
 
+    <a class="card live" href="cem.html">
+      <div class="ico"><svg viewBox="0 0 32 32" width="27" height="27" fill="none" stroke="#0d9488" stroke-width="2" stroke-linecap="round" style="vertical-align:middle"><circle cx="16" cy="16" r="2.4" fill="#d97706" stroke="none"/><path d="M11.2 11.2a6.8 6.8 0 0 0 0 9.6M20.8 11.2a6.8 6.8 0 0 1 0 9.6"/><path d="M7 7a12.7 12.7 0 0 0 0 18M25 7a12.7 12.7 0 0 1 0 18" opacity=".55"/></svg></div>
+      <h3 data-i18n="cem.title">CEM — Compatibilité électromagnétique</h3>
+      <p data-i18n="cem.desc">Les piliers de la CEM, interactifs : diaphonie NEXT/FEXT entre liaisons (couplage capacitif + inductif), modes commun/différentiel et filtrage (self de mode commun, condensateurs X/Y), émission conduite d'une horloge vs gabarits CISPR, efficacité de blindage (Schelkunoff : réflexion + absorption), et la décharge électrostatique ESD (IEC 61000-4-2). Fédère lignes, antennes et circuit-spice.</p>
+      <div class="tags">
+        <span class="badge ok" data-i18n="cem.badge">diaphonie · CISPR · blindage · ESD</span>
+        <span class="badge free" data-i18n="badge.free">accès libre</span>
+      </div>
+    </a>
+
     <div class="card soon">
       <div>
         <div class="ico" style="opacity:.5">＋</div>
@@ -339,6 +349,10 @@ const I18N={
   'mems.desc':{fr:"Actionnement électrostatique : l'actionneur à plaques parallèles et l'instabilité de pull-in (V_PI à g₀/3), le peigne interdigité (force ∝ V², sans pull-in), la dynamique masse–ressort (f₀, facteur de qualité Q), des exemples de design à faire (accéléromètre capacitif, commutateur RF, résonateur), et l'écran tactile capacitif (auto vs mutuelle, démo du ghosting).",
               en:"Electrostatic actuation: the parallel-plate actuator and pull-in instability (V_PI at g₀/3), the interdigitated comb drive (force ∝ V², no pull-in), mass–spring dynamics (f₀, quality factor Q), design examples to work through (capacitive accelerometer, RF switch, resonator), and the capacitive touchscreen (self vs mutual, ghosting demo)."},
   'mems.badge':{fr:"pull-in · peigne · design · tactile", en:"pull-in · comb · design · touch"},
+  'cem.title':{fr:"CEM — Compatibilité électromagnétique", en:"EMC — Electromagnetic compatibility"},
+  'cem.desc':{fr:"Les piliers de la CEM, interactifs : diaphonie NEXT/FEXT entre liaisons (couplage capacitif + inductif), modes commun/différentiel et filtrage (self de mode commun, condensateurs X/Y), émission conduite d'une horloge vs gabarits CISPR, efficacité de blindage (Schelkunoff : réflexion + absorption), et la décharge électrostatique ESD (IEC 61000-4-2). Fédère lignes, antennes et circuit-spice.",
+              en:"The pillars of EMC, interactive: NEXT/FEXT crosstalk between links (capacitive + inductive coupling), common/differential modes and filtering (common-mode choke, X/Y capacitors), conducted emission of a clock vs CISPR limits, shielding effectiveness (Schelkunoff: reflection + absorption), and electrostatic discharge ESD (IEC 61000-4-2). Ties together the lines, antenna and circuit-spice tools."},
+  'cem.badge':{fr:"diaphonie · CISPR · blindage · ESD", en:"crosstalk · CISPR · shielding · ESD"},
   'ant.title':{fr:"Antennes", en:"Antennas"},
   'ant.desc':{fr:"Outils sur les antennes : antennes filaires (méthode des moments — dipôle, Yagi, environnements de fils, champ proche) et réseaux d'antennes (dépointage du faisceau). Cornet et patch à venir.",
               en:"Antenna tools: wire antennas (Method of Moments — dipole, Yagi, wire environments, near field) and antenna arrays (beam steering). Horn and patch coming soon."},
