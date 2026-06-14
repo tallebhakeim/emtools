@@ -49,10 +49,80 @@ th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}th:fi
 </header>
 <div class="wrap">
   <div class="tabs">
-    <button id="tab-line" class="on" onclick="showTab('line')" data-i18n="t.line">1 · Ligne & TOS</button>
+    <button id="tab-theory" class="on" onclick="showTab('theory')" data-i18n="t.theory">0 · Théorie & limites</button>
+    <button id="tab-line" onclick="showTab('line')" data-i18n="t.line">1 · Ligne & TOS</button>
     <button id="tab-micro" onclick="showTab('micro')" data-i18n="t.micro">2 · Impédance (microstrip…)</button>
     <button id="tab-wg" onclick="showTab('wg')" data-i18n="t.wg">3 · Guide d'onde</button>
     <button id="tab-fiber" onclick="showTab('fiber')" data-i18n="t.fiber">4 · Fibre optique</button>
+    <button id="tab-extract" onclick="showTab('extract')" data-i18n="t.extract">5 · Extraction ε, μ</button>
+  </div>
+
+  <!-- ════ 0 · THÉORIE ════ -->
+  <div id="pane-theory">
+    <div class="card">
+      <h2 data-i18n="th.h1">Pourquoi un modèle « L-C réparti » ?</h2>
+      <p class="lead" data-i18n="th.lead1">Deux conducteurs portent une tension et un courant. Le champ <b>magnétique</b> autour d'eux stocke de l'énergie → une <b>inductance L′</b> par unité de longueur ; le champ <b>électrique</b> entre eux → une <b>capacité C′</b>. Sur une longueur dz, la ligne est une échelle de cellules L′-C′ (équations des télégraphistes). Cette inductance et cette capacité réparties supportent une <b>onde</b> qui se propage à v = 1/√(L′C′).</p>
+      <div class="eq">∂V/∂z = −(R′+jωL′)·I &nbsp;;&nbsp; ∂I/∂z = −(G′+jωC′)·V &nbsp;→&nbsp; Z₀ = √[(R′+jωL′)/(G′+jωC′)] &nbsp;→&nbsp; <b>√(L′/C′)</b> sans pertes</div>
+      <p class="lead" data-i18n="th.lead2"><b>Les pertes :</b> R′ (résistance des conducteurs, effet de peau) et G′ (fuites du diélectrique) introduisent une <b>atténuation</b> α : l'onde décroît en e<sup>−αz</sup>. La constante de propagation complète est γ = √[(R′+jωL′)(G′+jωC′)] = α + jβ.</p>
+      <h3 data-i18n="th.h2">À quoi ça sert : la limite des modèles « circuit »</h3>
+      <p class="lead" data-i18n="th.lead3">En électrocinétique « statique », on suppose la tension <b>identique partout instantanément</b> (modèle localisé). C'est faux dès que la taille du circuit n'est plus négligeable devant λ : le déphasage le long du fil compte. Règle pratique : modèle localisé valable si <b>taille &lt; λ/10–λ/20</b> ; au-delà il faut le modèle réparti (ligne).</p>
+      <div class="grid2">
+        <div>
+          <label data-i18n="th.f">Fréquence</label>
+          <select id="th-f" onchange="theory()">
+            <option value="50">50 Hz — secteur</option><option value="1e6">1 MHz — radio AM</option>
+            <option value="1e9" selected>1 GHz — RF</option><option value="2.45e9">2,45 GHz — Wi-Fi</option><option value="77e9">77 GHz — radar auto</option>
+          </select>
+          <label data-i18n="th.size">Taille du circuit / ligne (mm)</label>
+          <input type="number" id="th-size" value="30" step="1" oninput="theory()">
+          <label data-i18n="th.eeff">ε_eff du milieu</label>
+          <input type="number" id="th-eeff" value="1" step="0.1" oninput="theory()">
+          <div class="metrics" id="th-metrics"></div>
+          <div id="th-verdict"></div>
+        </div>
+        <div>
+          <h3 data-i18n="th.h3">Indice et impédance du milieu</h3>
+          <p class="lead" data-i18n="th.lead4">Le milieu lui-même a un <b>indice</b> n = √(ε<sub>r</sub>μ<sub>r</sub>) (vitesse v = c/n) et une <b>impédance d'onde</b> η = η₀·√(μ<sub>r</sub>/ε<sub>r</sub>) (η₀ = 377 Ω). L'<b>impédance réduite</b> z = √(μ<sub>r</sub>/ε<sub>r</sub>) gouverne la réflexion à une interface. ⚠ À ne pas confondre avec le Z₀ d'une ligne, qui dépend aussi de la <b>géométrie</b>.</p>
+          <div class="eq">n = √(ε<sub>r</sub>μ<sub>r</sub>) &nbsp;·&nbsp; η = 377·√(μ<sub>r</sub>/ε<sub>r</sub>) Ω &nbsp;·&nbsp; z = √(μ<sub>r</sub>/ε<sub>r</sub>)</div>
+          <div class="row"><div><label>ε_r</label><input type="number" id="th-er" value="4" step="0.1" oninput="theory()"></div>
+            <div><label>μ_r</label><input type="number" id="th-mr" value="1" step="0.1" oninput="theory()"></div></div>
+          <div class="metrics" id="th-med"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ 5 · EXTRACTION ════ -->
+  <div id="pane-extract" style="display:none">
+    <div class="card">
+      <h2 data-i18n="ex.h">Extraire ε et μ d'un matériau (méthode NRW)</h2>
+      <p class="lead" data-i18n="ex.lead">On mesure la <b>réflexion S₁₁</b> et la <b>transmission S₂₁</b> à travers une lame d'épaisseur d, et on en déduit ε et μ (Nicolson-Ross-Weir). Ici on <b>simule</b> la mesure à partir d'un matériau connu (un tissu, p. ex.), puis on ré-extrait : on vérifie que ça marche… et où ça casse. ⚠ <b>Limite par l'épaisseur</b> : la phase est connue à 2πm près → si d ≳ λ/2 dans le matériau, plusieurs solutions deviennent possibles (ambiguïté).</p>
+      <div class="grid2">
+        <div>
+          <label data-i18n="ex.mat">Matériau (vérité terrain)</label>
+          <select id="ex-mat" onchange="extract()">
+            <option value="ptfe">PTFE (Téflon) — ε≈2,1</option>
+            <option value="fr4">FR4 — ε≈4,4</option>
+            <option value="alumina">Alumine — ε≈9,8</option>
+            <option value="muscle" selected>Muscle (tissu)</option>
+            <option value="fat">Graisse (tissu)</option>
+            <option value="water">Eau — ε≈78</option>
+          </select>
+          <label data-i18n="ex.freq">Fréquence (GHz)</label>
+          <input type="number" id="ex-freq" value="2.45" step="0.1" oninput="extract()">
+          <label><span data-i18n="ex.d">Épaisseur de la lame d (mm)</span> <b class="muted" id="ex-d-v"></b></label>
+          <div class="rng"><input type="range" id="ex-d" min="0.5" max="60" value="5" step="0.5" oninput="extract()"><b id="ex-d-b"></b></div>
+          <label><span data-i18n="ex.noise">Bruit de mesure</span> <b class="muted" id="ex-noise-v"></b></label>
+          <div class="rng"><input type="range" id="ex-noise" min="0" max="30" value="0" oninput="extract()"><b id="ex-noise-b"></b></div>
+        </div>
+        <div>
+          <div class="metrics" id="ex-metrics"></div>
+          <div id="ex-verdict"></div>
+          <table id="ex-table"></table>
+          <p class="note" data-i18n="ex.note">d/λ_matériau indique le régime : ≪ ½ → extraction fiable ; ≈ ½, 1, 1½… → résonances et ambiguïté de branche (la lame est « invisible » en transmission à d = λ/2, S₂₁→1, l'extraction se dégrade).</p>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ════ 1 · LIGNE & TOS ════ -->
@@ -94,10 +164,14 @@ th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}th:fi
           <label data-i18n="mi.type">Type de ligne</label>
           <select id="ltype" onchange="microCalc()">
             <option value="microstrip" selected>Microstrip</option>
+            <option value="sms" data-i18n="mi.tsms">Microstrip suspendue</option>
             <option value="stripline">Stripline (triplaque)</option>
             <option value="cpw">Coplanaire (CPW)</option>
+            <option value="cpwg" data-i18n="mi.tcpwg">Coplanaire avec masse (CPWG)</option>
             <option value="coax">Coaxial</option>
-            <option value="twin">Bifilaire (paire torsadée / twin-lead)</option>
+            <option value="twin">Bifilaire (twin-lead)</option>
+            <option value="diffms" data-i18n="mi.tdms">Microstrip différentielle</option>
+            <option value="diffsl" data-i18n="mi.tdsl">Stripline différentielle</option>
           </select>
           <label data-i18n="mi.er">Permittivité ε_r du substrat</label>
           <input type="number" id="er" value="4.4" step="0.1" oninput="microCalc()">
@@ -122,6 +196,26 @@ th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}th:fi
           <div id="p-twin" style="display:none">
             <label data-i18n="mi.dwire">Diamètre des fils d (mm)</label><input type="number" id="tw-d" value="1" step="0.05" oninput="microCalc()">
             <label data-i18n="mi.dsp">Entraxe des fils D (mm)</label><input type="number" id="tw-D" value="3" step="0.1" oninput="microCalc()">
+          </div>
+          <div id="p-sms" style="display:none">
+            <label data-i18n="mi.h2">Épaisseur substrat h (mm)</label><input type="number" id="sms-h" value="0.5" step="0.05" oninput="microCalc()">
+            <label data-i18n="mi.air">Lame d'air sous le substrat a (mm)</label><input type="number" id="sms-a" value="1" step="0.1" oninput="microCalc()">
+            <label data-i18n="mi.w">Largeur de piste W (mm)</label><input type="number" id="sms-w" value="1.2" step="0.05" oninput="microCalc()">
+          </div>
+          <div id="p-cpwg" style="display:none">
+            <label data-i18n="mi.w">Largeur de piste W (mm)</label><input type="number" id="cpwg-w" value="1.4" step="0.05" oninput="microCalc()">
+            <label data-i18n="mi.g">Largeur des fentes g (mm)</label><input type="number" id="cpwg-g" value="0.25" step="0.02" oninput="microCalc()">
+            <label data-i18n="mi.h2">Épaisseur substrat h (mm)</label><input type="number" id="cpwg-h" value="0.5" step="0.05" oninput="microCalc()">
+          </div>
+          <div id="p-diffms" style="display:none">
+            <label data-i18n="mi.h2">Épaisseur substrat h (mm)</label><input type="number" id="dms-h" value="0.2" step="0.02" oninput="microCalc()">
+            <label data-i18n="mi.w">Largeur de chaque piste W (mm)</label><input type="number" id="dms-w" value="0.3" step="0.02" oninput="microCalc()">
+            <label data-i18n="mi.s">Espacement des pistes s (mm)</label><input type="number" id="dms-s" value="0.2" step="0.02" oninput="microCalc()">
+          </div>
+          <div id="p-diffsl" style="display:none">
+            <label data-i18n="mi.b">Écart entre plans b (mm)</label><input type="number" id="dsl-b" value="0.5" step="0.05" oninput="microCalc()">
+            <label data-i18n="mi.w">Largeur de chaque piste W (mm)</label><input type="number" id="dsl-w" value="0.15" step="0.02" oninput="microCalc()">
+            <label data-i18n="mi.s">Espacement des pistes s (mm)</label><input type="number" id="dsl-s" value="0.2" step="0.02" oninput="microCalc()">
           </div>
           <label data-i18n="mi.freq">Fréquence (GHz) — pour λ guidée</label>
           <input type="number" id="mfreq" value="2.45" step="0.1" oninput="microCalc()">
@@ -197,8 +291,73 @@ th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}th:fi
 </div>
 
 <script>
-const C0=3e8;
+const C0=3e8, EPS0=8.854e-12;
 function met(k,v,u,cls){return `<div class="metric ${cls||''}"><div class="k">${k}</div><div class="v">${v} <small>${u||''}</small></div></div>`;}
+function gaussL(){const u=1-Math.random(),v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+
+// ════ 0 · THÉORIE ════
+function theory(){
+  const f=parseFloat(document.getElementById('th-f').value), size=parseFloat(document.getElementById('th-size').value)/1000, eeff=parseFloat(document.getElementById('th-eeff').value)||1;
+  const lam=C0/f/Math.sqrt(eeff), ratio=size/lam;
+  document.getElementById('th-metrics').innerHTML=met("λ",lam>=1?lam.toFixed(2)+" m":(lam*1000).toFixed(1)+" mm","")+met(T('th.elec'),ratio<0.01?ratio.toExponential(1):ratio.toFixed(3),"λ");
+  let cls,msg; if(ratio<0.05){cls='good';msg='✓ '+T('th.lumped');} else if(ratio<0.25){cls='';msg='≈ '+T('th.trans');} else {cls='bad';msg='✗ '+T('th.dist');}
+  document.getElementById('th-verdict').innerHTML='<div class="metric '+cls+'" style="margin-top:10px"><div class="v" style="font-size:14px">'+msg+'</div></div>';
+  const er=parseFloat(document.getElementById('th-er').value)||1, mr=parseFloat(document.getElementById('th-mr').value)||1;
+  const n=Math.sqrt(er*mr), v=C0/n, eta=377*Math.sqrt(mr/er), z=Math.sqrt(mr/er);
+  document.getElementById('th-med').innerHTML=met("n",n.toFixed(2),"")+met("v",(v/1e8).toFixed(2),"·10⁸ m/s")+met("η",eta.toFixed(0),"Ω")+met("z = √(μ/ε)",z.toFixed(2),"");
+}
+
+// ════ 5 · EXTRACTION (NRW) ════
+const Cadd=(a,b)=>[a[0]+b[0],a[1]+b[1]], Csub=(a,b)=>[a[0]-b[0],a[1]-b[1]], Cmul=(a,b)=>[a[0]*b[0]-a[1]*b[1],a[0]*b[1]+a[1]*b[0]];
+const Cdiv=(a,b)=>{const d=b[0]*b[0]+b[1]*b[1];return [(a[0]*b[0]+a[1]*b[1])/d,(a[1]*b[0]-a[0]*b[1])/d];};
+const Cabs=a=>Math.hypot(a[0],a[1]), Cscale=(s,a)=>[s*a[0],s*a[1]];
+const Csqrt=a=>{const r=Cabs(a),t=Math.atan2(a[1],a[0])/2;return [Math.sqrt(r)*Math.cos(t),Math.sqrt(r)*Math.sin(t)];};
+const Clog=a=>[Math.log(Cabs(a)),Math.atan2(a[1],a[0])];
+const Cexp=a=>{const e=Math.exp(a[0]);return [e*Math.cos(a[1]),e*Math.sin(a[1])];};
+const TIS={muscle:{ef:4.0,sig:0.2,disp:[[50,7.234e-12,0.1],[7000,3.53678e-7,0.1],[1.2e6,3.1831e-4,0.1],[2.5e7,2.274e-3,0]]},
+  fat:{ef:2.5,sig:0.035,disp:[[9,7.958e-12,0.2],[35,1.5915e-8,0.1],[33000,1.59155e-4,0.05],[1e7,1.5915e-2,0.01]]}};
+function coleC(f,t){const w=2*Math.PI*f;let re=t.ef,im=0;for(const d of t.disp){if(!d[0]||!d[1])continue;const wt=w*d[1],al=1-d[2],mag=Math.pow(wt,al),ang=al*Math.PI/2,pr=mag*Math.cos(ang),pi=mag*Math.sin(ang),D=(1+pr)*(1+pr)+pi*pi;re+=d[0]*(1+pr)/D;im-=d[0]*pi/D;}im-=t.sig/(w*EPS0);return [re,im];}
+function matEps(name,f){
+  if(name==='ptfe')return [2.1,-2.1*0.0002]; if(name==='fr4')return [4.4,-4.4*0.02]; if(name==='alumina')return [9.8,-9.8*0.0001];
+  if(name==='water')return [78,-78*0.05]; if(name==='muscle')return coleC(f,TIS.muscle); return coleC(f,TIS.fat);
+}
+function slabS(eps,mu,d,f){
+  let N=Csqrt(Cmul(eps,mu)); if(N[1]>0)N=Cscale(-1,N);
+  let Z=Csqrt(Cdiv(mu,eps)); if(Z[0]<0)Z=Cscale(-1,Z);
+  const G=Cdiv(Csub(Z,[1,0]),Cadd(Z,[1,0])), k0=2*Math.PI*f/C0;
+  const P=Cexp(Cmul([0,-k0*d],N)), P2=Cmul(P,P), G2=Cmul(G,G), den=Csub([1,0],Cmul(G2,P2));
+  return {S11:Cdiv(Cmul(G,Csub([1,0],P2)),den), S21:Cdiv(Cmul(Csub([1,0],G2),P),den)};
+}
+function nrw(S11,S21,d,f){
+  const X=Cdiv(Cadd(Csub(Cmul(S11,S11),Cmul(S21,S21)),[1,0]),Cscale(2,S11));
+  const root=Csqrt(Csub(Cmul(X,X),[1,0])); let G=Cadd(X,root); if(Cabs(G)>1)G=Csub(X,root);
+  const SP=Cadd(S11,S21), T=Cdiv(Csub(SP,G),Csub([1,0],Cmul(SP,G))), k0=2*Math.PI*f/C0;
+  let N=Cscale(1/(k0*d),Cmul([0,1],Clog(T))); if(N[0]<0)N=Cscale(-1,N);
+  const Z=Cdiv(Cadd([1,0],G),Csub([1,0],G));
+  return {eps:Cdiv(N,Z), mu:Cmul(N,Z)};
+}
+function extract(){
+  const f=parseFloat(document.getElementById('ex-freq').value)*1e9, d=parseFloat(document.getElementById('ex-d').value)/1000, noise=parseFloat(document.getElementById('ex-noise').value);
+  document.getElementById('ex-d-b').textContent=(d*1000).toFixed(1)+" mm"; document.getElementById('ex-noise-b').textContent=noise+" %";
+  const epsT=matEps(document.getElementById('ex-mat').value,f), muT=[1,0];
+  const S=slabS(epsT,muT,d,f); let S11=S.S11.slice(), S21=S.S21.slice();
+  if(noise>0){const sg=noise/100*0.25; S11=[S11[0]+gaussL()*sg,S11[1]+gaussL()*sg]; S21=[S21[0]+gaussL()*sg,S21[1]+gaussL()*sg];}
+  const R=nrw(S11,S21,d,f);
+  const nT=Csqrt(Cmul(epsT,muT)), dlam=d*Math.abs(nT[0])*f/C0;
+  document.getElementById('ex-metrics').innerHTML=
+    met("|S₁₁|",Cabs(S11).toFixed(3),"")+met("|S₂₁|",Cabs(S21).toFixed(3),"")+met("d/λ_mat",dlam.toFixed(2),"",dlam<0.45?'good':'bad');
+  let html='<tr><th></th><th>'+T('ex.true')+'</th><th>'+T('ex.extr')+'</th></tr>';
+  html+=`<tr><td>ε′</td><td>${epsT[0].toFixed(2)}</td><td>${R.eps[0].toFixed(2)}</td></tr>`;
+  html+=`<tr><td>ε″</td><td>${(-epsT[1]).toFixed(2)}</td><td>${(-R.eps[1]).toFixed(2)}</td></tr>`;
+  html+=`<tr><td>μ′</td><td>1.00</td><td>${R.mu[0].toFixed(2)}</td></tr>`;
+  document.getElementById('ex-table').innerHTML=html;
+  const errE=Math.abs(R.eps[0]-epsT[0])/Math.max(1,epsT[0]);
+  let cls,msg;
+  if(Math.abs(dlam-0.5)<0.06||Math.abs(dlam-1)<0.06){cls='bad';msg='✗ '+T('ex.reso');}
+  else if(dlam>0.5||errE>0.15){cls='bad';msg='⚠ '+T('ex.amb');}
+  else {cls='good';msg='✓ '+T('ex.ok');}
+  document.getElementById('ex-verdict').innerHTML='<div class="metric '+cls+'" style="margin-top:10px"><div class="v" style="font-size:13.5px">'+msg+'</div></div>';
+}
 
 // ════ 1 · LIGNE & TOS ════
 function cdiv(ar,ai,br,bi){const d=br*br+bi*bi;return[(ar*br+ai*bi)/d,(ai*br-ar*bi)/d];}
@@ -302,6 +461,14 @@ function drawSection(type){
     lab("W",220,62);lab("g",182,62);lab("g",258,62);lab("εr",110,114);}
   else if(type==='coax'){x.strokeStyle=gnd;x.lineWidth=9;x.beginPath();x.arc(W/2,H/2,66,0,2*Math.PI);x.stroke();x.fillStyle=die;x.beginPath();x.arc(W/2,H/2,61,0,2*Math.PI);x.fill();x.fillStyle=cu;x.beginPath();x.arc(W/2,H/2,12,0,2*Math.PI);x.fill();
     lab("d",W/2,H/2-20);lab("D",W/2+78,H/2+4);lab("εr",W/2+34,H/2+38);}
+  else if(type==='cpwg'){x.fillStyle=die;x.fillRect(60,80,320,54);x.fillStyle=gnd;x.fillRect(60,134,320,9);x.fillRect(60,68,108,12);x.fillRect(272,68,108,12);x.fillStyle=cu;x.fillRect(196,68,48,12);
+    lab("W",220,62);lab("g",182,62);lab("g",258,62);lab("εr",110,112);lab("masse",220,160);}
+  else if(type==='sms'){x.fillStyle=die;x.fillRect(120,70,200,30);x.fillStyle="#11202c";x.fillRect(120,100,200,34);x.fillStyle=gnd;x.fillRect(80,134,280,9);x.fillStyle=cu;x.fillRect(196,58,48,12);
+    lab("W",220,52);lab("h",108,88);lab("air",340,120);lab("masse",220,160);}
+  else if(type==='diffms'){x.fillStyle=die;x.fillRect(80,76,280,52);x.fillStyle=gnd;x.fillRect(80,128,280,9);x.fillStyle=cu;x.fillRect(168,64,46,12);x.fillRect(246,64,46,12);
+    lab("W",191,58);lab("s",230,58);lab("W",269,58);lab("εr",120,106);lab("masse",220,153);}
+  else if(type==='diffsl'){x.fillStyle=gnd;x.fillRect(80,56,280,8);x.fillRect(80,140,280,8);x.fillStyle=die;x.fillRect(80,64,280,76);x.fillStyle=cu;x.fillRect(170,97,42,10);x.fillRect(228,97,42,10);
+    lab("W",191,92);lab("s",220,92);lab("W",249,92);lab("b",66,104);}
   else {x.fillStyle=cu;x.beginPath();x.arc(W/2-48,H/2,15,0,2*Math.PI);x.fill();x.beginPath();x.arc(W/2+48,H/2,15,0,2*Math.PI);x.fill();
     x.strokeStyle=txt;x.lineWidth=1;x.beginPath();x.moveTo(W/2-48,H/2+26);x.lineTo(W/2+48,H/2+26);x.stroke();lab("d",W/2-48,H/2-22);lab("D",W/2,H/2+40);}
 }
@@ -315,8 +482,8 @@ function microstripZ0(er,h,W){
 }
 function microCalc(){
   const type=document.getElementById('ltype').value, er=parseFloat(document.getElementById('er').value)||4.4, f=parseFloat(document.getElementById('mfreq').value)*1e9;
-  ['microstrip','stripline','cpw','coax','twin'].forEach(p=>document.getElementById('p-'+p).style.display=type===p?'block':'none');
-  let Z0,ee,extra='';
+  ['microstrip','sms','stripline','cpw','cpwg','coax','twin','diffms','diffsl'].forEach(p=>document.getElementById('p-'+p).style.display=type===p?'block':'none');
+  let Z0,ee,extra='',zlabel="Z₀";
   if(type==='microstrip'){
     const h=parseFloat(document.getElementById('ms-h').value)||1.6, W=parseFloat(document.getElementById('ms-w').value)||3;
     document.getElementById('ms-w-b').textContent=W.toFixed(2)+" mm";
@@ -334,12 +501,34 @@ function microCalc(){
   } else if(type==='twin'){
     const d=parseFloat(document.getElementById('tw-d').value)||1, D=parseFloat(document.getElementById('tw-D').value)||3;
     ee=er; Z0=120/Math.sqrt(er)*Math.acosh(Math.max(1.0001,D/d));
+  } else if(type==='sms'){
+    // microstrip suspendue : trace sur substrat (h) au-dessus d'une lame d'air (a), puis masse.
+    // ε_eff par condensateurs en série substrat+air ; Z0 = impédance air / √ε_eff
+    const h=parseFloat(document.getElementById('sms-h').value)||0.5, a=parseFloat(document.getElementById('sms-a').value)||1, W=parseFloat(document.getElementById('sms-w').value)||1.2;
+    const Htot=h+a; ee=Htot/(h/er+a); Z0=microstripZ0(1,Htot,W).Z0/Math.sqrt(ee);
+  } else if(type==='cpwg'){
+    const W=parseFloat(document.getElementById('cpwg-w').value)||1.4, g=parseFloat(document.getElementById('cpwg-g').value)||0.25, h=parseFloat(document.getElementById('cpwg-h').value)||0.5;
+    const k1=W/(W+2*g), k1p=Math.sqrt(Math.max(0,1-k1*k1));
+    const k2=Math.tanh(Math.PI*W/(4*h))/Math.tanh(Math.PI*(W+2*g)/(4*h)), k2p=Math.sqrt(Math.max(0,1-k2*k2));
+    const r1=ellipK(k1p)/ellipK(k1), r2=ellipK(k2)/ellipK(k2p);
+    ee=(1+er*r1*r2)/(1+r1*r2);
+    Z0=60*Math.PI/Math.sqrt(ee)/(1/r1+ r2);
+  } else if(type==='diffms'){
+    const h=parseFloat(document.getElementById('dms-h').value)||0.2, W=parseFloat(document.getElementById('dms-w').value)||0.3, s=parseFloat(document.getElementById('dms-s').value)||0.2;
+    const r=microstripZ0(er,h,W); ee=r.ee; Z0=2*r.Z0*(1-0.48*Math.exp(-0.96*s/h)); zlabel="Z_diff";
+    extra=T('mi.zsingle')+" Z₀ ≈ "+r.Z0.toFixed(0)+" Ω";
+  } else if(type==='diffsl'){
+    const b=parseFloat(document.getElementById('dsl-b').value)||0.5, W=parseFloat(document.getElementById('dsl-w').value)||0.15, s=parseFloat(document.getElementById('dsl-s').value)||0.2;
+    const We=(W/b>0.35)?W:W-b*Math.pow(0.35-W/b,2), Zs=30*Math.PI/Math.sqrt(er)*b/(We+0.441*b);
+    ee=er; Z0=2*Zs*(1-0.347*Math.exp(-2.9*s/b)); zlabel="Z_diff";
+    extra=T('mi.zsingle')+" Z₀ ≈ "+Zs.toFixed(0)+" Ω";
   } else { const d=parseFloat(document.getElementById('cx-d').value)||0.9, D=parseFloat(document.getElementById('cx-D').value)||3;
     Z0=60/Math.sqrt(er)*Math.log(D/d); ee=er; }
   drawSection(type);
   const lam0=C0/f, lamg=lam0/Math.sqrt(ee);
+  const isDiff=type==='diffms'||type==='diffsl', tgt=isDiff?100:50;
   document.getElementById('mi-metrics').innerHTML=
-    met("Z₀",Z0.toFixed(1),"Ω",Math.abs(Z0-50)<3?'good':'')+
+    met(zlabel,Z0.toFixed(1),"Ω",Math.abs(Z0-tgt)<5?'good':'')+
     met("ε_eff",ee.toFixed(2),"")+
     met(T('mi.lamg'),(lamg*1000).toFixed(1),"mm");
   document.getElementById('mi-hint').innerHTML=extra;
@@ -388,14 +577,30 @@ function fiberCalc(){
 }
 
 // ════ ONGLETS ════
-function showTab(t){['line','micro','wg','fiber'].forEach(p=>{document.getElementById('pane-'+p).style.display=p===t?'block':'none';document.getElementById('tab-'+p).classList.toggle('on',p===t);});
-  if(t==='line')lineCalc(); if(t==='micro')microCalc(); if(t==='wg')wgCalc(); if(t==='fiber')fiberCalc();}
+function showTab(t){['theory','line','micro','wg','fiber','extract'].forEach(p=>{document.getElementById('pane-'+p).style.display=p===t?'block':'none';document.getElementById('tab-'+p).classList.toggle('on',p===t);});
+  if(t==='theory')theory(); if(t==='line')lineCalc(); if(t==='micro')microCalc(); if(t==='wg')wgCalc(); if(t==='fiber')fiberCalc(); if(t==='extract')extract();}
 
 // ════ I18N ════
 const I18N={
  title:{fr:"Lignes de transmission & guides d'onde",en:"Transmission lines & waveguides"},
  sub:{fr:"impédance, TOS, microstrip, guide, fibre",en:"impedance, VSWR, microstrip, waveguide, fiber"},
+ 't.theory':{fr:"0 · Théorie & limites",en:"0 · Theory & limits"},'t.extract':{fr:"5 · Extraction ε, μ",en:"5 · Extraction ε, μ"},
  't.line':{fr:"1 · Ligne & TOS",en:"1 · Line & VSWR"},'t.micro':{fr:"2 · Impédance (microstrip…)",en:"2 · Impedance (microstrip…)"},'t.wg':{fr:"3 · Guide d'onde",en:"3 · Waveguide"},'t.fiber':{fr:"4 · Fibre optique",en:"4 · Optical fiber"},
+ 'th.h1':{fr:"Pourquoi un modèle « L-C réparti » ?",en:"Why a distributed L-C model?"},
+ 'th.lead1':{fr:"Deux conducteurs portent une tension et un courant. Le champ <b>magnétique</b> autour d'eux → une <b>inductance L′</b> par unité de longueur ; le champ <b>électrique</b> entre eux → une <b>capacité C′</b>. Sur dz, la ligne est une échelle de cellules L′-C′ (équations des télégraphistes). Cette inductance et cette capacité réparties supportent une <b>onde</b> à v = 1/√(L′C′).",en:"Two conductors carry voltage and current. The <b>magnetic</b> field around them → an <b>inductance L′</b> per unit length; the <b>electric</b> field between them → a <b>capacitance C′</b>. Over dz the line is a ladder of L′-C′ cells (telegrapher's equations). This distributed L and C support a <b>wave</b> at v = 1/√(L′C′)."},
+ 'th.lead2':{fr:"<b>Les pertes :</b> R′ (résistance des conducteurs, effet de peau) et G′ (fuites du diélectrique) introduisent une <b>atténuation</b> α : l'onde décroît en e<sup>−αz</sup>. La constante de propagation complète est γ = √[(R′+jωL′)(G′+jωC′)] = α + jβ.",en:"<b>Losses:</b> R′ (conductor resistance, skin effect) and G′ (dielectric leakage) introduce <b>attenuation</b> α: the wave decays as e<sup>−αz</sup>. The full propagation constant is γ = √[(R′+jωL′)(G′+jωC′)] = α + jβ."},
+ 'th.h2':{fr:"À quoi ça sert : la limite des modèles « circuit »",en:"What it's for: the limit of lumped models"},
+ 'th.lead3':{fr:"En électrocinétique « statique », on suppose la tension <b>identique partout instantanément</b> (modèle localisé). C'est faux dès que la taille du circuit n'est plus négligeable devant λ : le déphasage le long du fil compte. Règle pratique : modèle localisé valable si <b>taille &lt; λ/10–λ/20</b> ; au-delà, modèle réparti (ligne).",en:"In \"static\" circuit theory, voltage is assumed <b>identical everywhere instantly</b> (lumped model). This fails once the circuit size is no longer small vs λ: the phase along the wire matters. Rule of thumb: lumped is valid if <b>size &lt; λ/10–λ/20</b>; beyond that, the distributed (line) model."},
+ 'th.f':{fr:"Fréquence",en:"Frequency"},'th.size':{fr:"Taille du circuit / ligne (mm)",en:"Circuit / line size (mm)"},'th.eeff':{fr:"ε_eff du milieu",en:"ε_eff of the medium"},
+ 'th.elec':{fr:"Longueur élec.",en:"Electrical length"},'th.lumped':{fr:"Localisé OK (circuit)",en:"Lumped OK (circuit)"},'th.trans':{fr:"Zone de transition",en:"Transition zone"},'th.dist':{fr:"Réparti requis (ligne)",en:"Distributed required (line)"},
+ 'th.h3':{fr:"Indice et impédance du milieu",en:"Index and impedance of the medium"},
+ 'th.lead4':{fr:"Le milieu a un <b>indice</b> n = √(ε<sub>r</sub>μ<sub>r</sub>) (vitesse v = c/n) et une <b>impédance d'onde</b> η = η₀·√(μ<sub>r</sub>/ε<sub>r</sub>) (η₀ = 377 Ω). L'<b>impédance réduite</b> z = √(μ<sub>r</sub>/ε<sub>r</sub>) gouverne la réflexion à une interface. ⚠ À ne pas confondre avec le Z₀ d'une ligne, qui dépend aussi de la <b>géométrie</b>.",en:"The medium has an <b>index</b> n = √(ε<sub>r</sub>μ<sub>r</sub>) (speed v = c/n) and a <b>wave impedance</b> η = η₀·√(μ<sub>r</sub>/ε<sub>r</sub>) (η₀ = 377 Ω). The <b>reduced impedance</b> z = √(μ<sub>r</sub>/ε<sub>r</sub>) governs reflection at an interface. ⚠ Not to be confused with a line's Z₀, which also depends on <b>geometry</b>."},
+ 'ex.h':{fr:"Extraire ε et μ d'un matériau (méthode NRW)",en:"Extracting ε and μ of a material (NRW method)"},
+ 'ex.lead':{fr:"On mesure la <b>réflexion S₁₁</b> et la <b>transmission S₂₁</b> à travers une lame d'épaisseur d, et on en déduit ε et μ (Nicolson-Ross-Weir). Ici on <b>simule</b> la mesure depuis un matériau connu (un tissu p. ex.), puis on ré-extrait : on vérifie que ça marche… et où ça casse. ⚠ <b>Limite par l'épaisseur</b> : la phase est connue à 2πm près → si d ≳ λ/2 dans le matériau, plusieurs solutions deviennent possibles (ambiguïté).",en:"We measure the <b>reflection S₁₁</b> and <b>transmission S₂₁</b> through a slab of thickness d, and deduce ε and μ (Nicolson-Ross-Weir). Here we <b>simulate</b> the measurement from a known material (a tissue, say), then re-extract: we check it works… and where it breaks. ⚠ <b>Thickness limit</b>: phase is known modulo 2πm → if d ≳ λ/2 in the material, several solutions become possible (ambiguity)."},
+ 'ex.mat':{fr:"Matériau (vérité terrain)",en:"Material (ground truth)"},'ex.freq':{fr:"Fréquence (GHz)",en:"Frequency (GHz)"},'ex.d':{fr:"Épaisseur de la lame d (mm)",en:"Slab thickness d (mm)"},'ex.noise':{fr:"Bruit de mesure",en:"Measurement noise"},
+ 'ex.true':{fr:"Vérité",en:"True"},'ex.extr':{fr:"Extrait",en:"Extracted"},
+ 'ex.ok':{fr:"Extraction fiable (lame mince)",en:"Reliable extraction (thin slab)"},'ex.amb':{fr:"Ambiguïté de branche (lame trop épaisse vs λ)",en:"Branch ambiguity (slab too thick vs λ)"},'ex.reso':{fr:"Résonance λ/2 : lame quasi transparente, extraction instable",en:"λ/2 resonance: slab nearly transparent, unstable extraction"},
+ 'ex.note':{fr:"d/λ_matériau indique le régime : ≪ ½ → fiable ; ≈ ½, 1, 1½… → résonances et ambiguïté de branche (à d = λ/2 la lame est « invisible » en transmission, S₂₁→1, l'extraction se dégrade).",en:"d/λ_material gives the regime: ≪ ½ → reliable; ≈ ½, 1, 1½… → resonances and branch ambiguity (at d = λ/2 the slab is \"invisible\" in transmission, S₂₁→1, extraction degrades)."},
  'li.h':{fr:"Adaptation, réflexion et TOS",en:"Matching, reflection and VSWR"},
  'li.lead':{fr:"Quand une charge Z<sub>L</sub> n'est pas égale à l'impédance caractéristique Z₀, une partie de l'onde est <b>réfléchie</b> : Γ = (Z<sub>L</sub>−Z₀)/(Z<sub>L</sub>+Z₀). D'où une onde stationnaire (TOS) et une impédance d'entrée qui <b>tourne</b> le long de la ligne. L'adaptation (Z<sub>L</sub> = Z₀) annule la réflexion.",en:"When a load Z<sub>L</sub> differs from the characteristic impedance Z₀, part of the wave is <b>reflected</b>: Γ = (Z<sub>L</sub>−Z₀)/(Z<sub>L</sub>+Z₀). This gives a standing wave (VSWR) and an input impedance that <b>rotates</b> along the line. Matching (Z<sub>L</sub> = Z₀) cancels the reflection."},
  'li.z0':{fr:"Impédance caractéristique Z₀ (Ω)",en:"Characteristic impedance Z₀ (Ω)"},'li.zl':{fr:"Charge Z_L = R + jX (Ω)",en:"Load Z_L = R + jX (Ω)"},'li.len':{fr:"Longueur de ligne d (λ)",en:"Line length d (λ)"},
@@ -411,6 +616,8 @@ const I18N={
  'mi.lead':{fr:"L'impédance Z₀ dépend de la géométrie et du diélectrique. Pour une <b>microstrip</b> (piste W sur substrat h, ε<sub>r</sub>), on utilise les formules de Hammerstad. Régler W pour viser 50 Ω est la base du routage RF.",en:"Z₀ depends on geometry and dielectric. For a <b>microstrip</b> (trace W on substrate h, ε<sub>r</sub>) the Hammerstad formulas apply. Tuning W to hit 50 Ω is the basis of RF routing."},
  'mi.type':{fr:"Type de ligne",en:"Line type"},'mi.er':{fr:"Permittivité ε_r du substrat",en:"Substrate permittivity ε_r"},'mi.h2':{fr:"Épaisseur substrat h (mm)",en:"Substrate height h (mm)"},'mi.w':{fr:"Largeur de piste W (mm)",en:"Trace width W (mm)"},
  'mi.b':{fr:"Écart entre plans b (mm)",en:"Plate spacing b (mm)"},'mi.din':{fr:"Diamètre âme d (mm)",en:"Inner diameter d (mm)"},'mi.dout':{fr:"Diamètre blindage D (mm)",en:"Shield diameter D (mm)"},'mi.freq':{fr:"Fréquence (GHz) — pour λ guidée",en:"Frequency (GHz) — for guided λ"},
+ 'mi.tsms':{fr:"Microstrip suspendue",en:"Suspended microstrip"},'mi.tcpwg':{fr:"Coplanaire avec masse (CPWG)",en:"Grounded coplanar (CPWG)"},'mi.tdms':{fr:"Microstrip différentielle",en:"Differential microstrip"},'mi.tdsl':{fr:"Stripline différentielle",en:"Differential stripline"},
+ 'mi.air':{fr:"Lame d'air sous le substrat a (mm)",en:"Air gap under substrate a (mm)"},'mi.s':{fr:"Espacement des pistes s (mm)",en:"Trace spacing s (mm)"},'mi.zsingle':{fr:"Mode pair :",en:"Single-ended:"},
  'mi.lamg':{fr:"λ guidée",en:"guided λ"},'mi.w50':{fr:"W pour 50 Ω",en:"W for 50 Ω"},'mi.elec':{fr:"Longueur élec.",en:"Electrical length"},'mi.phys':{fr:"Longueur physique",en:"Physical length"},
  'wg.h':{fr:"Guide d'onde rectangulaire",en:"Rectangular waveguide"},
  'wg.lead':{fr:"Un guide métallique creux (a×b) ne propage qu'au-dessus d'une <b>fréquence de coupure</b> propre à chaque mode : f<sub>c</sub>(m,n) = (c/2√ε<sub>r</sub>)·√((m/a)²+(n/b)²). Le mode TE₁₀ fixe la bande mono-mode. La longueur d'onde guidée s'allonge près de la coupure.",en:"A hollow metal guide (a×b) only propagates above a <b>cutoff frequency</b> specific to each mode: f<sub>c</sub>(m,n) = (c/2√ε<sub>r</sub>)·√((m/a)²+(n/b)²). The TE₁₀ mode sets the single-mode band. The guided wavelength lengthens near cutoff."},
