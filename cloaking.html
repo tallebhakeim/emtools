@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cloaking de Pendry — invisibilité — EMtools</title>
+<style>
+:root{--bg:#0f1419;--panel:#1a2129;--panel2:#222b35;--ink:#e6edf3;--mut:#8b97a3;--acc:#4db6a4;--acc2:#e0884b;--line:#2d3742;--bad:#e05a5a;--mag:#b48ad8}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+header{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+header h1{font-size:19px;margin:0;font-weight:650}header .sub{color:var(--mut);font-size:13px}
+.lang{margin-left:auto;display:flex;gap:6px}
+.lang button{background:var(--panel2);color:var(--mut);border:1px solid var(--line);border-radius:7px;padding:5px 11px;cursor:pointer;font-size:13px}
+.lang button.on{background:var(--acc);color:#06231d;border-color:var(--acc);font-weight:650}
+.wrap{max-width:1020px;margin:0 auto;padding:20px 22px 90px}
+a.back{color:var(--acc);text-decoration:none;font-size:13px}
+.tabs{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap}
+.tabs button{background:var(--panel2);color:var(--mut);border:1px solid var(--line);border-radius:9px;padding:8px 14px;cursor:pointer;font-size:13.5px}
+.tabs button.on{background:var(--acc);color:#06231d;border-color:var(--acc);font-weight:650}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:18px}
+.card h2{font-size:16px;margin:0 0 6px}.card h3{font-size:13px;margin:18px 0 8px;text-transform:uppercase;letter-spacing:.05em;color:var(--acc)}
+.lead{color:var(--mut);font-size:14px;margin:0 0 14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+@media(max-width:760px){.grid2{grid-template-columns:1fr}}
+label{display:block;font-size:12.5px;color:var(--mut);margin:10px 0 4px}
+input[type=number],select{width:100%;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px}
+input[type=range]{width:100%}.rng{display:flex;align-items:center;gap:10px}.rng input[type=range]{flex:1}.rng b{min-width:70px;text-align:right;font-variant-numeric:tabular-nums}
+.chk{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13.5px;color:var(--ink)}.chk input{width:auto}
+canvas{max-width:100%;background:#0b0f14;border-radius:8px;display:block}
+.cap{font-size:12px;color:var(--mut);text-align:center;margin-top:6px}
+.eq{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:8px;padding:10px 13px;margin:12px 0;font-size:14px;overflow-x:auto}
+.metrics{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.metric{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 13px;min-width:120px}
+.metric .k{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+.metric .v{font-size:18px;font-weight:680;margin-top:2px}.metric .v small{font-size:11px;color:var(--mut)}
+.note{font-size:13px;color:var(--mut);margin-top:12px}
+.box{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:12px 14px;margin-top:12px;font-size:13.5px}
+b.mag{color:var(--mag)}
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="index.html">← EMtools</a>
+  <h1 data-i18n="title">Cape d'invisibilité de Pendry</h1>
+  <span class="sub" data-i18n="sub">optique de transformation : courber la lumière autour d'un objet</span>
+  <div class="lang"><button id="lf" class="on" onclick="setLang('fr')">FR</button><button id="le" onclick="setLang('en')">EN</button></div>
+</header>
+<div class="wrap">
+  <div class="tabs">
+    <button id="tab-principe" class="on" onclick="showTab('principe')" data-i18n="t.principe">1 · Principe</button>
+    <button id="tab-profils" onclick="showTab('profils')" data-i18n="t.profils">2 · Profils ε, μ</button>
+    <button id="tab-rayons" onclick="showTab('rayons')" data-i18n="t.rayons">3 · Cartographie (rayons)</button>
+  </div>
+
+  <!-- ════ 1 · PRINCIPE ════ -->
+  <div id="pane-principe">
+    <div class="card">
+      <h2 data-i18n="pr.h">L'idée : déformer l'espace vu par la lumière</h2>
+      <p class="lead" data-i18n="pr.lead">Pendry (2006) a eu une idée magnifique : les équations de Maxwell sont <b>invariantes par changement de coordonnées</b>, à condition de remplacer le changement de géométrie par un <b>milieu</b> ε(r), μ(r) bien choisi. Pour cacher un objet, on « comprime » tout l'espace d'un disque (rayon R₂) dans une <b>couronne</b> (R₁→R₂) : il se crée un <b>trou</b> central (r &lt; R₁) que la lumière ne visite jamais. Tout ce qu'on y met devient invisible — et l'onde ressort comme si rien n'était là.</p>
+      <div class="eq">r → r′ = R₁ + r·(R₂−R₁)/R₂ &nbsp; (le disque 0→R₂ devient la couronne R₁→R₂)</div>
+      <div class="grid2">
+        <div>
+          <p class="lead" data-i18n="pr.lead2">Le prix à payer : le milieu doit être <b>anisotrope</b> (différent selon la direction radiale/azimutale) et ses paramètres deviennent <b>extrêmes</b> près de R₁ (ε radial → 0, ε azimutal → ∞). On ne sait fabriquer ça qu'avec des <b>métamatériaux</b> (résonateurs sub-longueur d'onde), et seulement sur une <b>bande étroite</b> de fréquence.</p>
+          <div class="box" data-i18n="pr.mag"><b class="mag">Et le magnétique ?</b> Oui ! La première cape <b>réalisée</b> (Schurig, Science 2006, à 8,5 GHz) utilisait une version « réduite » où seule la <b>perméabilité μ varie radialement</b> (μ_r = ((r−R₁)/r)²), ε_z restant constant. Le gradient était obtenu par des anneaux fendus (SRR) de tailles graduées → c'est bien un <b>gradient de perméabilité</b> qui a rendu l'objet invisible aux micro-ondes.</div>
+        </div>
+        <div>
+          <canvas id="cv-grid" width="380" height="380"></canvas>
+          <div class="cap" data-i18n="pr.cap">L'espace comprimé : les cercles bleus (espace réel) se tassent dans la couronne, laissant le trou central vide (objet caché).</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ 2 · PROFILS ════ -->
+  <div id="pane-profils" style="display:none">
+    <div class="card">
+      <h2 data-i18n="pf.h">Les profils ε(r) et μ(r) à fabriquer</h2>
+      <p class="lead" data-i18n="pf.lead">Pour la cape cylindrique idéale, les paramètres (composantes radiale, azimutale, axiale) sont donnés par les formules ci-dessous. Choisis le jeu <b>complet</b> de Pendry (anisotrope en ε et μ) ou la version <b>réduite</b> de Schurig (seul μ_r varie — celle réalisée).</p>
+      <div class="grid2">
+        <div>
+          <label data-i18n="pf.set">Jeu de paramètres</label>
+          <select id="pf-set" onchange="profils()">
+            <option value="full" selected data-i18n="pf.pendry">Complet (Pendry) — ε et μ anisotropes</option>
+            <option value="reduced" data-i18n="pf.schurig">Réduit (Schurig) — gradient de μ</option>
+          </select>
+          <label><span data-i18n="pf.r1">Rayon interne R₁</span> <b class="muted" id="pf-r1-v"></b></label>
+          <div class="rng"><input type="range" id="pf-r1" min="10" max="60" value="30" oninput="profils()"><b id="pf-r1-b"></b></div>
+          <label><span data-i18n="pf.r2">Rayon externe R₂</span> <b class="muted" id="pf-r2-v"></b></label>
+          <div class="rng"><input type="range" id="pf-r2" min="40" max="100" value="60" oninput="profils()"><b id="pf-r2-b"></b></div>
+          <div class="eq" id="pf-eq" style="font-size:13px"></div>
+          <p class="note" data-i18n="pf.note">À r = R₁, ε_r → 0 et ε_θ → ∞ : c'est la <b>singularité</b> qui rend la cape parfaite difficile (et intrinsèquement à bande étroite). La version réduite garde μ_r fini en relâchant l'adaptation parfaite à l'entrée (petite réflexion résiduelle).</p>
+        </div>
+        <div>
+          <canvas id="cv-profils" width="440" height="340"></canvas>
+          <div class="cap" data-i18n="pf.cap">Composantes du tenseur ε_r (et μ_r) en fonction du rayon, de R₁ à R₂</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ 3 · CARTOGRAPHIE ════ -->
+  <div id="pane-rayons" style="display:none">
+    <div class="card">
+      <h2 data-i18n="ry.h">La lumière contourne l'objet (lancer de rayons)</h2>
+      <p class="lead" data-i18n="ry.lead">On trace un faisceau parallèle. <b>Sans cape</b>, les rayons frappent l'objet (ombre, diffusion → il est visible). <b>Avec la cape</b>, le milieu à gradient courbe chaque rayon : ils glissent autour du trou central et <b>repartent dans leur direction initiale</b>, comme si l'espace était vide. L'objet caché ne projette plus d'ombre.</p>
+      <div class="grid2">
+        <div>
+          <label class="chk"><input type="checkbox" id="ry-on" checked onchange="rayons()"> <span data-i18n="ry.toggle">Activer la cape</span></label>
+          <label><span data-i18n="ry.r1">Rayon caché R₁</span> <b class="muted" id="ry-r1-v"></b></label>
+          <div class="rng"><input type="range" id="ry-r1" min="20" max="70" value="45" oninput="rayons()"><b id="ry-r1-b"></b></div>
+          <label><span data-i18n="ry.r2">Rayon de la cape R₂</span> <b class="muted" id="ry-r2-v"></b></label>
+          <div class="rng"><input type="range" id="ry-r2" min="60" max="130" value="95" oninput="rayons()"><b id="ry-r2-b"></b></div>
+          <label><span data-i18n="ry.nray">Nombre de rayons</span> <b class="muted" id="ry-n-v"></b></label>
+          <div class="rng"><input type="range" id="ry-n" min="8" max="40" value="22" oninput="rayons()"><b id="ry-n-b"></b></div>
+          <div class="metrics" id="ry-metrics"></div>
+          <p class="note" data-i18n="ry.note">Le tracé est <b>exact</b> au sens de l'optique de transformation : un rayon droit de « l'espace virtuel » devient, dans la cape, ce rayon courbe. Le disque central (orange) n'est traversé par aucun rayon → tout ce qu'on y place est invisible.</p>
+        </div>
+        <div>
+          <canvas id="cv-rayons" width="440" height="380"></canvas>
+          <div class="cap" data-i18n="ry.cap">Rayons (vert) ; cape = couronne grise ; objet caché = disque orange ; le radar/observateur regarde depuis la droite →</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function met(k,v,u){return `<div class="metric"><div class="k">${k}</div><div class="v">${v} <small>${u||''}</small></div></div>`;}
+
+// ════ 1 · PRINCIPE : grille comprimée ════
+function drawGrid(){
+  const cv=document.getElementById('cv-grid'),x=cv.getContext('2d');x.clearRect(0,0,cv.width,cv.height);
+  const W=cv.width,H=cv.height,cx=W/2,cy=H/2,R2=150,R1=60;
+  const map=rv=>rv>=R2?rv:R1+rv*(R2-R1)/R2;
+  // cercles d'espace réel (virtuels) mappés
+  x.strokeStyle="#2b4a66";x.lineWidth=1;
+  for(let rv=15;rv<=R2;rv+=15){const rp=map(rv);x.beginPath();x.arc(cx,cy,rp,0,2*Math.PI);x.stroke();}
+  // rayons radiaux
+  for(let a=0;a<360;a+=30){x.beginPath();x.moveTo(cx+R1*Math.cos(a*Math.PI/180),cy+R1*Math.sin(a*Math.PI/180));x.lineTo(cx+R2*Math.cos(a*Math.PI/180),cy+R2*Math.sin(a*Math.PI/180));x.stroke();}
+  // trou central (objet caché)
+  x.fillStyle="rgba(224,136,75,0.25)";x.beginPath();x.arc(cx,cy,R1,0,2*Math.PI);x.fill();
+  x.strokeStyle="#e0884b";x.lineWidth=1.5;x.beginPath();x.arc(cx,cy,R1,0,2*Math.PI);x.stroke();
+  x.strokeStyle="#9aa7c9";x.beginPath();x.arc(cx,cy,R2,0,2*Math.PI);x.stroke();
+  x.fillStyle="#e0884b";x.font="12px sans-serif";x.textAlign="center";x.fillText("caché",cx,cy+4);
+  x.fillStyle="#8b97a3";x.fillText("R₁",cx+R1*0.7,cy-R1*0.7);x.fillText("R₂",cx,cy-R2-4);
+}
+
+// ════ 2 · PROFILS ε, μ ════
+function profils(){
+  const set=document.getElementById('pf-set').value;
+  const R1=parseFloat(document.getElementById('pf-r1').value), R2=parseFloat(document.getElementById('pf-r2').value);
+  document.getElementById('pf-r1-b').textContent=R1; document.getElementById('pf-r2-b').textContent=R2;
+  if(R2<=R1+5)document.getElementById('pf-r2').value=R1+5;
+  const R2b=Math.max(R1+5,R2);
+  const m=R2b/(R2b-R1);
+  document.getElementById('pf-eq').innerHTML = set==='full'
+    ? 'ε_r = μ_r = (r−R₁)/r &nbsp;·&nbsp; ε_θ = μ_θ = r/(r−R₁) &nbsp;·&nbsp; ε_z = μ_z = ('+m.toFixed(2)+')²·(r−R₁)/r'
+    : 'μ_r = ((r−R₁)/r)² &nbsp;·&nbsp; μ_θ = 1 &nbsp;·&nbsp; ε_z = ('+m.toFixed(2)+')² = '+(m*m).toFixed(2)+' (constant)';
+  const cv=document.getElementById('cv-profils'),x=cv.getContext('2d');x.clearRect(0,0,cv.width,cv.height);
+  const Wc=cv.width,Hc=cv.height,mL=42,mR=14,mT=14,mB=30,pw=Wc-mL-mR,ph=Hc-mT-mB, ymax=5;
+  const X=r=>mL+(r-R1)/(R2b-R1)*pw, Y=v=>mT+ph-Math.min(v,ymax)/ymax*ph;
+  x.strokeStyle="#2d3742";x.beginPath();x.moveTo(mL,mT);x.lineTo(mL,mT+ph);x.lineTo(mL+pw,mT+ph);x.stroke();
+  x.fillStyle="#8b97a3";x.font="10px sans-serif";x.textAlign="right";
+  for(let g=0;g<=5;g++){x.fillText(g,mL-4,Y(g)+3);x.strokeStyle="#1c242d";x.beginPath();x.moveTo(mL,Y(g));x.lineTo(mL+pw,Y(g));x.stroke();}
+  x.textAlign="center";x.fillText("R₁",mL,mT+ph+14);x.fillText("R₂",mL+pw,mT+ph+14);x.fillText("r",mL+pw/2,Hc-2);
+  const curve=(fn,col,lab,ly)=>{x.strokeStyle=col;x.lineWidth=2.2;x.beginPath();
+    for(let i=0;i<=pw;i++){const r=R1+(R2b-R1)*i/pw,v=fn(r);i?x.lineTo(mL+i,Y(v)):x.moveTo(mL+i,Y(v));}x.stroke();
+    x.fillStyle=col;x.textAlign="left";x.font="bold 11px sans-serif";x.fillText(lab,mL+pw*0.55,ly);};
+  if(set==='full'){
+    curve(r=>(r-R1)/r,"#4db6a4","ε_r = μ_r",Y(0.4)-4);
+    curve(r=>r/(r-R1),"#e0884b","ε_θ = μ_θ",24);
+    curve(r=>m*m*(r-R1)/r,"#b48ad8","ε_z = μ_z",Y(m*m*0.5)+12);
+  } else {
+    curve(r=>Math.pow((r-R1)/r,2),"#4db6a4","μ_r",Y(0.2)-4);
+    curve(r=>m*m,"#b48ad8","ε_z (const)",Y(m*m)-6);
+    curve(r=>1,"#e0884b","μ_θ = 1",Y(1)-6);
+  }
+}
+
+// ════ 3 · CARTOGRAPHIE (rayons) ════
+function rayons(){
+  const on=document.getElementById('ry-on').checked;
+  const R1=parseFloat(document.getElementById('ry-r1').value), R2=Math.max(R1+10,parseFloat(document.getElementById('ry-r2').value)), N=parseInt(document.getElementById('ry-n').value);
+  document.getElementById('ry-r1-b').textContent=R1;document.getElementById('ry-r2-b').textContent=R2;document.getElementById('ry-n-b').textContent=N;
+  const cv=document.getElementById('cv-rayons'),x=cv.getContext('2d');x.clearRect(0,0,cv.width,cv.height);
+  const W=cv.width,H=cv.height,cx=W/2,cy=H/2;
+  const map=rv=>rv>=R2?rv:R1+rv*(R2-R1)/R2;
+  // cape + objet
+  x.fillStyle="rgba(154,167,201,0.10)";x.beginPath();x.arc(cx,cy,R2,0,2*Math.PI);x.fill();
+  x.fillStyle="rgba(224,136,75,0.30)";x.beginPath();x.arc(cx,cy,R1,0,2*Math.PI);x.fill();
+  x.strokeStyle="#9aa7c9";x.lineWidth=1;x.beginPath();x.arc(cx,cy,R2,0,2*Math.PI);x.stroke();
+  x.strokeStyle="#e0884b";x.beginPath();x.arc(cx,cy,R1,0,2*Math.PI);x.stroke();
+  let blocked=0;
+  for(let k=0;k<N;k++){
+    const yv=-(H/2-12)+(H-24)*(k+0.5)/N; // hauteur du rayon (virtuel), centré sur cy
+    if(Math.abs(yv)<2)continue;
+    x.lineWidth=1.7;
+    if(!on){ // sans cape : rayon droit, bloqué par l'objet
+      const hit=Math.abs(yv)<R1;
+      x.strokeStyle=hit?"#e05a5a":"#4db6a4";x.beginPath();
+      if(hit){const xin=-Math.sqrt(R1*R1-yv*yv);x.moveTo(0,cy+yv);x.lineTo(cx+xin,cy+yv);} // s'arrête sur l'objet
+      else {x.moveTo(0,cy+yv);x.lineTo(W,cy+yv);}
+      x.stroke(); if(hit)blocked++;
+    } else { // avec cape : map radial point par point
+      x.strokeStyle="#4db6a4";x.beginPath();let started=false;
+      for(let px=0;px<=W;px+=2){const xv=px-cx, rv=Math.hypot(xv,yv); if(rv<1e-3)continue;
+        const th=Math.atan2(yv,xv), rp=map(rv), Xp=cx+rp*Math.cos(th), Yp=cy+rp*Math.sin(th);
+        started?x.lineTo(Xp,Yp):x.moveTo(Xp,Yp);started=true;}
+      x.stroke();
+    }
+  }
+  x.fillStyle="#e0884b";x.font="12px sans-serif";x.textAlign="center";x.fillText(T('ry.obj'),cx,cy+4);
+  // observateur
+  x.fillStyle="#9aa7c9";x.font="11px sans-serif";x.textAlign="right";x.fillText("👁 →",W-6,16);
+  document.getElementById('ry-metrics').innerHTML = on
+    ? met(T('ry.state'),T('ry.invisible'),"")+met(T('ry.shadow'),T('ry.none'),"")
+    : met(T('ry.state'),T('ry.visible'),"")+met(T('ry.blocked'),blocked,T('ry.rays'));
+}
+
+// ════ ONGLETS ════
+function showTab(t){['principe','profils','rayons'].forEach(p=>{document.getElementById('pane-'+p).style.display=p===t?'block':'none';document.getElementById('tab-'+p).classList.toggle('on',p===t);});
+  if(t==='principe')drawGrid(); if(t==='profils')profils(); if(t==='rayons')rayons();}
+
+// ════ I18N ════
+const I18N={
+ title:{fr:"Cape d'invisibilité de Pendry",en:"Pendry's invisibility cloak"},
+ sub:{fr:"optique de transformation : courber la lumière autour d'un objet",en:"transformation optics: bending light around an object"},
+ 't.principe':{fr:"1 · Principe",en:"1 · Principle"},'t.profils':{fr:"2 · Profils ε, μ",en:"2 · ε, μ profiles"},'t.rayons':{fr:"3 · Cartographie (rayons)",en:"3 · Ray map"},
+ 'pr.h':{fr:"L'idée : déformer l'espace vu par la lumière",en:"The idea: deform the space light sees"},
+ 'pr.lead':{fr:"Pendry (2006) a eu une idée magnifique : les équations de Maxwell sont <b>invariantes par changement de coordonnées</b>, à condition de remplacer le changement de géométrie par un <b>milieu</b> ε(r), μ(r) bien choisi. Pour cacher un objet, on « comprime » tout un disque (rayon R₂) dans une <b>couronne</b> (R₁→R₂) : il se crée un <b>trou</b> central (r &lt; R₁) que la lumière ne visite jamais. Tout ce qu'on y met devient invisible — et l'onde ressort comme si rien n'était là.",en:"Pendry (2006) had a beautiful idea: Maxwell's equations are <b>invariant under coordinate change</b>, provided the geometry change is replaced by a well-chosen <b>medium</b> ε(r), μ(r). To hide an object, one \"compresses\" a whole disk (radius R₂) into an <b>annulus</b> (R₁→R₂): a central <b>hole</b> (r &lt; R₁) appears that light never visits. Anything placed there becomes invisible — and the wave re-emerges as if nothing were there."},
+ 'pr.lead2':{fr:"Le prix à payer : le milieu doit être <b>anisotrope</b> (différent selon la direction radiale/azimutale) et ses paramètres deviennent <b>extrêmes</b> près de R₁ (ε radial → 0, ε azimutal → ∞). On ne sait fabriquer ça qu'avec des <b>métamatériaux</b> (résonateurs sub-longueur d'onde), et seulement sur une <b>bande étroite</b> de fréquence.",en:"The price: the medium must be <b>anisotropic</b> (different radially vs azimuthally) and its parameters become <b>extreme</b> near R₁ (radial ε → 0, azimuthal ε → ∞). This can only be built with <b>metamaterials</b> (sub-wavelength resonators), and only over a <b>narrow</b> frequency band."},
+ 'pr.mag':{fr:"<b class='mag'>Et le magnétique ?</b> Oui ! La première cape <b>réalisée</b> (Schurig, Science 2006, à 8,5 GHz) utilisait une version « réduite » où seule la <b>perméabilité μ varie radialement</b> (μ_r = ((r−R₁)/r)²), ε_z restant constant. Le gradient était obtenu par des anneaux fendus (SRR) de tailles graduées → c'est bien un <b>gradient de perméabilité</b> qui a rendu l'objet invisible aux micro-ondes.",en:"<b class='mag'>What about magnetic?</b> Yes! The first <b>realised</b> cloak (Schurig, Science 2006, at 8.5 GHz) used a \"reduced\" version where only the <b>permeability μ varies radially</b> (μ_r = ((r−R₁)/r)²), with ε_z constant. The gradient came from split-ring resonators (SRRs) of graded sizes → it was indeed a <b>permeability gradient</b> that made the object invisible at microwaves."},
+ 'pr.cap':{fr:"L'espace comprimé : les cercles bleus (espace réel) se tassent dans la couronne, laissant le trou central vide (objet caché).",en:"Compressed space: the blue circles (real space) crowd into the annulus, leaving the central hole empty (hidden object)."},
+ 'pf.h':{fr:"Les profils ε(r) et μ(r) à fabriquer",en:"The ε(r) and μ(r) profiles to build"},
+ 'pf.lead':{fr:"Pour la cape cylindrique idéale, les paramètres (composantes radiale, azimutale, axiale) sont donnés par les formules ci-dessous. Choisis le jeu <b>complet</b> de Pendry (anisotrope en ε et μ) ou la version <b>réduite</b> de Schurig (seul μ_r varie — celle réalisée).",en:"For the ideal cylindrical cloak, the parameters (radial, azimuthal, axial components) are given below. Choose the <b>full</b> Pendry set (anisotropic in ε and μ) or the <b>reduced</b> Schurig version (only μ_r varies — the one realised)."},
+ 'pf.set':{fr:"Jeu de paramètres",en:"Parameter set"},'pf.pendry':{fr:"Complet (Pendry) — ε et μ anisotropes",en:"Full (Pendry) — anisotropic ε and μ"},'pf.schurig':{fr:"Réduit (Schurig) — gradient de μ",en:"Reduced (Schurig) — μ gradient"},
+ 'pf.r1':{fr:"Rayon interne R₁",en:"Inner radius R₁"},'pf.r2':{fr:"Rayon externe R₂",en:"Outer radius R₂"},
+ 'pf.note':{fr:"À r = R₁, ε_r → 0 et ε_θ → ∞ : c'est la <b>singularité</b> qui rend la cape parfaite difficile (et intrinsèquement à bande étroite). La version réduite garde μ_r fini en relâchant l'adaptation parfaite à l'entrée (petite réflexion résiduelle).",en:"At r = R₁, ε_r → 0 and ε_θ → ∞: this <b>singularity</b> makes a perfect cloak hard (and intrinsically narrow-band). The reduced version keeps μ_r finite by relaxing perfect input matching (small residual reflection)."},
+ 'pf.cap':{fr:"Composantes du tenseur ε_r (et μ_r) en fonction du rayon, de R₁ à R₂",en:"Components of the ε_r (and μ_r) tensor vs radius, from R₁ to R₂"},
+ 'ry.h':{fr:"La lumière contourne l'objet (lancer de rayons)",en:"Light flows around the object (ray tracing)"},
+ 'ry.lead':{fr:"On trace un faisceau parallèle. <b>Sans cape</b>, les rayons frappent l'objet (ombre, diffusion → il est visible). <b>Avec la cape</b>, le milieu à gradient courbe chaque rayon : ils glissent autour du trou central et <b>repartent dans leur direction initiale</b>, comme si l'espace était vide. L'objet caché ne projette plus d'ombre.",en:"We send a parallel beam. <b>Without the cloak</b>, rays hit the object (shadow, scattering → visible). <b>With the cloak</b>, the gradient medium bends each ray: they slide around the central hole and <b>resume their initial direction</b>, as if space were empty. The hidden object casts no shadow."},
+ 'ry.toggle':{fr:"Activer la cape",en:"Enable the cloak"},'ry.r1':{fr:"Rayon caché R₁",en:"Hidden radius R₁"},'ry.r2':{fr:"Rayon de la cape R₂",en:"Cloak radius R₂"},'ry.nray':{fr:"Nombre de rayons",en:"Number of rays"},
+ 'ry.note':{fr:"Le tracé est <b>exact</b> au sens de l'optique de transformation : un rayon droit de « l'espace virtuel » devient, dans la cape, ce rayon courbe. Le disque central (orange) n'est traversé par aucun rayon → tout ce qu'on y place est invisible.",en:"The trace is <b>exact</b> in the transformation-optics sense: a straight ray of \"virtual space\" becomes this curved ray inside the cloak. The central disk (orange) is crossed by no ray → anything placed there is invisible."},
+ 'ry.cap':{fr:"Rayons (vert) ; cape = couronne grise ; objet caché = disque orange ; l'observateur regarde depuis la droite →",en:"Rays (green); cloak = grey annulus; hidden object = orange disk; observer looks from the right →"},
+ 'ry.obj':{fr:"objet",en:"object"},'ry.state':{fr:"État",en:"State"},'ry.invisible':{fr:"Invisible",en:"Invisible"},'ry.visible':{fr:"Visible",en:"Visible"},'ry.shadow':{fr:"Ombre",en:"Shadow"},'ry.none':{fr:"aucune",en:"none"},'ry.blocked':{fr:"Rayons bloqués",en:"Rays blocked"},'ry.rays':{fr:"rayons",en:"rays"}
+};
+let LANG='fr';
+function T(k){return I18N[k]?I18N[k][LANG]:'';}
+function setLang(l){LANG=l;document.getElementById('lf').classList.toggle('on',l==='fr');document.getElementById('le').classList.toggle('on',l==='en');
+  document.querySelectorAll('[data-i18n]').forEach(e=>{const k=e.getAttribute('data-i18n');if(I18N[k])e.innerHTML=I18N[k][l];});
+  document.documentElement.lang=l;const cur=['principe','profils','rayons'].find(p=>document.getElementById('pane-'+p).style.display!=='none');showTab(cur||'principe');}
+
+showTab('principe');
+</script>
+</body>
+</html>
