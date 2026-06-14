@@ -99,19 +99,23 @@ th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}th:fi
       <p class="lead" data-i18n="ex.lead">On mesure la <b>réflexion S₁₁</b> et la <b>transmission S₂₁</b> à travers une lame d'épaisseur d, et on en déduit ε et μ (Nicolson-Ross-Weir). Ici on <b>simule</b> la mesure à partir d'un matériau connu (un tissu, p. ex.), puis on ré-extrait : on vérifie que ça marche… et où ça casse. ⚠ <b>Limite par l'épaisseur</b> : la phase est connue à 2πm près → si d ≳ λ/2 dans le matériau, plusieurs solutions deviennent possibles (ambiguïté).</p>
       <div class="grid2">
         <div>
-          <label data-i18n="ex.mat">Matériau (vérité terrain)</label>
-          <select id="ex-mat" onchange="extract()">
-            <option value="ptfe">PTFE (Téflon) — ε≈2,1</option>
-            <option value="fr4">FR4 — ε≈4,4</option>
-            <option value="alumina">Alumine — ε≈9,8</option>
-            <option value="muscle" selected>Muscle (tissu)</option>
-            <option value="fat">Graisse (tissu)</option>
-            <option value="water">Eau — ε≈78</option>
+          <label data-i18n="ex.cfg">Configuration</label>
+          <select id="ex-cfg" onchange="extract()">
+            <option value="1" selected data-i18n="ex.single">Lame simple</option>
+            <option value="2" data-i18n="ex.s2">Empilement — 2 couches</option>
+            <option value="3" data-i18n="ex.s3">Empilement — 3 couches</option>
           </select>
+          <div id="ex-l1"><div class="row"><div><label data-i18n="ex.lay">Couche 1</label>
+            <select id="ex-m1" onchange="extract()"><option value="ptfe">PTFE — ε≈2,1</option><option value="fr4">FR4 — ε≈4,4</option><option value="alumina">Alumine — ε≈9,8</option><option value="muscle" selected>Muscle</option><option value="fat">Graisse</option><option value="water">Eau — ε≈78</option></select></div>
+            <div><label>d₁ (mm)</label><input type="number" id="ex-d1" value="5" step="0.5" oninput="extract()"></div></div></div>
+          <div id="ex-l2" style="display:none"><div class="row"><div><label data-i18n="ex.lay2">Couche 2</label>
+            <select id="ex-m2" onchange="extract()"><option value="ptfe">PTFE — ε≈2,1</option><option value="fr4">FR4 — ε≈4,4</option><option value="alumina">Alumine — ε≈9,8</option><option value="muscle">Muscle</option><option value="fat" selected>Graisse</option><option value="water">Eau — ε≈78</option></select></div>
+            <div><label>d₂ (mm)</label><input type="number" id="ex-d2" value="3" step="0.5" oninput="extract()"></div></div></div>
+          <div id="ex-l3" style="display:none"><div class="row"><div><label data-i18n="ex.lay3">Couche 3</label>
+            <select id="ex-m3" onchange="extract()"><option value="ptfe" selected>PTFE — ε≈2,1</option><option value="fr4">FR4 — ε≈4,4</option><option value="alumina">Alumine — ε≈9,8</option><option value="muscle">Muscle</option><option value="fat">Graisse</option><option value="water">Eau — ε≈78</option></select></div>
+            <div><label>d₃ (mm)</label><input type="number" id="ex-d3" value="2" step="0.5" oninput="extract()"></div></div></div>
           <label data-i18n="ex.freq">Fréquence (GHz)</label>
           <input type="number" id="ex-freq" value="2.45" step="0.1" oninput="extract()">
-          <label><span data-i18n="ex.d">Épaisseur de la lame d (mm)</span> <b class="muted" id="ex-d-v"></b></label>
-          <div class="rng"><input type="range" id="ex-d" min="0.5" max="60" value="5" step="0.5" oninput="extract()"><b id="ex-d-b"></b></div>
           <label><span data-i18n="ex.noise">Bruit de mesure</span> <b class="muted" id="ex-noise-v"></b></label>
           <div class="rng"><input type="range" id="ex-noise" min="0" max="30" value="0" oninput="extract()"><b id="ex-noise-b"></b></div>
         </div>
@@ -119,7 +123,20 @@ th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}th:fi
           <div class="metrics" id="ex-metrics"></div>
           <div id="ex-verdict"></div>
           <table id="ex-table"></table>
+          <p class="note" id="ex-note2"></p>
           <p class="note" data-i18n="ex.note">d/λ_matériau indique le régime : ≪ ½ → extraction fiable ; ≈ ½, 1, 1½… → résonances et ambiguïté de branche (la lame est « invisible » en transmission à d = λ/2, S₂₁→1, l'extraction se dégrade).</p>
+          <details style="background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px 13px;margin-top:12px">
+            <summary style="cursor:pointer;font-weight:600;color:var(--acc)" data-i18n="ex.fsum">Formulation de la méthode NRW</summary>
+            <div style="font-size:13px;line-height:1.7;margin-top:8px">
+              <p data-i18n="ex.f0">À partir des deux mesures S₁₁ (réflexion) et S₂₁ (transmission) d'une lame d'épaisseur d :</p>
+              <div class="eq" style="font-size:13.5px">X = (S₁₁² − S₂₁² + 1) / (2·S₁₁)</div>
+              <div class="eq" style="font-size:13.5px">Γ = X ± √(X² − 1) &nbsp; <span class="muted" data-i18n="ex.fg">(on garde la racine telle que |Γ| ≤ 1)</span></div>
+              <div class="eq" style="font-size:13.5px">T = (S₁₁ + S₂₁ − Γ) / (1 − (S₁₁ + S₂₁)·Γ)</div>
+              <div class="eq" style="font-size:13.5px">n = (j / k₀d)·ln(T) &nbsp;<span class="muted">[ + 2πm ↦ ambiguïté ]</span> &nbsp;·&nbsp; Z = (1 + Γ)/(1 − Γ)</div>
+              <div class="eq" style="font-size:13.5px">ε_r = n / Z &nbsp;·&nbsp; μ_r = n · Z</div>
+              <p data-i18n="ex.f1">Γ est le coefficient de réflexion à l'interface (lié à l'impédance Z = √(μ/ε)), T le facteur de propagation dans la lame (lié à l'indice n = √(εμ)). La phase de ln(T) n'est connue qu'à 2πm près → c'est là que naît l'<b>ambiguïté d'épaisseur</b>.</p>
+            </div>
+          </details>
         </div>
       </div>
     </div>
@@ -336,26 +353,58 @@ function nrw(S11,S21,d,f){
   const Z=Cdiv(Cadd([1,0],G),Csub([1,0],G));
   return {eps:Cdiv(N,Z), mu:Cmul(N,Z)};
 }
+// cos/sin complexes (argument complexe → gère les pertes)
+const Ccos=z=>Cscale(0.5,Cadd(Cexp(Cmul([0,1],z)),Cexp(Cmul([0,-1],z))));
+const Csin=z=>Cdiv(Csub(Cexp(Cmul([0,1],z)),Cexp(Cmul([0,-1],z))),[0,2]);
+// S-params d'un empilement de lames (μ=1) par cascade de matrices ABCD (Z₀ = espace libre = 1)
+function stackS(layers,f){
+  const k0=2*Math.PI*f/C0; let A=[1,0],B=[0,0],Cc=[0,0],D=[1,0];
+  for(const L of layers){
+    let N=Csqrt(L.eps); if(N[1]>0)N=Cscale(-1,N);
+    const Z=Cdiv([1,0],N), bd=Cscale(k0*L.d,N), cb=Ccos(bd), sb=Csin(bd);
+    const a=cb, b=Cmul([0,1],Cmul(Z,sb)), c=Cmul([0,1],Cdiv(sb,Z)), dd=cb;
+    const nA=Cadd(Cmul(A,a),Cmul(B,c)), nB=Cadd(Cmul(A,b),Cmul(B,dd)), nC=Cadd(Cmul(Cc,a),Cmul(D,c)), nD=Cadd(Cmul(Cc,b),Cmul(D,dd));
+    A=nA;B=nB;Cc=nC;D=nD;
+  }
+  const den=Cadd(Cadd(A,B),Cadd(Cc,D));
+  return {S11:Cdiv(Csub(Cadd(A,B),Cadd(Cc,D)),den), S21:Cdiv([2,0],den)};
+}
 function extract(){
-  const f=parseFloat(document.getElementById('ex-freq').value)*1e9, d=parseFloat(document.getElementById('ex-d').value)/1000, noise=parseFloat(document.getElementById('ex-noise').value);
-  document.getElementById('ex-d-b').textContent=(d*1000).toFixed(1)+" mm"; document.getElementById('ex-noise-b').textContent=noise+" %";
-  const epsT=matEps(document.getElementById('ex-mat').value,f), muT=[1,0];
-  const S=slabS(epsT,muT,d,f); let S11=S.S11.slice(), S21=S.S21.slice();
+  const f=parseFloat(document.getElementById('ex-freq').value)*1e9, noise=parseFloat(document.getElementById('ex-noise').value), ncfg=parseInt(document.getElementById('ex-cfg').value);
+  document.getElementById('ex-noise-b').textContent=noise+" %";
+  document.getElementById('ex-l2').style.display=ncfg>=2?'block':'none'; document.getElementById('ex-l3').style.display=ncfg>=3?'block':'none';
+  // construit l'empilement
+  const layers=[]; for(let i=1;i<=ncfg;i++){const mat=document.getElementById('ex-m'+i).value, di=(parseFloat(document.getElementById('ex-d'+i).value)||1)/1000; layers.push({mat,eps:matEps(mat,f),d:di});}
+  const dtot=layers.reduce((s,L)=>s+L.d,0);
+  const S=stackS(layers,f); let S11=S.S11.slice(), S21=S.S21.slice();
   if(noise>0){const sg=noise/100*0.25; S11=[S11[0]+gaussL()*sg,S11[1]+gaussL()*sg]; S21=[S21[0]+gaussL()*sg,S21[1]+gaussL()*sg];}
-  const R=nrw(S11,S21,d,f);
-  const nT=Csqrt(Cmul(epsT,muT)), dlam=d*Math.abs(nT[0])*f/C0;
+  const R=nrw(S11,S21,dtot,f);
+  // longueur électrique totale (somme des n_i·d_i)
+  const phaseLen=layers.reduce((s,L)=>s+Math.abs(Csqrt(L.eps)[0])*L.d,0), dlam=phaseLen*f/C0;
   document.getElementById('ex-metrics').innerHTML=
-    met("|S₁₁|",Cabs(S11).toFixed(3),"")+met("|S₂₁|",Cabs(S21).toFixed(3),"")+met("d/λ_mat",dlam.toFixed(2),"",dlam<0.45?'good':'bad');
-  let html='<tr><th></th><th>'+T('ex.true')+'</th><th>'+T('ex.extr')+'</th></tr>';
-  html+=`<tr><td>ε′</td><td>${epsT[0].toFixed(2)}</td><td>${R.eps[0].toFixed(2)}</td></tr>`;
-  html+=`<tr><td>ε″</td><td>${(-epsT[1]).toFixed(2)}</td><td>${(-R.eps[1]).toFixed(2)}</td></tr>`;
-  html+=`<tr><td>μ′</td><td>1.00</td><td>${R.mu[0].toFixed(2)}</td></tr>`;
+    met("|S₁₁|",Cabs(S11).toFixed(3),"")+met("|S₂₁|",Cabs(S21).toFixed(3),"")+met("Σd/λ",dlam.toFixed(2),"",dlam<0.45?'good':'bad');
+  let html='<tr><th></th>';
+  if(ncfg===1)html+='<th>'+T('ex.true')+'</th><th>'+T('ex.extr')+'</th></tr>';
+  else {layers.forEach((L,i)=>html+=`<th>${T('ex.layn')} ${i+1}</th>`); html+='<th>'+T('ex.eff')+'</th></tr>';}
+  const row=(lbl,vals,ext)=>{let r=`<tr><td>${lbl}</td>`; vals.forEach(v=>r+=`<td>${v}</td>`); r+=`<td><b>${ext}</b></td></tr>`; return r;};
+  if(ncfg===1){
+    html+=`<tr><td>ε′</td><td>${layers[0].eps[0].toFixed(2)}</td><td><b>${R.eps[0].toFixed(2)}</b></td></tr>`;
+    html+=`<tr><td>ε″</td><td>${(-layers[0].eps[1]).toFixed(2)}</td><td><b>${(-R.eps[1]).toFixed(2)}</b></td></tr>`;
+    html+=`<tr><td>μ′</td><td>1.00</td><td><b>${R.mu[0].toFixed(2)}</b></td></tr>`;
+  } else {
+    html+=row("ε′",layers.map(L=>L.eps[0].toFixed(1)),R.eps[0].toFixed(2));
+    html+=row("ε″",layers.map(L=>(-L.eps[1]).toFixed(2)),(-R.eps[1]).toFixed(2));
+    html+=row("μ′",layers.map(()=>"1.0"),R.mu[0].toFixed(2));
+  }
   document.getElementById('ex-table').innerHTML=html;
-  const errE=Math.abs(R.eps[0]-epsT[0])/Math.max(1,epsT[0]);
   let cls,msg;
-  if(Math.abs(dlam-0.5)<0.06||Math.abs(dlam-1)<0.06){cls='bad';msg='✗ '+T('ex.reso');}
-  else if(dlam>0.5||errE>0.15){cls='bad';msg='⚠ '+T('ex.amb');}
-  else {cls='good';msg='✓ '+T('ex.ok');}
+  if(ncfg>1){ document.getElementById('ex-note2').innerHTML='<b style="color:var(--acc2)">'+T('ex.effnote')+'</b>';
+    cls='bad'; msg='⚠ '+T('ex.effv'); }
+  else { document.getElementById('ex-note2').innerHTML='';
+    const errE=Math.abs(R.eps[0]-layers[0].eps[0])/Math.max(1,layers[0].eps[0]);
+    if(Math.abs(dlam-0.5)<0.06||Math.abs(dlam-1)<0.06){cls='bad';msg='✗ '+T('ex.reso');}
+    else if(dlam>0.5||errE>0.15){cls='bad';msg='⚠ '+T('ex.amb');}
+    else {cls='good';msg='✓ '+T('ex.ok');} }
   document.getElementById('ex-verdict').innerHTML='<div class="metric '+cls+'" style="margin-top:10px"><div class="v" style="font-size:13.5px">'+msg+'</div></div>';
 }
 
@@ -599,6 +648,14 @@ const I18N={
  'ex.lead':{fr:"On mesure la <b>réflexion S₁₁</b> et la <b>transmission S₂₁</b> à travers une lame d'épaisseur d, et on en déduit ε et μ (Nicolson-Ross-Weir). Ici on <b>simule</b> la mesure depuis un matériau connu (un tissu p. ex.), puis on ré-extrait : on vérifie que ça marche… et où ça casse. ⚠ <b>Limite par l'épaisseur</b> : la phase est connue à 2πm près → si d ≳ λ/2 dans le matériau, plusieurs solutions deviennent possibles (ambiguïté).",en:"We measure the <b>reflection S₁₁</b> and <b>transmission S₂₁</b> through a slab of thickness d, and deduce ε and μ (Nicolson-Ross-Weir). Here we <b>simulate</b> the measurement from a known material (a tissue, say), then re-extract: we check it works… and where it breaks. ⚠ <b>Thickness limit</b>: phase is known modulo 2πm → if d ≳ λ/2 in the material, several solutions become possible (ambiguity)."},
  'ex.mat':{fr:"Matériau (vérité terrain)",en:"Material (ground truth)"},'ex.freq':{fr:"Fréquence (GHz)",en:"Frequency (GHz)"},'ex.d':{fr:"Épaisseur de la lame d (mm)",en:"Slab thickness d (mm)"},'ex.noise':{fr:"Bruit de mesure",en:"Measurement noise"},
  'ex.true':{fr:"Vérité",en:"True"},'ex.extr':{fr:"Extrait",en:"Extracted"},
+ 'ex.cfg':{fr:"Configuration",en:"Configuration"},'ex.single':{fr:"Lame simple",en:"Single slab"},'ex.s2':{fr:"Empilement — 2 couches",en:"Stack — 2 layers"},'ex.s3':{fr:"Empilement — 3 couches",en:"Stack — 3 layers"},
+ 'ex.lay':{fr:"Couche 1",en:"Layer 1"},'ex.lay2':{fr:"Couche 2",en:"Layer 2"},'ex.lay3':{fr:"Couche 3",en:"Layer 3"},'ex.layn':{fr:"Couche",en:"Layer"},'ex.eff':{fr:"Effectif",en:"Effective"},
+ 'ex.effnote':{fr:"L'extraction NRW suppose une lame homogène : sur un empilement, elle ne rend qu'un ε,μ « effectif » (mélange des couches, dépend de l'ordre et de la fréquence) — il ne correspond à aucune couche réelle.",en:"NRW assumes a homogeneous slab: on a stack it returns only an \"effective\" ε,μ (a blend of the layers, depending on order and frequency) — matching no real layer."},
+ 'ex.effv':{fr:"Paramètres effectifs (≠ couches réelles)",en:"Effective parameters (≠ real layers)"},
+ 'ex.fsum':{fr:"Formulation de la méthode NRW",en:"NRW method formulation"},
+ 'ex.f0':{fr:"À partir des deux mesures S₁₁ (réflexion) et S₂₁ (transmission) d'une lame d'épaisseur d :",en:"From the two measurements S₁₁ (reflection) and S₂₁ (transmission) of a slab of thickness d:"},
+ 'ex.fg':{fr:"(on garde la racine telle que |Γ| ≤ 1)",en:"(keep the root with |Γ| ≤ 1)"},
+ 'ex.f1':{fr:"Γ est le coefficient de réflexion à l'interface (lié à l'impédance Z = √(μ/ε)), T le facteur de propagation dans la lame (lié à l'indice n = √(εμ)). La phase de ln(T) n'est connue qu'à 2πm près → c'est là que naît l'<b>ambiguïté d'épaisseur</b>.",en:"Γ is the interface reflection coefficient (linked to impedance Z = √(μ/ε)), T the propagation factor in the slab (linked to index n = √(εμ)). The phase of ln(T) is only known modulo 2πm → this is the source of the <b>thickness ambiguity</b>."},
  'ex.ok':{fr:"Extraction fiable (lame mince)",en:"Reliable extraction (thin slab)"},'ex.amb':{fr:"Ambiguïté de branche (lame trop épaisse vs λ)",en:"Branch ambiguity (slab too thick vs λ)"},'ex.reso':{fr:"Résonance λ/2 : lame quasi transparente, extraction instable",en:"λ/2 resonance: slab nearly transparent, unstable extraction"},
  'ex.note':{fr:"d/λ_matériau indique le régime : ≪ ½ → fiable ; ≈ ½, 1, 1½… → résonances et ambiguïté de branche (à d = λ/2 la lame est « invisible » en transmission, S₂₁→1, l'extraction se dégrade).",en:"d/λ_material gives the regime: ≪ ½ → reliable; ≈ ½, 1, 1½… → resonances and branch ambiguity (at d = λ/2 the slab is \"invisible\" in transmission, S₂₁→1, extraction degrades)."},
  'li.h':{fr:"Adaptation, réflexion et TOS",en:"Matching, reflection and VSWR"},
