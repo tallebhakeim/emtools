@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MEMS électrostatiques — EMtools</title>
+<style>
+:root{--bg:#0f1419;--panel:#1a2129;--panel2:#222b35;--ink:#e6edf3;--mut:#8b97a3;--acc:#4db6a4;--acc2:#e0884b;--line:#2d3742;--bad:#e05a5a;--si:#6fb6d6;--mag:#b48ad8}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+header{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+header h1{font-size:19px;margin:0;font-weight:650}header .sub{color:var(--mut);font-size:13px}
+.lang{margin-left:auto;display:flex;gap:6px}
+.lang button{background:var(--panel2);color:var(--mut);border:1px solid var(--line);border-radius:7px;padding:5px 11px;cursor:pointer;font-size:13px}
+.lang button.on{background:var(--acc);color:#06231d;border-color:var(--acc);font-weight:650}
+.wrap{max-width:1040px;margin:0 auto;padding:20px 22px 90px}
+a.back{color:var(--acc);text-decoration:none;font-size:13px}
+.tabs{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap}
+.tabs button{background:var(--panel2);color:var(--mut);border:1px solid var(--line);border-radius:9px;padding:8px 14px;cursor:pointer;font-size:13.5px}
+.tabs button.on{background:var(--acc);color:#06231d;border-color:var(--acc);font-weight:650}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:18px}
+.card h2{font-size:16px;margin:0 0 6px}.card h3{font-size:13px;margin:18px 0 8px;text-transform:uppercase;letter-spacing:.05em;color:var(--acc)}
+.lead{color:var(--mut);font-size:14px;margin:0 0 14px}
+.grid2{display:grid;grid-template-columns:330px 1fr;gap:18px;align-items:start}
+@media(max-width:780px){.grid2{grid-template-columns:1fr}}
+label{display:block;font-size:12.5px;color:var(--mut);margin:10px 0 4px}
+input[type=number],select{width:100%;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px}
+input[type=range]{width:100%}.rng{display:flex;align-items:center;gap:10px}.rng input[type=range]{flex:1}.rng b{min-width:78px;text-align:right;font-variant-numeric:tabular-nums}
+.row{display:flex;gap:10px}.row>*{flex:1}
+canvas{max-width:100%;background:#0b0f14;border-radius:8px;display:block}
+.cap{font-size:12px;color:var(--mut);text-align:center;margin-top:6px}
+.eq{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:8px;padding:10px 13px;margin:12px 0;font-size:14px;overflow-x:auto}
+.metrics{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.metric{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 13px;min-width:118px}
+.metric .k{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+.metric .v{font-size:18px;font-weight:680;margin-top:2px}.metric .v small{font-size:11px;color:var(--mut)}
+.metric.good{border-color:var(--acc)}.metric.bad{border-color:var(--bad)}
+table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}th:first-child,td:first-child{text-align:left}th{color:var(--mut);font-weight:500}
+.note{font-size:13px;color:var(--mut);margin-top:12px}
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="index.html">← EMtools</a>
+  <h1 data-i18n="title">MEMS électrostatiques</h1>
+  <span class="sub" data-i18n="sub">pull-in, peigne, dynamique, exemples de design</span>
+  <div class="lang"><button id="lf" class="on" onclick="setLang('fr')">FR</button><button id="le" onclick="setLang('en')">EN</button></div>
+</header>
+<div class="wrap">
+  <div class="tabs">
+    <button id="tab-pull" class="on" onclick="showTab('pull')" data-i18n="t.pull">1 · Actionneur plan & pull-in</button>
+    <button id="tab-comb" onclick="showTab('comb')" data-i18n="t.comb">2 · Peigne interdigité</button>
+    <button id="tab-dyn" onclick="showTab('dyn')" data-i18n="t.dyn">3 · Dynamique (résonateur)</button>
+    <button id="tab-des" onclick="showTab('des')" data-i18n="t.des">4 · Exemples de design</button>
+  </div>
+
+  <!-- ════ 1 · PULL-IN ════ -->
+  <div id="pane-pull">
+    <div class="card">
+      <h2 data-i18n="pl.h">L'actionneur à plaques parallèles et l'instabilité de pull-in</h2>
+      <p class="lead" data-i18n="pl.lead">Deux électrodes (surface A, entrefer g) attirées par la force électrostatique F = ε₀A·V²/(2g²). Une plaque est suspendue par un ressort k. En montant V, la plaque s'approche — mais la force croît en 1/g² plus vite que le rappel k·x : au-delà d'un tiers de l'entrefer (x = g₀/3), c'est instable → la plaque <b>claque</b> (pull-in). C'est <b>le</b> phénomène fondateur des MEMS électrostatiques.</p>
+      <div class="eq">F = ε₀A·V² / (2(g₀−x)²) = k·x &nbsp;→&nbsp; <b>V_pull-in = √(8k·g₀³ / 27ε₀A)</b> &nbsp;à&nbsp; x = g₀/3</div>
+      <div class="grid2">
+        <div>
+          <label data-i18n="pl.area">Surface des plaques L × W (µm)</label>
+          <div class="row"><input type="number" id="pl-L" value="100" step="10" oninput="pull()"><input type="number" id="pl-W" value="100" step="10" oninput="pull()"></div>
+          <label data-i18n="pl.gap">Entrefer initial g₀ (µm)</label>
+          <input type="number" id="pl-g" value="2" step="0.1" oninput="pull()">
+          <label data-i18n="pl.k">Raideur du ressort k (N/m)</label>
+          <input type="number" id="pl-k" value="1" step="0.1" oninput="pull()">
+          <label><span data-i18n="pl.v">Tension appliquée V</span> <b class="muted" id="pl-v-v"></b></label>
+          <div class="rng"><input type="range" id="pl-v" min="0" max="100" value="50" oninput="pull()"><b id="pl-v-b"></b></div>
+          <div class="metrics" id="pl-metrics"></div>
+        </div>
+        <div>
+          <canvas id="cv-pull" width="440" height="200"></canvas>
+          <div class="cap" data-i18n="pl.cap1">Vue en coupe : plaque mobile sur ressorts (orange), électrode fixe (bleu), entrefer</div>
+          <canvas id="cv-pullc" width="440" height="220" style="margin-top:10px"></canvas>
+          <div class="cap" data-i18n="pl.cap2">Déplacement vs tension : montée douce puis saut brutal au pull-in (V_PI)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ 2 · PEIGNE ════ -->
+  <div id="pane-comb" style="display:none">
+    <div class="card">
+      <h2 data-i18n="cb.h">Le peigne interdigité (comb drive)</h2>
+      <p class="lead" data-i18n="cb.lead">Des doigts entrelacés : la force latérale F = N·ε₀·t·V²/g est <b>indépendante du déplacement</b> (pas de pull-in dans l'axe du mouvement) → un actionneur linéaire et contrôlable, idéal pour résonateurs, accéléromètres et gyroscopes. La force monte avec le nombre de doigts N, l'épaisseur t (couche structurelle) et 1/g.</p>
+      <div class="eq">F = N · ε₀ · t · V² / g &nbsp;(latérale, ⟂ au recouvrement) &nbsp;→&nbsp; déplacement x = F / k</div>
+      <div class="grid2">
+        <div>
+          <label><span data-i18n="cb.n">Nombre de doigts N</span> <b class="muted" id="cb-n-v"></b></label>
+          <div class="rng"><input type="range" id="cb-n" min="10" max="400" value="100" step="2" oninput="comb()"><b id="cb-n-b"></b></div>
+          <label data-i18n="cb.t">Épaisseur structurelle t (µm)</label>
+          <input type="number" id="cb-t" value="20" step="1" oninput="comb()">
+          <label data-i18n="cb.g">Entrefer entre doigts g (µm)</label>
+          <input type="number" id="cb-g" value="2" step="0.1" oninput="comb()">
+          <label data-i18n="cb.k">Raideur k (N/m)</label>
+          <input type="number" id="cb-k" value="1" step="0.1" oninput="comb()">
+          <label><span data-i18n="cb.v">Tension V</span> <b class="muted" id="cb-v-v"></b></label>
+          <div class="rng"><input type="range" id="cb-v" min="0" max="60" value="20" oninput="comb()"><b id="cb-v-b"></b></div>
+          <div class="metrics" id="cb-metrics"></div>
+        </div>
+        <div>
+          <canvas id="cv-comb" width="440" height="200"></canvas>
+          <div class="cap" data-i18n="cb.cap1">Vue de dessus : peignes fixe (bleu) et mobile (orange) — la force pousse le mobile vers l'engagement</div>
+          <canvas id="cv-combc" width="440" height="200" style="margin-top:10px"></canvas>
+          <div class="cap" data-i18n="cb.cap2">Force vs tension (∝ V²) — contrairement au plan, aucune instabilité</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ 3 · DYNAMIQUE ════ -->
+  <div id="pane-dyn" style="display:none">
+    <div class="card">
+      <h2 data-i18n="dy.h">Dynamique : masse–ressort–amortisseur</h2>
+      <p class="lead" data-i18n="dy.lead">Une masse mobile m sur ressort k oscille à la <b>fréquence propre</b> f₀ = (1/2π)√(k/m). L'amortissement (souvent par film d'air comprimé, « squeeze-film ») fixe le <b>facteur de qualité Q</b> : un Q élevé = résonance fine et longue (résonateurs, gyros) ; faible = réponse rapide et plate (accéléromètres). C'est le compromis central de tout MEMS dynamique.</p>
+      <div class="eq">f₀ = (1/2π)·√(k/m) &nbsp;·&nbsp; Q = √(k·m)/b &nbsp;·&nbsp; bande passante ≈ f₀/Q &nbsp;·&nbsp; temps d'établissement ≈ Q/(π f₀)</div>
+      <div class="grid2">
+        <div>
+          <label data-i18n="dy.m">Masse mobile m (ng)</label>
+          <input type="number" id="dy-m" value="1" step="0.1" oninput="dyn()">
+          <label data-i18n="dy.k">Raideur k (N/m)</label>
+          <input type="number" id="dy-k" value="10" step="1" oninput="dyn()">
+          <label><span data-i18n="dy.q">Facteur de qualité Q</span> <b class="muted" id="dy-q-v"></b></label>
+          <div class="rng"><input type="range" id="dy-q" min="1" max="1000" value="100" oninput="dyn()"><b id="dy-q-b"></b></div>
+          <div class="metrics" id="dy-metrics"></div>
+          <p class="note" data-i18n="dy.note">Le pic de la courbe vaut Q fois la réponse statique. Sous vide, Q peut dépasser 10 000 (gyros, horloges MEMS) ; à l'air, le squeeze-film le limite à ~quelques dizaines.</p>
+        </div>
+        <div>
+          <canvas id="cv-dyn" width="440" height="280"></canvas>
+          <div class="cap" data-i18n="dy.cap">Réponse en fréquence (amplitude) — pic à f₀, hauteur Q, largeur f₀/Q</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ 4 · DESIGN ════ -->
+  <div id="pane-des" style="display:none">
+    <div class="card">
+      <h2 data-i18n="ds.h">Exemples de design à faire</h2>
+      <p class="lead" data-i18n="ds.lead">On part d'un cahier des charges et on remonte à la géométrie. Choisis un dispositif et règle ses paramètres : l'outil calcule les grandeurs clés et signale les compromis.</p>
+      <label data-i18n="ds.pick">Dispositif</label>
+      <select id="ds-dev" onchange="design()">
+        <option value="accel" selected data-i18n="ds.accel">Accéléromètre capacitif</option>
+        <option value="rf" data-i18n="ds.rf">Commutateur RF MEMS (pull-in)</option>
+        <option value="reso" data-i18n="ds.reso">Résonateur (référence de fréquence)</option>
+      </select>
+      <div class="grid2" style="margin-top:12px">
+        <div id="ds-inputs"></div>
+        <div>
+          <div class="metrics" id="ds-metrics"></div>
+          <div id="ds-verdict"></div>
+          <p class="note" id="ds-note"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const EPS0=8.854e-12, RHO_SI=2330;
+function met(k,v,u,cls){return `<div class="metric ${cls||''}"><div class="k">${k}</div><div class="v">${v} <small>${u||''}</small></div></div>`;}
+function fmtSI(x,u){const a=Math.abs(x);if(a===0)return "0 "+u;if(a>=1)return x.toFixed(2)+" "+u;if(a>=1e-3)return (x*1e3).toFixed(2)+" m"+u;if(a>=1e-6)return (x*1e6).toFixed(2)+" µ"+u;if(a>=1e-9)return (x*1e9).toFixed(2)+" n"+u;if(a>=1e-12)return (x*1e12).toFixed(2)+" p"+u;return (x*1e15).toFixed(1)+" f"+u;}
+
+// ════ 1 · PULL-IN ════
+function pull(){
+  const A=parseFloat(document.getElementById('pl-L').value)*1e-6*parseFloat(document.getElementById('pl-W').value)*1e-6;
+  const g0=parseFloat(document.getElementById('pl-g').value)*1e-6, k=parseFloat(document.getElementById('pl-k').value)||1, V=parseFloat(document.getElementById('pl-v').value);
+  document.getElementById('pl-v-b').textContent=V+" V";
+  const Vpi=Math.sqrt(8*k*g0*g0*g0/(27*EPS0*A));
+  // déplacement d'équilibre stable pour V (itération de point fixe x=ε0AV²/(2k(g0-x)²)), sinon pull-in
+  const xeq=Vapp=>{let x=0;for(let i=0;i<200;i++){const xn=EPS0*A*Vapp*Vapp/(2*k*(g0-x)*(g0-x));if(xn>=g0/3+1e-12||!isFinite(xn))return null;if(Math.abs(xn-x)<1e-12)return xn;x=xn;}return x;};
+  const pulled=V>Vpi, x=pulled?g0:(xeq(V)??g0/3);
+  const gap=g0-x, Cap=EPS0*A/Math.max(gap,1e-9);
+  document.getElementById('pl-metrics').innerHTML=
+    met("V_pull-in",Vpi.toFixed(2),"V")+met(T('pl.disp'),(x*1e9).toFixed(0),"nm")+met(T('pl.gap'),(gap*1e9).toFixed(0),"nm")+met("C",fmtSI(Cap,"F"),"")+
+    met(T('pl.state'),pulled?T('pl.collapsed'):T('pl.stable'),"",pulled?'bad':'good');
+  // vue en coupe
+  const cv=document.getElementById('cv-pull'),c=cv.getContext('2d');c.clearRect(0,0,cv.width,cv.height);
+  const W=cv.width,H=cv.height,plateW=W*0.6,px=(W-plateW)/2,topY0=40,maxDrop=80;
+  const drop=maxDrop*(x/g0);
+  // électrode fixe (bas)
+  c.fillStyle="#26465c";c.fillRect(px,topY0+maxDrop+34,plateW,16);c.fillStyle="#6fb6d6";c.fillRect(px,topY0+maxDrop+34,plateW,3);
+  // plaque mobile + ressorts
+  const ty=topY0+drop;
+  c.strokeStyle="#e0884b";c.lineWidth=2;for(const sx of [px+18,px+plateW-18]){c.beginPath();for(let i=0;i<=8;i++){const yy=8+i*((ty-10)/8);c.lineTo(sx+(i%2?6:-6),yy);}c.stroke();}
+  c.fillStyle="#e0884b";c.fillRect(px,ty,plateW,14);
+  // entrefer cote
+  c.strokeStyle="#8b97a3";c.setLineDash([3,3]);c.beginPath();c.moveTo(W/2,ty+14);c.lineTo(W/2,topY0+maxDrop+34);c.stroke();c.setLineDash([]);
+  c.fillStyle="#8b97a3";c.font="11px sans-serif";c.textAlign="left";c.fillText("g = "+(gap*1e9).toFixed(0)+" nm",W/2+6,ty+34);
+  if(pulled){c.fillStyle="#e05a5a";c.textAlign="center";c.font="bold 13px sans-serif";c.fillText("⚡ PULL-IN",W/2,topY0+maxDrop+24);}
+  c.fillStyle="#e0884b";c.font="11px sans-serif";c.textAlign="left";c.fillText("V",px-2,8);
+  // courbe x(V)
+  const c2=document.getElementById('cv-pullc'),x2=c2.getContext('2d');x2.clearRect(0,0,c2.width,c2.height);
+  const W2=c2.width,H2=c2.height,mL=40,mB=24,mT=10,pw=W2-mL-12,ph=H2-mT-mB,Vm=Vpi*1.3;
+  const X=v=>mL+v/Vm*pw, Y=xx=>mT+ph-xx/g0*ph;
+  x2.strokeStyle="#2d3742";x2.beginPath();x2.moveTo(mL,mT);x2.lineTo(mL,mT+ph);x2.lineTo(mL+pw,mT+ph);x2.stroke();
+  x2.fillStyle="#8b97a3";x2.font="10px sans-serif";x2.textAlign="right";x2.fillText("g₀",mL-4,Y(g0)+3);x2.fillText("g₀/3",mL-4,Y(g0/3)+3);x2.fillText("0",mL-4,Y(0)+3);
+  x2.textAlign="center";x2.fillText(T('pl.vaxis'),mL+pw/2,H2-2);
+  x2.strokeStyle="#1c242d";x2.setLineDash([2,3]);x2.beginPath();x2.moveTo(mL,Y(g0/3));x2.lineTo(mL+pw,Y(g0/3));x2.stroke();x2.setLineDash([]);
+  // branche stable
+  x2.strokeStyle="#4db6a4";x2.lineWidth=2;x2.beginPath();let started=false;
+  for(let v=0;v<=Vpi;v+=Vpi/120){const xx=xeq(v);if(xx==null)break;const px2=X(v),py=Y(xx);started?x2.lineTo(px2,py):x2.moveTo(px2,py);started=true;}
+  x2.lineTo(X(Vpi),Y(g0/3));x2.stroke();
+  // saut au pull-in
+  x2.strokeStyle="#e05a5a";x2.setLineDash([4,3]);x2.beginPath();x2.moveTo(X(Vpi),Y(g0/3));x2.lineTo(X(Vpi),Y(g0));x2.stroke();x2.setLineDash([]);
+  x2.fillStyle="#e05a5a";x2.textAlign="left";x2.fillText("V_PI "+Vpi.toFixed(1)+" V",X(Vpi)+4,Y(g0/3));
+  // point courant
+  x2.fillStyle=pulled?"#e05a5a":"#e0884b";x2.beginPath();x2.arc(X(Math.min(V,Vm)),Y(x),5,0,2*Math.PI);x2.fill();
+}
+
+// ════ 2 · PEIGNE ════
+function comb(){
+  const N=parseInt(document.getElementById('cb-n').value), t=parseFloat(document.getElementById('cb-t').value)*1e-6, g=parseFloat(document.getElementById('cb-g').value)*1e-6, k=parseFloat(document.getElementById('cb-k').value)||1, V=parseFloat(document.getElementById('cb-v').value);
+  document.getElementById('cb-n-b').textContent=N; document.getElementById('cb-v-b').textContent=V+" V";
+  const F=N*EPS0*t*V*V/g, x=F/k;
+  document.getElementById('cb-metrics').innerHTML=
+    met("F",fmtSI(F,"N"),"")+met(T('cb.disp'),(x*1e9).toFixed(0),"nm")+met(T('cb.fn'),fmtSI(N*EPS0*t/g,"N/V²"),"")+met(T('cb.lin'),"∝ V²","");
+  // vue de dessus des peignes
+  const cv=document.getElementById('cv-comb'),c=cv.getContext('2d');c.clearRect(0,0,cv.width,cv.height);
+  const W=cv.width,H=cv.height,nf=Math.min(8,Math.max(3,Math.round(N/20))),fw=10,fl=70,gap=8,disp=Math.min(28,x*1e9/30);
+  const baseY=H/2;
+  // peigne fixe (haut, bleu)
+  c.fillStyle="#26465c";c.fillRect(20,30,W-40,12);
+  for(let i=0;i<nf;i++){const fx=60+i*(fw+gap)*2;c.fillStyle="#6fb6d6";c.fillRect(fx,42,fw,fl);}
+  // peigne mobile (bas, orange) — décalé par disp vers le haut (engagement)
+  const moff=-disp;
+  c.fillStyle="#7a3f1f";c.fillRect(20,H-42,W-40,12);
+  for(let i=0;i<nf;i++){const fx=60+fw+gap+i*(fw+gap)*2;c.fillStyle="#e0884b";c.fillRect(fx,H-42-fl+moff,fw,fl);}
+  c.fillStyle="#8b97a3";c.font="11px sans-serif";c.textAlign="left";c.fillText("fixe (+V)",24,24);c.fillText("mobile",24,H-46);
+  c.fillStyle="#4db6a4";c.textAlign="center";if(V>0){c.fillText("↑ F",W/2,baseY+4);}
+  // F vs V
+  const c2=document.getElementById('cv-combc'),x2=c2.getContext('2d');x2.clearRect(0,0,c2.width,c2.height);
+  const W2=c2.width,H2=c2.height,mL=46,mB=24,mT=10,pw=W2-mL-12,ph=H2-mT-mB,Vm=60,Fm=N*EPS0*t*Vm*Vm/g;
+  const X=v=>mL+v/Vm*pw, Y=f=>mT+ph-f/Fm*ph;
+  x2.strokeStyle="#2d3742";x2.beginPath();x2.moveTo(mL,mT);x2.lineTo(mL,mT+ph);x2.lineTo(mL+pw,mT+ph);x2.stroke();
+  x2.fillStyle="#8b97a3";x2.font="10px sans-serif";x2.textAlign="center";for(const v of [0,20,40,60])x2.fillText(v,X(v),mT+ph+13);x2.fillText("V",mL+pw/2,H2-1);
+  x2.save();x2.translate(11,mT+ph/2);x2.rotate(-Math.PI/2);x2.fillText("F",0,0);x2.restore();
+  x2.strokeStyle="#e0884b";x2.lineWidth=2;x2.beginPath();for(let v=0;v<=Vm;v++){const f=N*EPS0*t*v*v/g,px=X(v),py=Y(f);v?x2.lineTo(px,py):x2.moveTo(px,py);}x2.stroke();
+  x2.fillStyle="#e0884b";x2.beginPath();x2.arc(X(Math.min(V,Vm)),Y(F),5,0,2*Math.PI);x2.fill();
+}
+
+// ════ 3 · DYNAMIQUE ════
+function dyn(){
+  const m=parseFloat(document.getElementById('dy-m').value)*1e-12, k=parseFloat(document.getElementById('dy-k').value)||10, Q=parseFloat(document.getElementById('dy-q').value);
+  document.getElementById('dy-q-b').textContent=Q;
+  const f0=1/(2*Math.PI)*Math.sqrt(k/m), bw=f0/Q, tau=Q/(Math.PI*f0);
+  document.getElementById('dy-metrics').innerHTML=
+    met("f₀",f0>=1e6?(f0/1e6).toFixed(2)+" MHz":(f0>=1e3?(f0/1e3).toFixed(2)+" kHz":f0.toFixed(0)+" Hz"),"")+
+    met(T('dy.bw'),bw>=1e3?(bw/1e3).toFixed(2)+" kHz":bw.toFixed(0)+" Hz","")+
+    met("Q",Q,"")+met(T('dy.tau'),(tau*1e3).toFixed(2),"ms");
+  const cv=document.getElementById('cv-dyn'),x=cv.getContext('2d');x.clearRect(0,0,cv.width,cv.height);
+  const W=cv.width,H=cv.height,mL=40,mB=26,mT=12,pw=W-mL-12,ph=H-mT-mB;
+  // amplitude |H(f)| = 1/√((1-(f/f0)²)²+(f/(f0 Q))²) , pic ≈ Q
+  const ymax=Q*1.15, flo=f0*0.5,fhi=f0*1.5;
+  const X=f=>mL+(f-flo)/(fhi-flo)*pw, Y=a=>mT+ph-Math.min(a,ymax)/ymax*ph;
+  x.strokeStyle="#2d3742";x.beginPath();x.moveTo(mL,mT);x.lineTo(mL,mT+ph);x.lineTo(mL+pw,mT+ph);x.stroke();
+  x.fillStyle="#8b97a3";x.font="10px sans-serif";x.textAlign="right";x.fillText("Q="+Q,mL-4,Y(Q)+3);x.fillText("1",mL-4,Y(1)+3);
+  x.textAlign="center";x.fillText("f₀",X(f0),mT+ph+13);x.fillText(T('dy.faxis'),mL+pw/2,H-2);
+  x.strokeStyle="#1c242d";x.setLineDash([2,3]);x.beginPath();x.moveTo(X(f0),mT);x.lineTo(X(f0),mT+ph);x.stroke();x.setLineDash([]);
+  x.strokeStyle="#4db6a4";x.lineWidth=2;x.beginPath();
+  for(let i=0;i<=pw;i++){const f=flo+(fhi-flo)*i/pw,r=f/f0,a=1/Math.sqrt((1-r*r)*(1-r*r)+(r/Q)*(r/Q));i?x.lineTo(mL+i,Y(a)):x.moveTo(mL+i,Y(a));}
+  x.stroke();
+  x.fillStyle="#e0884b";x.beginPath();x.arc(X(f0),Y(Q),5,0,2*Math.PI);x.fill();
+}
+
+// ════ 4 · DESIGN ════
+function design(){
+  const dev=document.getElementById('ds-dev').value;
+  const inp=(id,lbl,v,st)=>`<label>${lbl}</label><input type="number" id="${id}" value="${v}" step="${st}" oninput="design()">`;
+  let html='',metrics='',verdict='',note='';
+  if(dev==='accel'){
+    if(!document.getElementById('ac-m')){document.getElementById('ds-inputs').innerHTML=
+      inp('ac-m',T('ds.mass'),5,0.5)+inp('ac-k',T('ds.k'),2,0.1)+inp('ac-g',T('ds.gap'),2,0.1)+inp('ac-A',T('ds.area'),200,10);}
+    const m=parseFloat(v('ac-m'))*1e-9, k=parseFloat(v('ac-k')), g=parseFloat(v('ac-g'))*1e-6, A=Math.pow(parseFloat(v('ac-A'))*1e-6,2);
+    const f0=1/(2*Math.PI)*Math.sqrt(k/m), sens=m/k, sensG=sens*9.81, C0=EPS0*A/g, dCdg=C0/g; // ΔC = C0·Δx/g
+    const dC1g=dCdg*sensG;
+    metrics=met("f₀ (≈ bande)",f0.toFixed(0),"Hz")+met(T('ds.sens'),(sensG*1e9).toFixed(2),"nm/g")+met("C₀",fmtSI(C0,"F"),"")+met(T('ds.dc'),fmtSI(dC1g,"F"),"/g");
+    verdict='<div class="metric" style="margin-top:10px"><div class="v" style="font-size:13px">'+T('ds.accv')+'</div></div>';
+    note=T('ds.accn');
+  } else if(dev==='rf'){
+    if(!document.getElementById('rf-V')){document.getElementById('ds-inputs').innerHTML=
+      inp('rf-V',T('ds.vtarget'),30,1)+inp('rf-g',T('ds.gap'),3,0.1)+inp('rf-A',T('ds.area'),100,5);}
+    const Vt=parseFloat(v('rf-V')), g=parseFloat(v('rf-g'))*1e-6, A=Math.pow(parseFloat(v('rf-A'))*1e-6,2);
+    // k requis pour pull-in à Vt : Vt²=8 k g³/(27 ε0 A) -> k = 27 ε0 A Vt²/(8 g³)
+    const kReq=27*EPS0*A*Vt*Vt/(8*g*g*g);
+    metrics=met(T('ds.kreq'),kReq.toFixed(3),"N/m")+met("V_pull-in",Vt.toFixed(0),"V")+met(T('ds.xpi'),(g/3*1e9).toFixed(0),"nm");
+    verdict='<div class="metric" style="margin-top:10px"><div class="v" style="font-size:13px">'+T('ds.rfv')+'</div></div>';
+    note=T('ds.rfn');
+  } else {
+    if(!document.getElementById('rs-f')){document.getElementById('ds-inputs').innerHTML=
+      inp('rs-f',T('ds.ftarget'),100,5)+inp('rs-m',T('ds.mass'),10,1)+inp('rs-Q',"Q",10000,500);}
+    const ft=parseFloat(v('rs-f'))*1e3, m=parseFloat(v('rs-m'))*1e-9, Q=parseFloat(v('rs-Q'));
+    const kReq=m*Math.pow(2*Math.PI*ft,2), bw=ft/Q, tau=Q/(Math.PI*ft);
+    metrics=met(T('ds.kreq'),kReq.toFixed(2),"N/m")+met("f₀",(ft/1e3).toFixed(0),"kHz")+met(T('dy.bw'),bw.toFixed(1),"Hz")+met(T('ds.ringdown'),(tau*1e3).toFixed(1),"ms");
+    verdict='<div class="metric" style="margin-top:10px"><div class="v" style="font-size:13px">'+T('ds.resv')+'</div></div>';
+    note=T('ds.resn');
+  }
+  document.getElementById('ds-metrics').innerHTML=metrics;
+  document.getElementById('ds-verdict').innerHTML=verdict;
+  document.getElementById('ds-note').innerHTML=note;
+}
+function v(id){return document.getElementById(id).value;}
+
+// ════ ONGLETS ════
+function showTab(t){['pull','comb','dyn','des'].forEach(p=>{document.getElementById('pane-'+p).style.display=p===t?'block':'none';document.getElementById('tab-'+p).classList.toggle('on',p===t);});
+  if(t==='pull')pull(); if(t==='comb')comb(); if(t==='dyn')dyn(); if(t==='des'){document.getElementById('ds-inputs').innerHTML='';design();}}
+
+// ════ I18N ════
+const I18N={
+ title:{fr:"MEMS électrostatiques",en:"Electrostatic MEMS"},
+ sub:{fr:"pull-in, peigne, dynamique, exemples de design",en:"pull-in, comb drive, dynamics, design examples"},
+ 't.pull':{fr:"1 · Actionneur plan & pull-in",en:"1 · Parallel plate & pull-in"},'t.comb':{fr:"2 · Peigne interdigité",en:"2 · Comb drive"},'t.dyn':{fr:"3 · Dynamique (résonateur)",en:"3 · Dynamics (resonator)"},'t.des':{fr:"4 · Exemples de design",en:"4 · Design examples"},
+ 'pl.h':{fr:"L'actionneur à plaques parallèles et l'instabilité de pull-in",en:"The parallel-plate actuator and pull-in instability"},
+ 'pl.lead':{fr:"Deux électrodes (surface A, entrefer g) attirées par la force électrostatique F = ε₀A·V²/(2g²). Une plaque est suspendue par un ressort k. En montant V, la plaque s'approche — mais la force croît en 1/g² plus vite que le rappel k·x : au-delà d'un tiers de l'entrefer (x = g₀/3), c'est instable → la plaque <b>claque</b> (pull-in). C'est <b>le</b> phénomène fondateur des MEMS électrostatiques.",en:"Two electrodes (area A, gap g) attract via the electrostatic force F = ε₀A·V²/(2g²). One plate is suspended on a spring k. As V rises, the plate approaches — but the force grows as 1/g², faster than the restoring k·x: beyond one third of the gap (x = g₀/3) it becomes unstable → the plate <b>snaps</b> (pull-in). This is <b>the</b> founding phenomenon of electrostatic MEMS."},
+ 'pl.area':{fr:"Surface des plaques L × W (µm)",en:"Plate area L × W (µm)"},'pl.gap':{fr:"Entrefer initial g₀ (µm)",en:"Initial gap g₀ (µm)"},'pl.k':{fr:"Raideur du ressort k (N/m)",en:"Spring stiffness k (N/m)"},'pl.v':{fr:"Tension appliquée V",en:"Applied voltage V"},
+ 'pl.disp':{fr:"Déplacement x",en:"Displacement x"},'pl.gap':{fr:"Entrefer restant",en:"Remaining gap"},'pl.state':{fr:"État",en:"State"},'pl.stable':{fr:"Stable",en:"Stable"},'pl.collapsed':{fr:"Pull-in (collé)",en:"Pulled in (collapsed)"},
+ 'pl.cap1':{fr:"Vue en coupe : plaque mobile sur ressorts (orange), électrode fixe (bleu), entrefer",en:"Cross-section: movable plate on springs (orange), fixed electrode (blue), gap"},
+ 'pl.cap2':{fr:"Déplacement vs tension : montée douce puis saut brutal au pull-in (V_PI)",en:"Displacement vs voltage: smooth rise then abrupt jump at pull-in (V_PI)"},'pl.vaxis':{fr:"tension V",en:"voltage V"},
+ 'cb.h':{fr:"Le peigne interdigité (comb drive)",en:"The interdigitated comb drive"},
+ 'cb.lead':{fr:"Des doigts entrelacés : la force latérale F = N·ε₀·t·V²/g est <b>indépendante du déplacement</b> (pas de pull-in dans l'axe du mouvement) → un actionneur linéaire et contrôlable, idéal pour résonateurs, accéléromètres et gyroscopes. La force monte avec le nombre de doigts N, l'épaisseur t (couche structurelle) et 1/g.",en:"Interleaved fingers: the lateral force F = N·ε₀·t·V²/g is <b>independent of displacement</b> (no pull-in along the motion axis) → a linear, controllable actuator, ideal for resonators, accelerometers and gyroscopes. Force grows with finger count N, thickness t (structural layer) and 1/g."},
+ 'cb.n':{fr:"Nombre de doigts N",en:"Number of fingers N"},'cb.t':{fr:"Épaisseur structurelle t (µm)",en:"Structural thickness t (µm)"},'cb.g':{fr:"Entrefer entre doigts g (µm)",en:"Inter-finger gap g (µm)"},'cb.k':{fr:"Raideur k (N/m)",en:"Stiffness k (N/m)"},'cb.v':{fr:"Tension V",en:"Voltage V"},
+ 'cb.disp':{fr:"Déplacement",en:"Displacement"},'cb.fn':{fr:"F/V² (efficacité)",en:"F/V² (efficiency)"},'cb.lin':{fr:"Loi",en:"Law"},
+ 'cb.cap1':{fr:"Vue de dessus : peignes fixe (bleu) et mobile (orange) — la force pousse le mobile vers l'engagement",en:"Top view: fixed (blue) and movable (orange) combs — the force drives the movable into engagement"},
+ 'cb.cap2':{fr:"Force vs tension (∝ V²) — contrairement au plan, aucune instabilité",en:"Force vs voltage (∝ V²) — unlike the parallel plate, no instability"},
+ 'dy.h':{fr:"Dynamique : masse–ressort–amortisseur",en:"Dynamics: mass–spring–damper"},
+ 'dy.lead':{fr:"Une masse mobile m sur ressort k oscille à la <b>fréquence propre</b> f₀ = (1/2π)√(k/m). L'amortissement (souvent par film d'air comprimé, « squeeze-film ») fixe le <b>facteur de qualité Q</b> : un Q élevé = résonance fine et longue (résonateurs, gyros) ; faible = réponse rapide et plate (accéléromètres). C'est le compromis central de tout MEMS dynamique.",en:"A proof mass m on a spring k oscillates at the <b>natural frequency</b> f₀ = (1/2π)√(k/m). Damping (often squeeze-film air damping) sets the <b>quality factor Q</b>: high Q = sharp, long-ringing resonance (resonators, gyros); low Q = fast, flat response (accelerometers). This is the central trade-off of any dynamic MEMS."},
+ 'dy.m':{fr:"Masse mobile m (ng)",en:"Proof mass m (ng)"},'dy.k':{fr:"Raideur k (N/m)",en:"Stiffness k (N/m)"},'dy.q':{fr:"Facteur de qualité Q",en:"Quality factor Q"},
+ 'dy.bw':{fr:"Bande passante",en:"Bandwidth"},'dy.tau':{fr:"Établissement",en:"Settling"},'dy.faxis':{fr:"fréquence",en:"frequency"},
+ 'dy.note':{fr:"Le pic de la courbe vaut Q fois la réponse statique. Sous vide, Q peut dépasser 10 000 (gyros, horloges MEMS) ; à l'air, le squeeze-film le limite à ~quelques dizaines.",en:"The peak is Q times the static response. Under vacuum, Q can exceed 10,000 (gyros, MEMS clocks); in air, squeeze-film limits it to ~tens."},
+ 'dy.cap':{fr:"Réponse en fréquence (amplitude) — pic à f₀, hauteur Q, largeur f₀/Q",en:"Frequency response (amplitude) — peak at f₀, height Q, width f₀/Q"},
+ 'ds.h':{fr:"Exemples de design à faire",en:"Design examples to work through"},
+ 'ds.lead':{fr:"On part d'un cahier des charges et on remonte à la géométrie. Choisis un dispositif et règle ses paramètres : l'outil calcule les grandeurs clés et signale les compromis.",en:"Start from a spec and work back to the geometry. Pick a device and set its parameters: the tool computes the key figures and flags the trade-offs."},
+ 'ds.pick':{fr:"Dispositif",en:"Device"},'ds.accel':{fr:"Accéléromètre capacitif",en:"Capacitive accelerometer"},'ds.rf':{fr:"Commutateur RF MEMS (pull-in)",en:"RF MEMS switch (pull-in)"},'ds.reso':{fr:"Résonateur (référence de fréquence)",en:"Resonator (frequency reference)"},
+ 'ds.mass':{fr:"Masse mobile m (ng)",en:"Proof mass m (ng)"},'ds.k':{fr:"Raideur k (N/m)",en:"Stiffness k (N/m)"},'ds.gap':{fr:"Entrefer g (µm)",en:"Gap g (µm)"},'ds.area':{fr:"Côté plaque de mesure (µm)",en:"Sense-plate side (µm)"},
+ 'ds.sens':{fr:"Sensibilité",en:"Sensitivity"},'ds.dc':{fr:"ΔC",en:"ΔC"},
+ 'ds.accv':{fr:"⇄ Compromis : sensibilité ↑ et bande passante ↓ varient toutes deux en 1/f₀² et f₀ → un ressort souple est sensible mais lent.",en:"⇄ Trade-off: sensitivity ↑ and bandwidth ↓ both scale with 1/f₀² and f₀ → a soft spring is sensitive but slow."},
+ 'ds.accn':{fr:"Sensibilité = m/k = 1/ω₀² (déplacement par g). Lecture capacitive différentielle : ΔC = C₀·Δx/g. Plus le ressort est souple (k bas), plus c'est sensible — mais f₀ et la bande passante chutent.",en:"Sensitivity = m/k = 1/ω₀² (displacement per g). Differential capacitive readout: ΔC = C₀·Δx/g. The softer the spring (low k), the more sensitive — but f₀ and bandwidth drop."},
+ 'ds.vtarget':{fr:"Tension d'actionnement visée (V)",en:"Target actuation voltage (V)"},'ds.kreq':{fr:"Raideur requise k",en:"Required stiffness k"},'ds.xpi':{fr:"Course avant claquage",en:"Travel before snap"},
+ 'ds.rfv':{fr:"On dimensionne la poutre pour que le pull-in tombe juste à la tension de commande : la plaque claque sur le contact RF.",en:"Size the beam so pull-in falls exactly at the drive voltage: the plate snaps onto the RF contact."},
+ 'ds.rfn':{fr:"k requis = 27·ε₀·A·V²/(8·g³). Une raideur plus faible → tension de commande plus basse, mais collage (stiction) plus probable. La course utile avant claquage n'est que g/3.",en:"Required k = 27·ε₀·A·V²/(8·g³). Lower stiffness → lower drive voltage, but stiction more likely. Usable travel before snap is only g/3."},
+ 'ds.ftarget':{fr:"Fréquence visée (kHz)",en:"Target frequency (kHz)"},'ds.ringdown':{fr:"Temps de ring-down",en:"Ring-down time"},
+ 'ds.resv':{fr:"On choisit k pour atteindre f₀ avec la masse donnée. Un Q élevé (sous vide) affine la résonance mais ralentit l'établissement.",en:"Choose k to reach f₀ for the given mass. High Q (vacuum) sharpens the resonance but slows settling."},
+ 'ds.resn':{fr:"k = m·(2πf₀)². Bande passante = f₀/Q : un résonateur d'horloge vise Q très grand (raie fine, faible bruit de phase) ; le ring-down ≈ Q/(π f₀) peut atteindre des secondes.",en:"k = m·(2πf₀)². Bandwidth = f₀/Q: a clock resonator targets very high Q (narrow line, low phase noise); ring-down ≈ Q/(π f₀) can reach seconds."}
+};
+let LANG='fr';
+function T(k){return I18N[k]?I18N[k][LANG]:'';}
+function setLang(l){LANG=l;document.getElementById('lf').classList.toggle('on',l==='fr');document.getElementById('le').classList.toggle('on',l==='en');
+  document.querySelectorAll('[data-i18n]').forEach(e=>{const k=e.getAttribute('data-i18n');if(I18N[k])e.innerHTML=I18N[k][l];});
+  document.documentElement.lang=l;const cur=['pull','comb','dyn','des'].find(p=>document.getElementById('pane-'+p).style.display!=='none');document.getElementById('ds-inputs').innerHTML='';showTab(cur||'pull');}
+
+showTab('pull');
+</script>
+</body>
+</html>
