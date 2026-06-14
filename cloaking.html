@@ -143,11 +143,19 @@ b.mag{color:var(--mag)}
           <div class="rng"><input type="range" id="re-ff" min="0.1" max="0.6" value="0.4" step="0.02" oninput="realise()"><b id="re-ff-b"></b></div>
           <label><span data-i18n="re.var">Varactor de l'anneau démo : C/C₀</span> <b class="muted" id="re-c-v"></b></label>
           <div class="rng"><input type="range" id="re-c" min="0.4" max="2.5" value="1" step="0.02" oninput="realise()"><b id="re-c-b"></b></div>
+          <div class="row">
+            <div><label data-i18n="re.shape">Forme</label><select id="re-shape" onchange="realise()"><option value="circle" data-i18n="re.circle">Circulaire</option><option value="square" data-i18n="re.square">Carré</option></select></div>
+            <div><label data-i18n="re.type">Type</label><select id="re-type" onchange="realise()"><option value="single" data-i18n="re.single">Anneau simple fendu</option><option value="double" selected data-i18n="re.double">Double anneau (Pendry)</option><option value="spiral" data-i18n="re.spiral">Spirale (N tours)</option></select></div>
+          </div>
+          <div id="re-turns-row" style="display:none"><label><span data-i18n="re.turns">Nombre de tours N</span> <b class="muted" id="re-n-v"></b></label>
+            <div class="rng"><input type="range" id="re-n" min="2" max="8" value="3" oninput="realise()"><b id="re-n-b"></b></div></div>
           <div class="metrics" id="re-metrics"></div>
           <div class="box" data-i18n="re.var2"><b class="mag">Le varactor</b> : une diode dont la capacité varie avec la tension. Placée dans la fente de l'anneau, elle décale ω₀ → on <b>règle μ à la demande</b> pour chaque anneau, et on peut <b>retuner</b> toute la cape pour une autre fréquence (cape reconfigurable / moins « bande étroite »).</div>
         </div>
         <div>
-          <canvas id="cv-mu" width="440" height="220"></canvas>
+          <canvas id="cv-srr" width="440" height="200"></canvas>
+          <div class="cap" data-i18n="re.capsrr">Géométrie de l'anneau : métal (orange), fente, et varactor (violet) dans la fente</div>
+          <canvas id="cv-mu" width="440" height="220" style="margin-top:12px"></canvas>
           <div class="cap" data-i18n="re.capmu">μ_eff(ω) de l'anneau démo ; ● = μ obtenu à f ; le varactor déplace la résonance ω₀</div>
           <canvas id="cv-rings" width="440" height="240" style="margin-top:12px"></canvas>
           <div class="cap" data-i18n="re.caprings">La cape : anneaux gradués, colorés par la résonance ω₀ requise (du rouge au bleu selon le rayon)</div>
@@ -256,15 +264,49 @@ function jet(t){t=Math.max(0,Math.min(1,t));const r=Math.max(0,Math.min(1,1.5-Ma
 function muEff(w,w0,F,g){const wr=w*w-w0*w0, den=wr*wr+(g*w)*(g*w); return 1 - F*w*w*wr/den;}
 // ω₀ requis pour obtenir μ_r à la fréquence f (sans pertes) : μ=1−F f²/(f²−f0²)
 function f0forMu(f,mu,F){const denom=1-mu; if(denom<=F)return f*0.3; return f*Math.sqrt(Math.max(0.05,1-F/denom));}
+// dessin de la géométrie de l'anneau (forme, tours, varactor dans la fente)
+function drawSRR(){
+  const shape=document.getElementById('re-shape').value, type=document.getElementById('re-type').value, N=parseInt(document.getElementById('re-n').value);
+  document.getElementById('re-turns-row').style.display=type==='spiral'?'block':'none'; document.getElementById('re-n-b').textContent=N;
+  const cv=document.getElementById('cv-srr'),x=cv.getContext('2d');x.clearRect(0,0,cv.width,cv.height);
+  const W=cv.width,H=cv.height,cx=W/2,cy=H/2,cu="#e0884b",vc="#b48ad8",txt="#8b97a3";
+  x.lineJoin="round";x.lineCap="butt";
+  function ring(R,gapRight){
+    const gA=gapRight?0:Math.PI;
+    if(shape==='circle'){const ga=Math.min(0.55,16/R);
+      x.beginPath();x.arc(cx,cy,R,gA+ga,gA-ga+2*Math.PI);x.stroke();
+      return [[cx+R*Math.cos(gA+ga),cy+R*Math.sin(gA+ga)],[cx+R*Math.cos(gA-ga),cy+R*Math.sin(gA-ga)]];
+    } else {const s=R,g=9;
+      if(gapRight){x.beginPath();x.moveTo(cx+s,cy+g);x.lineTo(cx+s,cy+s);x.lineTo(cx-s,cy+s);x.lineTo(cx-s,cy-s);x.lineTo(cx+s,cy-s);x.lineTo(cx+s,cy-g);x.stroke();return[[cx+s,cy-g],[cx+s,cy+g]];}
+      else {x.beginPath();x.moveTo(cx-s,cy-g);x.lineTo(cx-s,cy-s);x.lineTo(cx+s,cy-s);x.lineTo(cx+s,cy+s);x.lineTo(cx-s,cy+s);x.lineTo(cx-s,cy+g);x.stroke();return[[cx-s,cy-g],[cx-s,cy+g]];}
+    }
+  }
+  function varactor(pads){const p1=pads[0],p2=pads[1],mx=(p1[0]+p2[0])/2,my=(p1[1]+p2[1])/2;
+    const ux=p2[0]-p1[0],uy=p2[1]-p1[1],ul=Math.hypot(ux,uy)||1,dx=ux/ul,dy=uy/ul,nx=-dy,ny=dx,pl=7;
+    x.strokeStyle=vc;x.lineWidth=2;x.beginPath();x.moveTo(p1[0],p1[1]);x.lineTo(mx-dx*3,my-dy*3);x.moveTo(mx+dx*3,my+dy*3);x.lineTo(p2[0],p2[1]);x.stroke();
+    x.beginPath();x.moveTo(mx-dx*3+nx*pl,my-dy*3+ny*pl);x.lineTo(mx-dx*3-nx*pl,my-dy*3-ny*pl);x.moveTo(mx+dx*3+nx*pl,my+dy*3+ny*pl);x.lineTo(mx+dx*3-nx*pl,my+dy*3-ny*pl);x.stroke(); // plaques
+    x.beginPath();x.moveTo(mx+nx*pl*1.3-dx*pl,my+ny*pl*1.3-dy*pl);x.lineTo(mx-nx*pl*1.3+dx*pl,my-ny*pl*1.3+dy*pl);x.stroke(); // flèche variable
+  }
+  const R=Math.min(W,H)*0.36; x.strokeStyle=cu;x.lineWidth=5; let pads;
+  if(type==='single'){pads=ring(R,true);}
+  else if(type==='double'){pads=ring(R,true); x.lineWidth=4; ring(R*0.62,false);}
+  else { pads=ring(R,true); x.lineWidth=3.5; for(let t=1;t<N;t++)ring(R*(1-t/(N+0.6)),true); }
+  varactor(pads);
+  x.fillStyle=vc;x.font="11px sans-serif";x.textAlign="left";x.fillText("varactor",cx+R+10,cy+4);
+  x.fillStyle=txt;x.fillText(T('re.metal'),12,16);
+}
 function realise(){
   const f=parseFloat(document.getElementById('re-f').value), R1=parseFloat(document.getElementById('re-r1').value), R2=Math.max(R1+8,parseFloat(document.getElementById('re-r2').value)), F=parseFloat(document.getElementById('re-ff').value), cr=parseFloat(document.getElementById('re-c').value);
+  drawSRR();
   document.getElementById('re-r1-b').textContent=R1; document.getElementById('re-r2-b').textContent=R2; document.getElementById('re-ff-b').textContent=F.toFixed(2); document.getElementById('re-c-b').textContent="×"+cr.toFixed(2);
   // anneau démo : f0 ∝ 1/√(C/C0), calé à 0.80 f pour C/C0=1
   const f0demo=0.80*f/Math.sqrt(cr), g=0.025*f0demo, muDemo=muEff(f,f0demo,F,g);
   // rayon où ce μ est requis : μ_r(r)=((r−R1)/r)²
   const lam=C0/(f*1e9)*1000; // mm
+  const rtype=document.getElementById('re-type').value, rN=parseInt(document.getElementById('re-n').value);
+  const Lfac=rtype==='single'?1:(rtype==='double'?3:rN*rN); // L relatif (double ~×3, spirale ~N²)
   document.getElementById('re-metrics').innerHTML=
-    met("λ @ f",lam.toFixed(1),"mm")+met(T('re.ring'),(lam/10).toFixed(1),"mm")+met(T('re.mudemo'),muDemo.toFixed(2),"")+met("f₀ "+T('re.demo'),f0demo.toFixed(2),"GHz");
+    met("λ @ f",lam.toFixed(1),"mm")+met(T('re.ring'),(lam/10/Math.sqrt(Lfac)).toFixed(1),"mm")+met(T('re.mudemo'),muDemo.toFixed(2),"")+met("f₀ "+T('re.demo'),f0demo.toFixed(2),"GHz")+met(T('re.lrel'),"×"+Lfac,"");
   // ── courbe μ(ω) ──
   const cv=document.getElementById('cv-mu'),x=cv.getContext('2d');x.clearRect(0,0,cv.width,cv.height);
   const W=cv.width,H=cv.height,mL=42,mR=12,mT=12,mB=26,pw=W-mL-mR,ph=H-mT-mB, wlo=0.5*f, whi=1.6*f, ymin=-2, ymax=3;
@@ -314,7 +356,11 @@ const I18N={
  're.var2':{fr:"<b class='mag'>Le varactor</b> : une diode dont la capacité varie avec la tension. Placée dans la fente de l'anneau, elle décale ω₀ → on <b>règle μ à la demande</b> pour chaque anneau, et on peut <b>retuner</b> toute la cape pour une autre fréquence (cape reconfigurable / moins « bande étroite »).",en:"<b class='mag'>The varactor</b>: a diode whose capacitance varies with voltage. Placed in the ring's gap, it shifts ω₀ → you <b>set μ on demand</b> for each ring, and can <b>retune</b> the whole cloak to another frequency (reconfigurable / less narrow-band)."},
  're.capmu':{fr:"μ_eff(ω) de l'anneau démo ; ● = μ obtenu à f ; le varactor déplace la résonance ω₀",en:"μ_eff(ω) of the demo ring; ● = μ achieved at f; the varactor moves the resonance ω₀"},
  're.caprings':{fr:"La cape : anneaux gradués, colorés par la résonance ω₀ requise (du rouge au bleu selon le rayon)",en:"The cloak: graded rings, coloured by the required resonance ω₀ (red to blue with radius)"},
- 're.ring':{fr:"Taille anneau ~λ/10",en:"Ring size ~λ/10"},'re.mudemo':{fr:"μ obtenu à f",en:"μ achieved at f"},'re.demo':{fr:"(démo)",en:"(demo)"},'re.freq':{fr:"fréquence (GHz)",en:"frequency (GHz)"},
+ 're.ring':{fr:"Taille anneau",en:"Ring size"},'re.mudemo':{fr:"μ obtenu à f",en:"μ achieved at f"},'re.demo':{fr:"(démo)",en:"(demo)"},'re.freq':{fr:"fréquence (GHz)",en:"frequency (GHz)"},
+ 're.shape':{fr:"Forme",en:"Shape"},'re.circle':{fr:"Circulaire",en:"Circular"},'re.square':{fr:"Carré",en:"Square"},
+ 're.type':{fr:"Type",en:"Type"},'re.single':{fr:"Anneau simple fendu",en:"Single split ring"},'re.double':{fr:"Double anneau (Pendry)",en:"Double ring (Pendry)"},'re.spiral':{fr:"Spirale (N tours)",en:"Spiral (N turns)"},
+ 're.turns':{fr:"Nombre de tours N",en:"Number of turns N"},'re.lrel':{fr:"L relatif",en:"Relative L"},'re.metal':{fr:"métal",en:"metal"},
+ 're.capsrr':{fr:"Géométrie de l'anneau : métal (orange), fente, et varactor (violet) dans la fente. Plus de tours / double anneau ⇒ plus d'inductance ⇒ résonance plus basse ⇒ anneau plus compact (sous-longueur d'onde).",en:"Ring geometry: metal (orange), gap, and varactor (purple) in the gap. More turns / double ring ⇒ more inductance ⇒ lower resonance ⇒ more compact (sub-wavelength) ring."},
  'pr.h':{fr:"L'idée : déformer l'espace vu par la lumière",en:"The idea: deform the space light sees"},
  'pr.lead':{fr:"Pendry (2006) a eu une idée magnifique : les équations de Maxwell sont <b>invariantes par changement de coordonnées</b>, à condition de remplacer le changement de géométrie par un <b>milieu</b> ε(r), μ(r) bien choisi. Pour cacher un objet, on « comprime » tout un disque (rayon R₂) dans une <b>couronne</b> (R₁→R₂) : il se crée un <b>trou</b> central (r &lt; R₁) que la lumière ne visite jamais. Tout ce qu'on y met devient invisible — et l'onde ressort comme si rien n'était là.",en:"Pendry (2006) had a beautiful idea: Maxwell's equations are <b>invariant under coordinate change</b>, provided the geometry change is replaced by a well-chosen <b>medium</b> ε(r), μ(r). To hide an object, one \"compresses\" a whole disk (radius R₂) into an <b>annulus</b> (R₁→R₂): a central <b>hole</b> (r &lt; R₁) appears that light never visits. Anything placed there becomes invisible — and the wave re-emerges as if nothing were there."},
  'pr.lead2':{fr:"Le prix à payer : le milieu doit être <b>anisotrope</b> (différent selon la direction radiale/azimutale) et ses paramètres deviennent <b>extrêmes</b> près de R₁ (ε radial → 0, ε azimutal → ∞). On ne sait fabriquer ça qu'avec des <b>métamatériaux</b> (résonateurs sub-longueur d'onde), et seulement sur une <b>bande étroite</b> de fréquence.",en:"The price: the medium must be <b>anisotropic</b> (different radially vs azimuthally) and its parameters become <b>extreme</b> near R₁ (radial ε → 0, azimuthal ε → ∞). This can only be built with <b>metamaterials</b> (sub-wavelength resonators), and only over a <b>narrow</b> frequency band."},
