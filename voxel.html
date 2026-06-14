@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dosimétrie sur fantôme voxel — EMtools</title>
+<style>
+:root{--bg:#0f1419;--panel:#1a2129;--panel2:#222b35;--ink:#e6edf3;--mut:#8b97a3;--acc:#4db6a4;--acc2:#e0884b;--line:#2d3742;--bad:#e05a5a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+header{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+header h1{font-size:19px;margin:0;font-weight:650}
+header .sub{color:var(--mut);font-size:13px}
+.lang{margin-left:auto;display:flex;gap:6px}
+.lang button{background:var(--panel2);color:var(--mut);border:1px solid var(--line);border-radius:7px;padding:5px 11px;cursor:pointer;font-size:13px}
+.lang button.on{background:var(--acc);color:#06231d;border-color:var(--acc);font-weight:650}
+.wrap{max-width:1180px;margin:0 auto;padding:20px 22px 80px}
+.grid{display:grid;grid-template-columns:330px 1fr;gap:20px;align-items:start}
+@media(max-width:860px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 17px;margin-bottom:18px}
+.card h2{font-size:14px;margin:0 0 12px;text-transform:uppercase;letter-spacing:.05em;color:var(--acc)}
+label{display:block;font-size:12.5px;color:var(--mut);margin:11px 0 4px}
+select,input[type=number],input[type=text]{width:100%;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px}
+input[type=range]{width:100%}
+.row{display:flex;gap:10px}.row>*{flex:1}
+button.go{width:100%;margin-top:14px;background:var(--acc);color:#06231d;border:none;border-radius:9px;padding:11px;font-size:15px;font-weight:650;cursor:pointer}
+button.go:hover{filter:brightness(1.08)}
+button.sec{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer}
+.note{font-size:12.5px;color:var(--mut);margin-top:10px}
+.warn{font-size:12.5px;color:var(--acc2);margin-top:8px}
+canvas{max-width:100%;background:#0b0f14;border-radius:8px;display:block}
+.legend{display:flex;flex-wrap:wrap;gap:7px 13px;margin-top:11px;font-size:12px}
+.legend span{display:inline-flex;align-items:center;gap:5px;color:var(--ink)}
+.legend i{width:13px;height:13px;border-radius:3px;display:inline-block}
+.metrics{display:flex;flex-wrap:wrap;gap:10px;margin-top:13px}
+.metric{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 13px;min-width:120px}
+.metric .k{font-size:11.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+.metric .v{font-size:19px;font-weight:680;margin-top:2px}
+.metric .v small{font-size:12px;color:var(--mut);font-weight:400}
+.tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.tabs button{background:var(--panel2);color:var(--mut);border:1px solid var(--line);border-radius:8px;padding:7px 13px;cursor:pointer;font-size:13.5px}
+.tabs button.on{background:var(--acc);color:#06231d;border-color:var(--acc);font-weight:650}
+details{margin-top:14px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px 13px}
+summary{cursor:pointer;font-weight:600;font-size:13.5px;color:var(--acc)}
+details p{font-size:13px;color:var(--ink);margin:9px 0}
+.muted{color:var(--mut)}
+table.props{width:100%;border-collapse:collapse;margin-top:10px;font-size:12.5px}
+table.props th,table.props td{border-bottom:1px solid var(--line);padding:5px 7px;text-align:right}
+table.props th:first-child,table.props td:first-child{text-align:left}
+table.props th{color:var(--mut);font-weight:500}
+a.back{color:var(--acc);text-decoration:none;font-size:13px}
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="index.html">← EMtools</a>
+  <h1 data-i18n="title">Dosimétrie sur fantôme voxel</h1>
+  <span class="sub" data-i18n="sub">SAR (TMM par colonne) + bio-chaleur de Pennes 2D</span>
+  <div class="lang">
+    <button id="lf" class="on" onclick="setLang('fr')">FR</button>
+    <button id="le" onclick="setLang('en')">EN</button>
+  </div>
+</header>
+<div class="wrap">
+<div class="grid">
+
+  <!-- ── COLONNE GAUCHE : contrôles ── -->
+  <div>
+    <div class="card">
+      <h2 data-i18n="h.model">Fantôme</h2>
+      <label data-i18n="l.preset">Modèle</label>
+      <select id="preset" onchange="onPreset()">
+        <option value="torso" data-i18n="o.torso">Tronc — coupe axiale (thorax)</option>
+        <option value="head" data-i18n="o.head">Tête — coupe axiale</option>
+        <option value="file" data-i18n="o.file">Charger un fichier voxel (JSON)…</option>
+      </select>
+      <div id="file-row" style="display:none">
+        <label data-i18n="l.file">Fichier .json (volume d'indices tissulaires)</label>
+        <input type="file" id="voxfile" accept=".json" onchange="loadVoxFile(event)">
+        <div class="row" id="slice-row" style="display:none;margin-top:8px">
+          <div><label data-i18n="l.axis">Axe de coupe</label>
+            <select id="slice-axis" onchange="reslice()"><option value="2">Z</option><option value="1">Y</option><option value="0">X</option></select></div>
+          <div><label><span data-i18n="l.pos">Position</span> <span id="slice-pos-v" class="muted"></span></label>
+            <input type="range" id="slice-pos" min="0" max="0" value="0" oninput="reslice()"></div>
+        </div>
+      </div>
+      <div class="note" id="grid-info"></div>
+      <button class="sec" style="margin-top:10px" onclick="exportVox()" data-i18n="b.export">⤓ Exporter ce fantôme (JSON)</button>
+    </div>
+
+    <div class="card">
+      <h2 data-i18n="h.source">Source EM</h2>
+      <label data-i18n="l.freq">Fréquence</label>
+      <select id="freq" onchange="onFreqSel()">
+        <option value="64e6" data-i18n="f.64">64 MHz — IRM 1,5 T (¹H)</option>
+        <option value="128e6" selected data-i18n="f.128">128 MHz — IRM 3 T (¹H)</option>
+        <option value="298e6" data-i18n="f.298">298 MHz — IRM 7 T (¹H)</option>
+        <option value="900e6" data-i18n="f.900">900 MHz — GSM</option>
+        <option value="2.45e9" data-i18n="f.245">2,45 GHz — Wi-Fi / four</option>
+        <option value="custom" data-i18n="f.custom">Personnalisée…</option>
+      </select>
+      <div id="freq-custom" style="display:none">
+        <label data-i18n="l.freqv">Valeur (Hz)</label>
+        <input type="number" id="freqv" value="128e6" step="1e6">
+      </div>
+      <label data-i18n="l.einc">Champ E incident E<sub>rms</sub> (V/m)</label>
+      <input type="number" id="einc" value="100" step="10">
+      <div class="note" data-i18n="n.inc">Onde plane entrant par le haut (axe +z, propagation vers le bas). SAR = σ·|E|²/ρ (champ efficace).</div>
+      <button class="go" onclick="computeAll()" data-i18n="b.run">▶ Calculer SAR + thermique</button>
+    </div>
+
+    <div class="card">
+      <h2 data-i18n="h.thermal">Thermique (Pennes)</h2>
+      <div class="row">
+        <div><label data-i18n="l.tamb">T<sub>air</sub> (°C)</label><input type="number" id="tamb" value="24" step="1"></div>
+        <div><label data-i18n="l.tblood">T<sub>sang</sub> (°C)</label><input type="number" id="tblood" value="37" step="0.5"></div>
+      </div>
+      <div class="row">
+        <div><label data-i18n="l.hconv">h<sub>conv</sub> (W/m²K)</label><input type="number" id="hconv" value="8" step="1"></div>
+        <div><label data-i18n="l.texp">Durée expo (min)</label><input type="number" id="texp" value="6" step="1"></div>
+      </div>
+      <div class="note" data-i18n="n.thermal">État stationnaire de Pennes hétérogène (conduction k, perfusion, métabolisme). ΔT = T(avec EM) − T(sans EM).</div>
+    </div>
+  </div>
+
+  <!-- ── COLONNE DROITE : sorties ── -->
+  <div>
+    <div class="card">
+      <div class="tabs">
+        <button id="tab-tissue" class="on" onclick="showTab('tissue')" data-i18n="t.tissue">Tissus</button>
+        <button id="tab-prop" onclick="showTab('prop')" data-i18n="t.prop">Propriétés</button>
+        <button id="tab-sar" onclick="showTab('sar')" data-i18n="t.sar">SAR</button>
+        <button id="tab-dt" onclick="showTab('dt')" data-i18n="t.dt">ΔT / CEM43</button>
+        <button id="tab-prof" onclick="showTab('prof')" data-i18n="t.prof">Profil</button>
+      </div>
+
+      <div id="pane-tissue">
+        <canvas id="cv-tissue" width="640" height="440"></canvas>
+        <div class="legend" id="legend"></div>
+        <div class="note" data-i18n="n.tissue">Coupe 2D du fantôme. Chaque couleur = un tissu (propriétés ε<sub>r</sub>, σ, ρ, k, perfusion affectées automatiquement).</div>
+      </div>
+
+      <div id="pane-prop" style="display:none">
+        <label data-i18n="l.propsel">Grandeur cartographiée</label>
+        <select id="propsel" onchange="drawProp()">
+          <option value="sigma" data-i18n="p.sigma">σ — conductivité effective (S/m)</option>
+          <option value="eps" data-i18n="p.eps">ε_r — permittivité relative</option>
+          <option value="rho" data-i18n="p.rho">ρ — masse volumique (kg/m³)</option>
+          <option value="k" data-i18n="p.k">k — conductivité thermique (W/m/K)</option>
+        </select>
+        <canvas id="cv-prop" width="640" height="440" style="margin-top:10px"></canvas>
+        <div class="note" id="prop-note"></div>
+        <table class="props" id="prop-table"></table>
+      </div>
+
+      <div id="pane-sar" style="display:none">
+        <canvas id="cv-sar" width="640" height="440"></canvas>
+        <div class="metrics" id="sar-metrics"></div>
+        <div class="note" data-i18n="n.sar">SAR local (W/kg). Moteur : pour chaque colonne (axe de propagation), l'empilement de voxels est résolu par <b>TMM analytique exacte 1D</b> (réutilise le solveur multicouche). Approximation : couplage latéral négligé.</div>
+      </div>
+
+      <div id="pane-dt" style="display:none">
+        <canvas id="cv-dt" width="640" height="440"></canvas>
+        <div class="metrics" id="dt-metrics"></div>
+        <div class="note" data-i18n="n.dt">Échauffement ΔT (°C) à l'équilibre. La perfusion verrouille le cœur près de T<sub>sang</sub> ; la convection refroidit la surface.</div>
+        <details><summary data-i18n="cem.sum">Comprendre le CEM43</summary>
+          <p data-i18n="cem.p1"><b>CEM43</b> = minutes équivalentes à 43 °C = ∫ R<sup>(43−T)</sup> dt, avec R = 0,25 si T &lt; 43 °C et R = 0,5 si T ≥ 43 °C (Sapareto-Dewey). C'est la dose thermique : elle convertit n'importe quel historique température-temps en une durée équivalente à 43 °C.</p>
+          <p data-i18n="cem.p2">Seuils de dommage : ~<b>2 min</b> (cerveau, seuil de prudence), ~<b>40 min</b> (muscle/peau). Aux niveaux RF usuels l'échauffement est faible → CEM43 ≪ seuil. Ici on l'évalue à l'état stationnaire (T constante pendant la durée d'exposition).</p>
+        </details>
+      </div>
+
+      <div id="pane-prof" style="display:none">
+        <canvas id="cv-prof" width="640" height="380"></canvas>
+        <div class="note" data-i18n="n.prof">Profil SAR(profondeur) le long de la colonne centrale. Les marches/sauts aux interfaces (graisse→muscle, etc.) sont la <b>signature de la stratification</b> que la TMM résout exactement — là où une grille voxel grossière lisse tout.</div>
+      </div>
+    </div>
+
+    <details>
+      <summary data-i18n="about.sum">À propos — modèles voxel & licences</summary>
+      <p data-i18n="about.p1">Les fantômes <b>Tronc</b> et <b>Tête</b> sont procéduraux (générés, sans licence). Pour charger un <b>vrai modèle voxel</b> : le format JSON attendu est <code>{nx,ny,nz,dx,dy,dz,labels:{"1":"Muscle",…},data:[…]}</code> (indices, z d'abord). Convertissez un modèle libre (<b>AustinMan/AustinWoman</b>, <b>Zubal</b>) vers ce format. ⚠ Les modèles <b>Virtual Population</b> (Duke, Ella) ne sont pas libres — ne les redistribuez pas.</p>
+      <p class="muted" data-i18n="about.p2">Limite physique : le moteur SAR est une approximation 1D par colonne (TMM exacte par empilement, couplage transverse négligé). Pour des cartes 2D hétérogènes rigoureuses → extension FDTD 2D prévue.</p>
+    </details>
+  </div>
+
+</div>
+</div>
+
+<script>
+// ════════════════════════════ CONSTANTES & COMPLEXES ════════════════════════════
+const EPS0=8.854e-12, MU0=4*Math.PI*1e-7;
+function cadd(a,b){return{re:a.re+b.re,im:a.im+b.im};}
+function csub(a,b){return{re:a.re-b.re,im:a.im-b.im};}
+function cmul(a,b){return{re:a.re*b.re-a.im*b.im,im:a.re*b.im+a.im*b.re};}
+function cdiv(a,b){const d=b.re*b.re+b.im*b.im;return{re:(a.re*b.re+a.im*b.im)/d,im:(a.im*b.re-a.re*b.im)/d};}
+function cabs(a){return Math.sqrt(a.re*a.re+a.im*a.im);}
+function csqrt(a){const r=cabs(a),ang=Math.atan2(a.im,a.re)/2;return{re:Math.sqrt(r)*Math.cos(ang),im:Math.sqrt(r)*Math.sin(ang)};}
+function cexp(a){const e=Math.exp(a.re);return{re:e*Math.cos(a.im),im:e*Math.sin(a.im)};}
+
+// ════════════════════════════ TISSUS (Cole-Cole, Gabriel/IT'IS) ════════════════════════════
+const TISSUES={
+"Air":{density:1.164,ef:1.0,sig:0.0,disp:[]},
+"Skin":{density:1109.0,ef:4.0,sig:0.0002,disp:[{del:32.0,tau:7.234e-12,alf:0.0},{del:1100.0,tau:3.2481e-08,alf:0.2},{del:0.0,tau:0.000159155,alf:0.2},{del:0.0,tau:0.015915,alf:0.2}]},
+"Fat":{density:911.0,ef:2.5,sig:0.035,disp:[{del:9.0,tau:7.958e-12,alf:0.2},{del:35.0,tau:1.5915e-08,alf:0.1},{del:33000.0,tau:0.000159155,alf:0.05},{del:10000000.0,tau:0.015915,alf:0.01}]},
+"Muscle":{density:1090.4,ef:4.0,sig:0.2,disp:[{del:50.0,tau:7.234e-12,alf:0.1},{del:7000.0,tau:3.53678e-07,alf:0.1},{del:1200000.0,tau:0.00031831,alf:0.1},{del:25000000.0,tau:0.002274,alf:0.0}]},
+"Bone (Cortical)":{density:1908.0,ef:2.5,sig:0.02,disp:[{del:10.0,tau:1.3263e-11,alf:0.2},{del:180.0,tau:7.9577e-08,alf:0.2},{del:5000.0,tau:0.000159155,alf:0.2},{del:100000.0,tau:0.015915,alf:0.0}]},
+"Bone (Cancellous)":{density:1178.3,ef:2.5,sig:0.07,disp:[{del:18.0,tau:1.3263e-11,alf:0.22},{del:300.0,tau:7.9577e-08,alf:0.25},{del:20000.0,tau:0.000159155,alf:0.2},{del:20000000.0,tau:0.015915,alf:0.0}]},
+"Blood":{density:1049.75,ef:4.0,sig:0.7,disp:[{del:56.0,tau:8.377e-12,alf:0.1},{del:5200.0,tau:1.32629e-07,alf:0.1},{del:0.0,tau:0.000159155,alf:0.2},{del:0.0,tau:0.015915,alf:0.0}]},
+"Liver":{density:1078.75,ef:4.0,sig:0.02,disp:[{del:39.0,tau:8.842e-12,alf:0.1},{del:6000.0,tau:5.30516e-07,alf:0.2},{del:50000.0,tau:2.2736e-05,alf:0.2},{del:30000000.0,tau:0.015915,alf:0.05}]},
+"Lung (Inflated)":{density:394.0,ef:2.5,sig:0.03,disp:[{del:18.0,tau:7.958e-12,alf:0.1},{del:500.0,tau:6.3662e-08,alf:0.1},{del:250000.0,tau:0.000159155,alf:0.2},{del:40000000.0,tau:0.007958,alf:0.0}]},
+"Heart Muscle":{density:1080.8,ef:4.0,sig:0.05,disp:[{del:50.0,tau:7.958e-12,alf:0.1},{del:1200.0,tau:1.59155e-07,alf:0.05},{del:450000.0,tau:7.2343e-05,alf:0.22},{del:25000000.0,tau:0.004547,alf:0.0}]},
+"Kidney":{density:1066.25,ef:4.0,sig:0.05,disp:[{del:47.0,tau:7.958e-12,alf:0.1},{del:3500.0,tau:1.98944e-07,alf:0.22},{del:250000.0,tau:7.9577e-05,alf:0.22},{del:30000000.0,tau:0.004547,alf:0.0}]},
+"Stomach":{density:1088.0,ef:4.0,sig:0.5,disp:[{del:60.0,tau:7.958e-12,alf:0.1},{del:2000.0,tau:7.9577e-08,alf:0.1},{del:100000.0,tau:0.000159155,alf:0.2},{del:40000000.0,tau:0.015915,alf:0.0}]},
+"Small Intestine":{density:1030.0,ef:4.0,sig:0.5,disp:[{del:50.0,tau:7.958e-12,alf:0.1},{del:10000.0,tau:1.59155e-07,alf:0.1},{del:500000.0,tau:0.000159155,alf:0.2},{del:40000000.0,tau:0.015915,alf:0.0}]},
+"Spleen":{density:1089.0,ef:4.0,sig:0.03,disp:[{del:48.0,tau:7.958e-12,alf:0.1},{del:2500.0,tau:6.3662e-08,alf:0.15},{del:200000.0,tau:0.000265258,alf:0.25},{del:50000000.0,tau:0.006366,alf:0.0}]},
+"Pancreas":{density:1086.5,ef:4.0,sig:0.5,disp:[{del:55.0,tau:7.958e-12,alf:0.1},{del:2500.0,tau:1.59155e-07,alf:0.1},{del:100000.0,tau:0.000159155,alf:0.2},{del:40000000.0,tau:0.015915,alf:0.0}]},
+"Spinal Cord":{density:1075.0,ef:4.0,sig:0.006,disp:[{del:26.0,tau:7.958e-12,alf:0.1},{del:500.0,tau:1.06103e-07,alf:0.15},{del:70000.0,tau:1.5915e-05,alf:0.2},{del:40000000.0,tau:0.015915,alf:0.0}]},
+"Brain":{density:1045.5,ef:4.0,sig:0.04,disp:[{del:40.0,tau:7.958e-12,alf:0.1},{del:700.0,tau:1.5915e-08,alf:0.15},{del:200000.0,tau:0.000106103,alf:0.22},{del:45000000.0,tau:0.005305,alf:0.0}]},
+"Cartilage":{density:1099.5,ef:4.0,sig:0.15,disp:[{del:38.0,tau:1.3263e-11,alf:0.15},{del:2500.0,tau:1.44686e-07,alf:0.15},{del:100000.0,tau:0.00031831,alf:0.1},{del:40000000.0,tau:0.015915,alf:0.0}]},
+"Cerebrospinal Fluid":{density:1007.0,ef:4.0,sig:2.0,disp:[{del:65.0,tau:7.958e-12,alf:0.1},{del:40.0,tau:1.592e-09,alf:0.0},{del:0.0,tau:0.000159155,alf:0.0},{del:0.0,tau:0.015915,alf:0.0}]}
+};
+// Propriétés thermiques (IT'IS) : k W/m/K, c J/kg/K, perf ml/min/kg, Qm W/m³, couleur d'affichage
+const THERM={
+"Air":{k:0.026,c:1006,perf:0,Qm:0,col:"#0b0f14"},
+"Skin":{k:0.37,c:3391,perf:106,Qm:1620,col:"#e8b48a"},
+"Fat":{k:0.21,c:2348,perf:33,Qm:465,col:"#f1d97a"},
+"Muscle":{k:0.49,c:3421,perf:37,Qm:992,col:"#c0584f"},
+"Bone (Cortical)":{k:0.32,c:1313,perf:10,Qm:26,col:"#eef0f2"},
+"Bone (Cancellous)":{k:0.31,c:2274,perf:30,Qm:49,col:"#c9cdd2"},
+"Blood":{k:0.52,c:3617,perf:0,Qm:0,col:"#8a1c22"},
+"Liver":{k:0.52,c:3540,perf:860,Qm:11600,col:"#7a3b3b"},
+"Lung (Inflated)":{k:0.39,c:3886,perf:340,Qm:600,col:"#9aa7c9"},
+"Heart Muscle":{k:0.56,c:3686,perf:1026,Qm:9711,col:"#a83a4a"},
+"Kidney":{k:0.53,c:3763,perf:3700,Qm:27000,col:"#8c5a6e"},
+"Stomach":{k:0.53,c:3500,perf:300,Qm:4000,col:"#b98a64"},
+"Small Intestine":{k:0.56,c:3595,perf:1000,Qm:7900,col:"#caa06a"},
+"Spleen":{k:0.54,c:3596,perf:1200,Qm:8000,col:"#6e3a52"},
+"Pancreas":{k:0.51,c:3164,perf:600,Qm:8000,col:"#caa86a"},
+"Spinal Cord":{k:0.51,c:3630,perf:160,Qm:4000,col:"#e0d28a"},
+"Brain":{k:0.51,c:3630,perf:560,Qm:11600,col:"#b9b0c8"},
+"Cartilage":{k:0.49,c:3568,perf:35,Qm:490,col:"#bcc7cf"},
+"Cerebrospinal Fluid":{k:0.57,c:4096,perf:0,Qm:0,col:"#6fb6d6"}
+};
+const RHO_B=1050, C_B=3617; // sang
+
+// ════════════════════════════ DIÉLECTRIQUE & TMM (repris de dosimetrie.html) ════════════════════════════
+function coleCole(f,t){
+  const w=2*Math.PI*f; let re=t.ef,im=0;
+  for(const d of t.disp){ if(!d.del||!d.tau)continue;
+    const wt=w*d.tau,alpha=1-d.alf,mag=Math.pow(wt,alpha),ang=alpha*Math.PI/2;
+    const pr=mag*Math.cos(ang),pi_=mag*Math.sin(ang),D=(1+pr)*(1+pr)+pi_*pi_;
+    re+=d.del*(1+pr)/D; im-=d.del*pi_/D; }
+  im-=t.sig/(w*EPS0); return{re,im};
+}
+function layerParams(f,tname){
+  const t=TISSUES[tname]||TISSUES["Muscle"], w=2*Math.PI*f, eps=coleCole(f,t);
+  const karg={re:w*w*MU0*EPS0*eps.re,im:w*w*MU0*EPS0*eps.im};
+  let k=csqrt(karg); if(k.im>0)k={re:k.re,im:-k.im};
+  const eta=cdiv({re:w*MU0,im:0},k);
+  const sigmaEff=-eps.im*w*EPS0;
+  return{k,eta,eps,sigma:t.sig||0,sigmaEff,rho:t.density||1000};
+}
+// TMM exacte : amplitudes A/B par couche, dernière couche semi-infinie. Renvoie SAR(z) échantillonné Npts.
+function runTMM(f,E0,layerDefs,Npts){
+  Npts=Npts||500;
+  const lp=layerDefs.map(l=>({...layerParams(f,l.t),d:l.d/1000}));
+  const totalD=lp.reduce((s,l)=>s+l.d,0); if(totalD<=0)return null;
+  const zB=[0]; for(const l of lp)zB.push(zB[zB.length-1]+l.d);
+  const eta0={re:377,im:0}, k0={re:2*Math.PI*f*Math.sqrt(MU0*EPS0),im:0};
+  const regions=[{eta:eta0,k:k0,d:0}].concat(lp.map(l=>({eta:l.eta,k:l.k,d:l.d})));
+  const M=lp.length, C1={re:1,im:0},CZ={re:0,im:0},HALF={re:0.5,im:0};
+  const mat2=(A,B)=>[[cadd(cmul(A[0][0],B[0][0]),cmul(A[0][1],B[1][0])),cadd(cmul(A[0][0],B[0][1]),cmul(A[0][1],B[1][1]))],[cadd(cmul(A[1][0],B[0][0]),cmul(A[1][1],B[1][0])),cadd(cmul(A[1][0],B[0][1]),cmul(A[1][1],B[1][1]))]];
+  const ifaceD=i=>{const r=cdiv(regions[i+1].eta,regions[i].eta);return[[cmul(HALF,cadd(C1,r)),cmul(HALF,csub(C1,r))],[cmul(HALF,csub(C1,r)),cmul(HALF,cadd(C1,r))]];};
+  const propP=i=>{const arg=cmul(regions[i].k,{re:regions[i].d,im:0});return[[cexp(cmul({re:0,im:-1},arg)),CZ],[CZ,cexp(cmul({re:0,im:1},arg))]];};
+  let T=[[C1,CZ],[CZ,C1]];
+  for(let i=0;i<M;i++)T=mat2(ifaceD(i),mat2(propP(i),T));
+  const A0={re:E0,im:0}, B0=cmul({re:-1,im:0},cdiv(cmul(T[1][0],A0),T[1][1]));
+  const amps=[{A:A0,B:B0}]; let cur=[A0,B0];
+  for(let i=0;i<M;i++){const D=ifaceD(i),P=propP(i);
+    const u=cadd(cmul(P[0][0],cur[0]),cmul(P[0][1],cur[1])), v=cadd(cmul(P[1][0],cur[0]),cmul(P[1][1],cur[1]));
+    const A=cadd(cmul(D[0][0],u),cmul(D[0][1],v)), B=cadd(cmul(D[1][0],u),cmul(D[1][1],v));
+    cur=[A,B]; amps.push({A,B});}
+  const zArr=new Float64Array(Npts), sarArr=new Float64Array(Npts);
+  for(let i=0;i<Npts;i++){
+    const z=totalD*i/(Npts-1); zArr[i]=z*1000;
+    let li=lp.length-1; for(let ii=0;ii<lp.length;ii++){if(z<=zB[ii+1]+1e-10){li=ii;break;}}
+    const zl=z-zB[li], a=amps[li+1], k=lp[li].k;
+    const ef=cexp(cmul({re:0,im:-1},cmul(k,{re:zl,im:0}))), eb=cexp(cmul({re:0,im:1},cmul(k,{re:zl,im:0})));
+    const Eabs=cabs(cadd(cmul(a.A,ef),cmul(a.B,eb)));
+    sarArr[i]=lp[li].sigmaEff*Eabs*Eabs/lp[li].rho;
+  }
+  return{zArr,sarArr,totalD:totalD*1000};
+}
+
+// ════════════════════════════ FANTÔMES PROCÉDURAUX ════════════════════════════
+// G = {nx, nz, h(mm), t:Int16Array(nx*nz), names:[...], propAxisLabel}
+let G=null, SAR=null, DT=null, TFULL=null, lastMeta={};
+const idx=(i,j)=>i*G.nz+j; // i=x (largeur), j=z (profondeur, propagation)
+
+function buildTorso(){
+  const h=3, nx=120, nz=80; const t=new Int16Array(nx*nz);
+  const names=["Air","Skin","Fat","Muscle","Bone (Cortical)","Spinal Cord","Lung (Inflated)","Heart Muscle"];
+  const NI=Object.fromEntries(names.map((n,k)=>[n,k]));
+  const cx=180, cz=120, a=165, b=108; // mm (ellipse corps)
+  for(let i=0;i<nx;i++)for(let j=0;j<nz;j++){
+    const x=(i+0.5)*h, z=(j+0.5)*h;
+    const r=Math.sqrt(((x-cx)/a)**2+((z-cz)/b)**2);
+    let v=NI["Air"];
+    if(r<=1.0){
+      if(r>0.978)v=NI["Skin"];
+      else if(r>0.855)v=NI["Fat"];
+      else if(r>0.74)v=NI["Muscle"];
+      else v=NI["Muscle"];
+      // organes (si dans la cavité)
+      if(r<0.8){
+        const inEll=(ex,ez,ax,az)=>(((x-ex)/ax)**2+((z-ez)/az)**2)<1;
+        if(inEll(120,108,38,52)||inEll(240,108,38,52))v=NI["Lung (Inflated)"];
+        if(inEll(180,150,33,30))v=NI["Heart Muscle"];
+        const rs=Math.sqrt((x-180)**2+(z-182)**2);
+        if(rs<15)v=NI["Bone (Cortical)"];
+        if(rs<5)v=NI["Spinal Cord"];
+      }
+    }
+    t[i*nz+j]=v;
+  }
+  G={nx,nz,h,t,names}; lastMeta={label:"Tronc (thorax)"};
+}
+function buildHead(){
+  const h=2.5, nx=92, nz=92; const t=new Int16Array(nx*nz);
+  const names=["Air","Skin","Bone (Cortical)","Cerebrospinal Fluid","Brain"];
+  const NI=Object.fromEntries(names.map((n,k)=>[n,k]));
+  const cx=115, cz=115; // mm
+  for(let i=0;i<nx;i++)for(let j=0;j<nz;j++){
+    const x=(i+0.5)*h, z=(j+0.5)*h, R=Math.sqrt((x-cx)**2+(z-cz)**2);
+    let v=NI["Air"];
+    if(R<=92){
+      if(R>89)v=NI["Skin"];
+      else if(R>81)v=NI["Bone (Cortical)"];
+      else if(R>77)v=NI["Cerebrospinal Fluid"];
+      else v=NI["Brain"];
+    }
+    t[i*nz+j]=v;
+  }
+  G={nx,nz,h,t,names}; lastMeta={label:"Tête"};
+}
+
+// ════════════════════════════ FICHIER VOXEL (JSON) ════════════════════════════
+let VOL=null; // {nx,ny,nz,dx,dy,dz,labels,data}
+function loadVoxFile(ev){
+  const f=ev.target.files[0]; if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>{ try{
+    const o=JSON.parse(rd.result);
+    if(!o.nx||!o.data){alert("JSON invalide : il faut nx,ny,nz,data.");return;}
+    VOL=o; document.getElementById('slice-row').style.display='flex';
+    const ax=+document.getElementById('slice-axis').value;
+    const dim=[o.nx,o.ny,o.nz][ax];
+    const sl=document.getElementById('slice-pos'); sl.max=dim-1; sl.value=Math.floor(dim/2);
+    reslice();
+  }catch(e){alert("Lecture JSON : "+e.message);} };
+  rd.readAsText(f);
+}
+function reslice(){
+  if(!VOL)return;
+  const ax=+document.getElementById('slice-axis').value;
+  const dims=[VOL.nx,VOL.ny,VOL.nz], sp=[VOL.dx||1,VOL.dy||1,VOL.dz||1];
+  const pos=Math.min(+document.getElementById('slice-pos').value,dims[ax]-1);
+  document.getElementById('slice-pos-v').textContent=pos+" / "+(dims[ax]-1);
+  // axes de la coupe : on garde les 2 autres ; le 2e devient la profondeur z
+  const others=[0,1,2].filter(k=>k!==ax);
+  const nx=dims[others[0]], nz=dims[others[1]], h=sp[others[1]];
+  const get=(a,b,c)=>VOL.data[(c*VOL.ny+b)*VOL.nx+a];
+  const names=["Air"]; const nameIdx={"Air":0}; const t=new Int16Array(nx*nz); const warn=new Set();
+  for(let i=0;i<nx;i++)for(let j=0;j<nz;j++){
+    const c=[0,0,0]; c[ax]=pos; c[others[0]]=i; c[others[1]]=j;
+    const lbl=VOL.labels?VOL.labels[get(c[0],c[1],c[2])]:null;
+    let nm=lbl&&TISSUES[lbl]?lbl:(get(c[0],c[1],c[2])===0?"Air":null);
+    if(nm===null){ if(lbl&&!TISSUES[lbl])warn.add(lbl); nm=lbl?"Muscle":"Air"; }
+    if(!(nm in nameIdx)){nameIdx[nm]=names.length;names.push(nm);}
+    t[i*nz+j]=nameIdx[nm];
+  }
+  G={nx,nz,h,t,names}; lastMeta={label:"Fichier "+(["X","Y","Z"][ax])+"="+pos};
+  if(warn.size)document.getElementById('grid-info').innerHTML+='<br><span class="warn">Tissus inconnus → Muscle : '+[...warn].slice(0,6).join(", ")+'</span>';
+  afterBuild();
+}
+function exportVox(){
+  if(!G)return;
+  const labels={}; G.names.forEach((n,k)=>labels[k]=n);
+  const data=new Array(G.nx*1*G.nz);
+  for(let j=0;j<G.nz;j++)for(let i=0;i<G.nx;i++)data[(j*1+0)*G.nx+i]=G.t[idx(i,j)];
+  const o={nx:G.nx,ny:1,nz:G.nz,dx:G.h,dy:G.h,dz:G.h,labels,data};
+  const blob=new Blob([JSON.stringify(o)],{type:"application/json"});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download="fantome_voxel.json"; a.click();
+}
+
+// ════════════════════════════ CALCUL SAR (TMM par colonne) ════════════════════════════
+function computeSAR(){
+  const f=getFreq(), E0=parseFloat(document.getElementById('einc').value)||100;
+  SAR=new Float32Array(G.nx*G.nz); let smax=0, sumW=0, sumWS=0;
+  for(let i=0;i<G.nx;i++){
+    // empilement de la colonne : runs de tissus consécutifs
+    const layers=[]; let cur=G.t[idx(i,0)], len=1;
+    for(let j=1;j<G.nz;j++){const v=G.t[idx(i,j)]; if(v===cur)len++; else{layers.push({t:G.names[cur],d:len*G.h});cur=v;len=1;}}
+    layers.push({t:G.names[cur],d:len*G.h});
+    const allAir=layers.every(l=>l.t==="Air"); if(allAir)continue;
+    const res=runTMM(f,E0,layers,400); if(!res)continue;
+    // échantillonne SAR au centre de chaque voxel
+    for(let j=0;j<G.nz;j++){
+      const zmm=(j+0.5)*G.h, fp=zmm/res.totalD*(res.zArr.length-1);
+      const k0=Math.max(0,Math.min(res.zArr.length-2,Math.floor(fp))), fr=fp-k0;
+      const s=res.sarArr[k0]*(1-fr)+res.sarArr[k0+1]*fr;
+      SAR[idx(i,j)]=s;
+      const nm=G.names[G.t[idx(i,j)]];
+      if(nm!=="Air"){ if(s>smax)smax=s; const m=THERM[nm].perf>=0?1:1; sumW+=1; sumWS+=s; }
+    }
+  }
+  lastMeta.sarMax=smax; lastMeta.sarAvg=sumW?sumWS/sumW:0;
+}
+
+// ════════════════════════════ THERMIQUE PENNES 2D (stationnaire, hétérogène) ════════════════════════════
+function pennesSteady(withSAR){
+  const hm=G.h/1000, h2=hm*hm;
+  const hconv=parseFloat(document.getElementById('hconv').value)||8;
+  const Tamb=parseFloat(document.getElementById('tamb').value)||24;
+  const Tb=parseFloat(document.getElementById('tblood').value)||37;
+  const N=G.nx*G.nz;
+  const kA=new Float64Array(N), Hb=new Float64Array(N), Src=new Float64Array(N), air=new Uint8Array(N);
+  for(let i=0;i<G.nx;i++)for(let j=0;j<G.nz;j++){
+    const p=idx(i,j), nm=G.names[G.t[p]], th=THERM[nm], rho=TISSUES[nm].density;
+    kA[p]=th.k;
+    if(nm==="Air"){air[p]=1;Hb[p]=0;Src[p]=0;continue;}
+    const wb=th.perf*rho/6e7;            // 1/s  (ml/min/kg → m³/s/m³)
+    Hb[p]=wb*RHO_B*C_B;                  // W/m³/K
+    Src[p]=th.Qm + (withSAR?rho*SAR[p]:0); // W/m³
+  }
+  const T=new Float64Array(N).fill(Tb);
+  for(let p=0;p<N;p++)if(air[p])T[p]=Tamb;
+  const kf=(a,b)=>{const ka=kA[a],kb=kA[b];return ka+kb>0?2*ka*kb/(ka+kb):0;};
+  for(let it=0;it<1400;it++){
+    let dmax=0;
+    for(let i=0;i<G.nx;i++)for(let j=0;j<G.nz;j++){
+      const p=idx(i,j); if(air[p])continue;
+      let num=Hb[p]*Tb+Src[p], den=Hb[p];
+      const nbs=[[i-1,j],[i+1,j],[i,j-1],[i,j+1]];
+      for(const [ni,nj] of nbs){
+        if(ni<0||nj<0||ni>=G.nx||nj>=G.nz){ // bord externe = convection vers l'air
+          num+=hconv/hm*Tamb; den+=hconv/hm; continue; }
+        const q=idx(ni,nj);
+        if(air[q]){ num+=hconv/hm*Tamb; den+=hconv/hm; }     // face peau↔air : convection
+        else { const c=kf(p,q)/h2; num+=c*T[q]; den+=c; }
+      }
+      const nv=num/den, d=Math.abs(nv-T[p]); if(d>dmax)dmax=d; T[p]=nv;
+    }
+    if(dmax<1e-5)break;
+  }
+  return T;
+}
+function computeThermal(){
+  TFULL=pennesSteady(true);
+  const base=pennesSteady(false);
+  DT=new Float32Array(G.nx*G.nz);
+  let dtmax=0, tmax=-1e9, cem=0;
+  const texp=parseFloat(document.getElementById('texp').value)||6;
+  for(let p=0;p<G.nx*G.nz;p++){
+    if(G.names[G.t[p]]==="Air"){DT[p]=0;continue;}
+    DT[p]=TFULL[p]-base[p];
+    if(DT[p]>dtmax)dtmax=DT[p];
+    if(TFULL[p]>tmax)tmax=TFULL[p];
+  }
+  // CEM43 au point chaud (T constante pendant texp minutes)
+  const R=tmax<43?0.25:0.5; cem=texp*Math.pow(R,43-tmax);
+  lastMeta.dtMax=dtmax; lastMeta.tMax=tmax; lastMeta.cem=cem;
+}
+
+// ════════════════════════════ RENDU ════════════════════════════
+function jet(t){ t=Math.max(0,Math.min(1,t));
+  const r=Math.max(0,Math.min(1,1.5-Math.abs(4*t-3))), g=Math.max(0,Math.min(1,1.5-Math.abs(4*t-2))), b=Math.max(0,Math.min(1,1.5-Math.abs(4*t-1)));
+  return[Math.round(255*r),Math.round(255*g),Math.round(255*b)];
+}
+function fitCell(cv){const pad=cv===null?0:0; const availW=cv.width-70, availH=cv.height-30; return Math.min(availW/G.nx, availH/G.nz);}
+function drawTissue(){
+  const cv=document.getElementById('cv-tissue'), x=cv.getContext('2d'); x.clearRect(0,0,cv.width,cv.height);
+  const cell=fitCell(cv), ox=10, oy=12;
+  for(let i=0;i<G.nx;i++)for(let j=0;j<G.nz;j++){
+    x.fillStyle=THERM[G.names[G.t[idx(i,j)]]].col;
+    x.fillRect(ox+i*cell, oy+j*cell, Math.ceil(cell), Math.ceil(cell));
+  }
+  // flèche incidence
+  x.strokeStyle="#4db6a4"; x.fillStyle="#4db6a4"; x.lineWidth=2;
+  const ax=ox+G.nx*cell+18; x.beginPath(); x.moveTo(ax,oy+6); x.lineTo(ax,oy+40); x.stroke();
+  x.beginPath(); x.moveTo(ax-4,oy+34); x.lineTo(ax,oy+42); x.lineTo(ax+4,oy+34); x.fill();
+  x.font="11px sans-serif"; x.fillText("E", ax+6, oy+24);
+  // légende
+  const present=[...new Set(G.t)].map(v=>G.names[v]);
+  document.getElementById('legend').innerHTML=present.map(n=>`<span><i style="background:${THERM[n].col}"></i>${TL(n)}</span>`).join('');
+}
+function drawField(cvId,F,opt){
+  const cv=document.getElementById(cvId), x=cv.getContext('2d'); x.clearRect(0,0,cv.width,cv.height);
+  const cell=fitCell(cv), ox=10, oy=12;
+  let vmax=opt.vmax, vmin=opt.vmin||0;
+  if(vmax===undefined){vmax=0; for(let p=0;p<F.length;p++)if(F[p]>vmax)vmax=F[p];}
+  if(vmax<=vmin)vmax=vmin+1e-9;
+  for(let i=0;i<G.nx;i++)for(let j=0;j<G.nz;j++){
+    const nm=G.names[G.t[idx(i,j)]];
+    if(nm==="Air"&&!opt.showAir){x.fillStyle="#0b0f14";}
+    else{const c=jet((F[idx(i,j)]-vmin)/(vmax-vmin)); x.fillStyle=`rgb(${c[0]},${c[1]},${c[2]})`;}
+    x.fillRect(ox+i*cell, oy+j*cell, Math.ceil(cell), Math.ceil(cell));
+  }
+  // colorbar
+  const bx=ox+G.nx*cell+16, by=oy, bw=14, bh=G.nz*cell;
+  for(let s=0;s<bh;s++){const c=jet(1-s/bh); x.fillStyle=`rgb(${c[0]},${c[1]},${c[2]})`; x.fillRect(bx,by+s,bw,1);}
+  x.fillStyle="#e6edf3"; x.font="11px sans-serif"; x.textAlign="left";
+  x.fillText(opt.fmt(vmax), bx+bw+4, by+9);
+  x.fillText(opt.fmt((vmax+vmin)/2), bx+bw+4, by+bh/2+3);
+  x.fillText(opt.fmt(vmin), bx+bw+4, by+bh-2);
+  if(opt.unit){x.fillText(opt.unit, bx-2, by+bh+16);}
+}
+
+// propriété diélectrique/thermique par voxel
+function propValue(kind,f){
+  const out=new Float32Array(G.nx*G.nz);
+  const cache={};
+  for(let p=0;p<out.length;p++){
+    const nm=G.names[G.t[p]];
+    if(!cache[nm]){const lp=layerParams(f,nm); cache[nm]={sigma:lp.sigmaEff,eps:lp.eps.re,rho:TISSUES[nm].density,k:THERM[nm].k};}
+    out[p]=cache[nm][kind];
+  }
+  return out;
+}
+function drawProp(){
+  const f=getFreq(), kind=document.getElementById('propsel').value, F=propValue(kind,f);
+  const units={sigma:"S/m",eps:"ε_r",rho:"kg/m³",k:"W/m/K"};
+  drawField('cv-prop',F,{showAir:false,fmt:v=>v>=100?v.toFixed(0):v.toFixed(2),unit:units[kind]});
+  document.getElementById('prop-note').textContent=`@ ${fmtF(f)} — valeur par tissu (Cole-Cole pour σ,ε_r).`;
+  // tableau
+  const present=[...new Set(G.t)].map(v=>G.names[v]).filter(n=>n!=="Air");
+  let html='<tr><th data-i18n="th.tis">Tissu</th><th>ε_r</th><th>σ (S/m)</th><th>ρ</th><th>k</th><th>perf</th></tr>';
+  for(const n of present){const lp=layerParams(f,n);
+    html+=`<tr><td>${TL(n)}</td><td>${lp.eps.re.toFixed(1)}</td><td>${lp.sigmaEff.toFixed(3)}</td><td>${TISSUES[n].density.toFixed(0)}</td><td>${THERM[n].k.toFixed(2)}</td><td>${THERM[n].perf}</td></tr>`;}
+  document.getElementById('prop-table').innerHTML=html;
+}
+function drawSARmap(){
+  drawField('cv-sar',SAR,{showAir:false,fmt:v=>v>=10?v.toFixed(1):v.toFixed(2),unit:"W/kg"});
+  document.getElementById('sar-metrics').innerHTML=
+    metric(L('m.sarmax'),lastMeta.sarMax.toFixed(2),"W/kg")+
+    metric(L('m.saravg'),lastMeta.sarAvg.toFixed(3),"W/kg")+
+    metric(L('m.freq'),fmtFshort(getFreq()),"");
+}
+function drawDTmap(){
+  drawField('cv-dt',DT,{showAir:false,fmt:v=>v.toFixed(2),unit:"ΔT °C"});
+  const cemStr=lastMeta.cem<0.01?lastMeta.cem.toExponential(1):lastMeta.cem.toFixed(2);
+  document.getElementById('dt-metrics').innerHTML=
+    metric(L('m.dtmax'),lastMeta.dtMax.toFixed(2),"°C")+
+    metric(L('m.tmax'),lastMeta.tMax.toFixed(1),"°C")+
+    metric("CEM43",cemStr,"min");
+}
+function drawProfile(){
+  const cv=document.getElementById('cv-prof'), x=cv.getContext('2d'); x.clearRect(0,0,cv.width,cv.height);
+  const ic=Math.floor(G.nx/2); // colonne centrale
+  const W=cv.width, H=cv.height, mL=52, mR=16, mT=16, mB=40, pw=W-mL-mR, ph=H-mT-mB;
+  // données colonne
+  const zs=[], ss=[]; let smax=0;
+  for(let j=0;j<G.nz;j++){const s=SAR?SAR[idx(ic,j)]:0; zs.push((j+0.5)*G.h); ss.push(s); if(s>smax)smax=s;}
+  if(smax<=0)smax=1;
+  const zmax=G.nz*G.h;
+  const X=z=>mL+z/zmax*pw, Y=s=>mT+ph-s/smax*ph;
+  // bandes de tissu (couleur de fond)
+  for(let j=0;j<G.nz;j++){x.fillStyle=THERM[G.names[G.t[idx(ic,j)]]].col; x.globalAlpha=0.22;
+    x.fillRect(X(j*G.h),mT,Math.ceil(pw/G.nz)+1,ph);} x.globalAlpha=1;
+  // axes
+  x.strokeStyle="#2d3742"; x.lineWidth=1; x.beginPath(); x.moveTo(mL,mT); x.lineTo(mL,mT+ph); x.lineTo(mL+pw,mT+ph); x.stroke();
+  x.fillStyle="#8b97a3"; x.font="11px sans-serif"; x.textAlign="right";
+  for(let g=0;g<=4;g++){const s=smax*g/4; x.fillText(s.toFixed(s<1?2:1),mL-5,Y(s)+3);
+    x.strokeStyle="#1c242d"; x.beginPath(); x.moveTo(mL,Y(s)); x.lineTo(mL+pw,Y(s)); x.stroke();}
+  x.textAlign="center"; for(let g=0;g<=5;g++){const z=zmax*g/5; x.fillText(z.toFixed(0),X(z),mT+ph+15);}
+  x.fillText(L('prof.x'),mL+pw/2,H-6); x.save(); x.translate(13,mT+ph/2); x.rotate(-Math.PI/2); x.fillText("SAR (W/kg)",0,0); x.restore();
+  // courbe SAR
+  x.strokeStyle="#e0884b"; x.lineWidth=2.2; x.beginPath();
+  zs.forEach((z,k)=>{const px=X(z),py=Y(ss[k]); k?x.lineTo(px,py):x.moveTo(px,py);}); x.stroke();
+}
+
+// ════════════════════════════ ORCHESTRATION ════════════════════════════
+function metric(k,v,u){return `<div class="metric"><div class="k">${k}</div><div class="v">${v} <small>${u}</small></div></div>`;}
+function getFreq(){const s=document.getElementById('freq').value; return s==='custom'?(parseFloat(document.getElementById('freqv').value)||128e6):parseFloat(s);}
+function fmtF(f){if(f>=1e9)return(f/1e9).toFixed(3)+' GHz';if(f>=1e6)return(f/1e6).toFixed(1)+' MHz';return(f/1e3).toFixed(0)+' kHz';}
+function fmtFshort(f){if(f>=1e9)return(f/1e9).toFixed(2)+'GHz';if(f>=1e6)return(f/1e6).toFixed(0)+'MHz';return(f/1e3).toFixed(0)+'kHz';}
+function onPreset(){const v=document.getElementById('preset').value;
+  document.getElementById('file-row').style.display=v==='file'?'block':'none';
+  if(v==='torso'){buildTorso();afterBuild();}
+  else if(v==='head'){buildHead();afterBuild();}
+}
+function onFreqSel(){document.getElementById('freq-custom').style.display=document.getElementById('freq').value==='custom'?'block':'none';}
+function afterBuild(){
+  document.getElementById('grid-info').innerHTML=`${G.nx}×${G.nz} voxels · ${G.h} mm · ${lastMeta.label}`;
+  SAR=null; DT=null; drawTissue(); drawProp();
+  // vide les cartes calculées
+  ['cv-sar','cv-dt','cv-prof'].forEach(id=>{const c=document.getElementById(id);c.getContext('2d').clearRect(0,0,c.width,c.height);});
+  document.getElementById('sar-metrics').innerHTML=''; document.getElementById('dt-metrics').innerHTML='';
+}
+function computeAll(){
+  if(!G){buildTorso();}
+  computeSAR(); drawSARmap();
+  computeThermal(); drawDTmap(); drawProfile();
+  showTab('sar');
+}
+function showTab(t){
+  ['tissue','prop','sar','dt','prof'].forEach(p=>{
+    document.getElementById('pane-'+p).style.display=p===t?'block':'none';
+    document.getElementById('tab-'+p).classList.toggle('on',p===t);
+  });
+  if(t==='sar'&&!SAR){ /* rien à montrer tant que pas calculé */ }
+}
+
+// ════════════════════════════ I18N ════════════════════════════
+const I18N={
+ title:{fr:"Dosimétrie sur fantôme voxel",en:"Voxel-phantom dosimetry"},
+ sub:{fr:"SAR (TMM par colonne) + bio-chaleur de Pennes 2D",en:"SAR (per-column TMM) + 2D Pennes bioheat"},
+ 'h.model':{fr:"Fantôme",en:"Phantom"},'l.preset':{fr:"Modèle",en:"Model"},
+ 'o.torso':{fr:"Tronc — coupe axiale (thorax)",en:"Trunk — axial slice (thorax)"},'o.head':{fr:"Tête — coupe axiale",en:"Head — axial slice"},'o.file':{fr:"Charger un fichier voxel (JSON)…",en:"Load voxel file (JSON)…"},
+ 'l.file':{fr:"Fichier .json (volume d'indices tissulaires)",en:".json file (tissue-index volume)"},'l.axis':{fr:"Axe de coupe",en:"Cut axis"},'l.pos':{fr:"Position",en:"Position"},
+ 'b.export':{fr:"⤓ Exporter ce fantôme (JSON)",en:"⤓ Export this phantom (JSON)"},
+ 'h.source':{fr:"Source EM",en:"EM source"},'l.freq':{fr:"Fréquence",en:"Frequency"},
+ 'f.64':{fr:"64 MHz — IRM 1,5 T (¹H)",en:"64 MHz — MRI 1.5 T (¹H)"},'f.128':{fr:"128 MHz — IRM 3 T (¹H)",en:"128 MHz — MRI 3 T (¹H)"},'f.298':{fr:"298 MHz — IRM 7 T (¹H)",en:"298 MHz — MRI 7 T (¹H)"},'f.900':{fr:"900 MHz — GSM",en:"900 MHz — GSM"},'f.245':{fr:"2,45 GHz — Wi-Fi / four",en:"2.45 GHz — Wi-Fi / oven"},'f.custom':{fr:"Personnalisée…",en:"Custom…"},
+ 'l.freqv':{fr:"Valeur (Hz)",en:"Value (Hz)"},'l.einc':{fr:"Champ E incident E_rms (V/m)",en:"Incident E-field E_rms (V/m)"},
+ 'n.inc':{fr:"Onde plane entrant par le haut (axe +z). SAR = σ·|E|²/ρ (champ efficace).",en:"Plane wave entering from the top (+z axis). SAR = σ·|E|²/ρ (rms field)."},
+ 'b.run':{fr:"▶ Calculer SAR + thermique",en:"▶ Compute SAR + thermal"},
+ 'h.thermal':{fr:"Thermique (Pennes)",en:"Thermal (Pennes)"},'l.tamb':{fr:"T_air (°C)",en:"T_air (°C)"},'l.tblood':{fr:"T_sang (°C)",en:"T_blood (°C)"},'l.hconv':{fr:"h_conv (W/m²K)",en:"h_conv (W/m²K)"},'l.texp':{fr:"Durée expo (min)",en:"Exposure (min)"},
+ 'n.thermal':{fr:"État stationnaire de Pennes hétérogène. ΔT = T(avec EM) − T(sans EM).",en:"Heterogeneous steady-state Pennes. ΔT = T(with EM) − T(without EM)."},
+ 't.tissue':{fr:"Tissus",en:"Tissues"},'t.prop':{fr:"Propriétés",en:"Properties"},'t.sar':{fr:"SAR",en:"SAR"},'t.dt':{fr:"ΔT / CEM43",en:"ΔT / CEM43"},'t.prof':{fr:"Profil",en:"Profile"},
+ 'n.tissue':{fr:"Coupe 2D du fantôme. Chaque couleur = un tissu (ε_r, σ, ρ, k, perfusion affectés automatiquement).",en:"2D phantom slice. Each colour = one tissue (ε_r, σ, ρ, k, perfusion auto-assigned)."},
+ 'l.propsel':{fr:"Grandeur cartographiée",en:"Mapped quantity"},
+ 'p.sigma':{fr:"σ — conductivité effective (S/m)",en:"σ — effective conductivity (S/m)"},'p.eps':{fr:"ε_r — permittivité relative",en:"ε_r — relative permittivity"},'p.rho':{fr:"ρ — masse volumique (kg/m³)",en:"ρ — mass density (kg/m³)"},'p.k':{fr:"k — conductivité thermique (W/m/K)",en:"k — thermal conductivity (W/m/K)"},
+ 'n.sar':{fr:"SAR local (W/kg). Chaque colonne (axe de propagation) est résolue par TMM analytique exacte 1D. Couplage latéral négligé.",en:"Local SAR (W/kg). Each column (propagation axis) solved by exact 1D analytic TMM. Lateral coupling neglected."},
+ 'n.dt':{fr:"Échauffement ΔT (°C) à l'équilibre. Perfusion → cœur proche de T_sang ; convection → surface refroidie.",en:"Steady-state heating ΔT (°C). Perfusion → core near T_blood; convection → cooled surface."},
+ 'n.prof':{fr:"Profil SAR(profondeur) sur la colonne centrale. Les sauts aux interfaces sont la signature de la stratification que la TMM résout exactement.",en:"SAR(depth) profile along the central column. The interface jumps are the stratification signature that TMM resolves exactly."},
+ 'cem.sum':{fr:"Comprendre le CEM43",en:"Understanding CEM43"},
+ 'about.sum':{fr:"À propos — modèles voxel & licences",en:"About — voxel models & licensing"},
+ 'prof.x':{fr:"Profondeur z (mm)",en:"Depth z (mm)"},
+ 'th.tis':{fr:"Tissu",en:"Tissue"},
+ 'm.sarmax':{fr:"SAR max",en:"Peak SAR"},'m.saravg':{fr:"SAR moyen",en:"Mean SAR"},'m.freq':{fr:"Fréquence",en:"Frequency"},'m.dtmax':{fr:"ΔT max",en:"Peak ΔT"},'m.tmax':{fr:"T max",en:"Peak T"}
+};
+// noms de tissus traduits
+const TNAMES={"Air":{fr:"Air",en:"Air"},"Skin":{fr:"Peau",en:"Skin"},"Fat":{fr:"Graisse",en:"Fat"},"Muscle":{fr:"Muscle",en:"Muscle"},"Bone (Cortical)":{fr:"Os cortical",en:"Cortical bone"},"Bone (Cancellous)":{fr:"Os spongieux",en:"Cancellous bone"},"Blood":{fr:"Sang",en:"Blood"},"Liver":{fr:"Foie",en:"Liver"},"Lung (Inflated)":{fr:"Poumon",en:"Lung"},"Heart Muscle":{fr:"Cœur",en:"Heart"},"Kidney":{fr:"Rein",en:"Kidney"},"Stomach":{fr:"Estomac",en:"Stomach"},"Small Intestine":{fr:"Intestin",en:"Intestine"},"Spleen":{fr:"Rate",en:"Spleen"},"Pancreas":{fr:"Pancréas",en:"Pancreas"},"Spinal Cord":{fr:"Moelle épin.",en:"Spinal cord"},"Brain":{fr:"Cerveau",en:"Brain"},"Cartilage":{fr:"Cartilage",en:"Cartilage"},"Cerebrospinal Fluid":{fr:"LCR",en:"CSF"}};
+let LANG='fr';
+function L(k){return I18N[k]?I18N[k][LANG]:k;}
+function TL(n){return TNAMES[n]?TNAMES[n][LANG]:n;}
+function setLang(l){LANG=l;
+  document.getElementById('lf').classList.toggle('on',l==='fr');
+  document.getElementById('le').classList.toggle('on',l==='en');
+  document.querySelectorAll('[data-i18n]').forEach(e=>{const k=e.getAttribute('data-i18n');if(I18N[k])e.innerHTML=I18N[k][l];});
+  document.documentElement.lang=l;
+  if(G){drawTissue(); drawProp(); if(SAR){drawSARmap();drawProfile();} if(DT)drawDTmap();}
+}
+
+// ════════════════════════════ INIT ════════════════════════════
+buildTorso(); afterBuild();
+</script>
+</body>
+</html>
