@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Téléphonie & sécurité RF — EMtools</title>
+<style>
+:root{--bg:#0f1419;--panel:#1a2129;--panel2:#222b35;--ink:#e6edf3;--mut:#8b97a3;--acc:#4db6a4;--acc2:#e0884b;--line:#2d3742;--bad:#e05a5a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+header{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+header h1{font-size:19px;margin:0;font-weight:650}header .sub{color:var(--mut);font-size:13px}
+.lang{margin-left:auto;display:flex;gap:6px}
+.lang button{background:var(--panel2);color:var(--mut);border:1px solid var(--line);border-radius:7px;padding:5px 11px;cursor:pointer;font-size:13px}
+.lang button.on{background:var(--acc);color:#06231d;border-color:var(--acc);font-weight:650}
+.wrap{max-width:1060px;margin:0 auto;padding:20px 22px 90px}
+a.back{color:var(--acc);text-decoration:none;font-size:13px}
+.tabs{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap}
+.tabs button{background:var(--panel2);color:var(--mut);border:1px solid var(--line);border-radius:9px;padding:8px 14px;cursor:pointer;font-size:13.5px}
+.tabs button.on{background:var(--acc);color:#06231d;border-color:var(--acc);font-weight:650}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:18px}
+.card h2{font-size:16px;margin:0 0 6px}.card h3{font-size:13px;margin:18px 0 8px;text-transform:uppercase;letter-spacing:.05em;color:var(--acc)}
+.lead{color:var(--mut);font-size:14px;margin:0 0 14px}
+.grid2{display:grid;grid-template-columns:330px 1fr;gap:18px;align-items:start}
+@media(max-width:780px){.grid2{grid-template-columns:1fr}}
+label{display:block;font-size:12.5px;color:var(--mut);margin:10px 0 4px}
+input[type=number],select{width:100%;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px}
+input[type=range]{width:100%}.rng{display:flex;align-items:center;gap:10px}.rng input[type=range]{flex:1}.rng b{min-width:74px;text-align:right;font-variant-numeric:tabular-nums}
+.row{display:flex;gap:10px}.row>*{flex:1}
+canvas{max-width:100%;background:#0b0f14;border-radius:8px;display:block}
+.cap{font-size:12px;color:var(--mut);text-align:center;margin-top:6px}
+.eq{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:8px;padding:10px 13px;margin:12px 0;font-size:14px;overflow-x:auto}
+.metrics{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.metric{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 13px;min-width:120px}
+.metric .k{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+.metric .v{font-size:18px;font-weight:680;margin-top:2px}.metric .v small{font-size:11px;color:var(--mut)}
+.metric.good{border-color:var(--acc)}.metric.bad{border-color:var(--bad)}
+table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}th:first-child,td:first-child{text-align:left}th{color:var(--mut);font-weight:500}
+.note{font-size:13px;color:var(--mut);margin-top:12px}
+.chk{display:flex;align-items:center;gap:8px;font-size:13.5px}.chk input{width:auto}
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="index.html">← EMtools</a>
+  <h1 data-i18n="title">Téléphonie mobile & sécurité RF</h1>
+  <span class="sub" data-i18n="sub">générations, niveaux de référence, distances de sécurité, cartographie</span>
+  <div class="lang"><button id="lf" class="on" onclick="setLang('fr')">FR</button><button id="le" onclick="setLang('en')">EN</button></div>
+</header>
+<div class="wrap">
+  <div class="tabs">
+    <button id="tab-gen" class="on" onclick="showTab('gen')" data-i18n="t.gen">1 · Générations 1G→6G</button>
+    <button id="tab-ref" onclick="showTab('ref')" data-i18n="t.ref">2 · Niveaux de référence</button>
+    <button id="tab-dist" onclick="showTab('dist')" data-i18n="t.dist">3 · Distance de sécurité</button>
+    <button id="tab-carto" onclick="showTab('carto')" data-i18n="t.carto">4 · Cartographie station de base</button>
+  </div>
+
+  <!-- ════ 1 · GÉNÉRATIONS ════ -->
+  <div id="pane-gen">
+    <div class="card">
+      <h2 data-i18n="gn.h">Des générations : de la voix analogique au Gbit/s</h2>
+      <p class="lead" data-i18n="gn.lead">Chaque génération change la <b>façon de coder l'information</b> sur l'onde, donc le <b>débit</b>. Le saut clé pour la vidéo : à partir de la <b>3G</b>, on passe en mode <b>paquets</b> (comme Internet) avec un débit suffisant (≥ centaines de kbit/s) pour streamer.</p>
+      <table id="gen-table"></table>
+      <h3 data-i18n="gn.video">Pourquoi reçoit-on des vidéos à partir de la 3G ?</h3>
+      <p class="lead" data-i18n="gn.video2"><b>Débit + commutation.</b> La 2G (≈ 9,6 à 384 kbit/s en EDGE) est conçue pour la voix en <i>commutation de circuits</i> (un canal réservé). La 3G (UMTS, ≈ 0,4 à 42 Mbit/s) introduit la <b>commutation de paquets</b> et un débit qui dépasse celui d'une vidéo compressée (~0,3–2 Mbit/s) → streaming possible. La 4G/5G augmentent le débit (OFDMA, MIMO) et baissent la latence.</p>
+      <h3 data-i18n="gn.ant">L'évolution des antennes dans le téléphone</h3>
+      <p class="lead" data-i18n="gn.ant2">D'une <b>antenne externe</b> (fouet quart d'onde, 1G/2G) on est passé à des <b>antennes internes</b> (PIFA, monopôle replié) pour gagner en compacité, puis <b>multibandes</b> (couvrir 700 MHz→2,6 GHz d'un coup), puis des réseaux <b>MIMO</b> (plusieurs antennes pour le débit), et en 5G mmWave des <b>réseaux à formation de faisceau</b> (beamforming). Le défi : tenir toutes les bandes dans quelques cm³, près de la main et de la tête.</p>
+      <canvas id="cv-ant" width="900" height="170"></canvas>
+      <div class="cap" data-i18n="gn.antcap">Évolution schématique : fouet externe → PIFA interne → multibande → MIMO → réseau mmWave</div>
+    </div>
+  </div>
+
+  <!-- ════ 2 · NIVEAUX DE RÉFÉRENCE ════ -->
+  <div id="pane-ref" style="display:none">
+    <div class="card">
+      <h2 data-i18n="rf.h">Niveaux de référence (ICNIRP 1998)</h2>
+      <p class="lead" data-i18n="rf.lead">Les niveaux de référence bornent le champ E (V/m), le champ H (A/m) et la densité de puissance S (W/m²) qu'on peut mesurer simplement, pour rester sous les restrictions de base (DAS). Reliés en champ lointain par <b>S = E²/377</b> et H = E/377.</p>
+      <div class="eq">400 MHz–2 GHz : E_public = 1,375·√f &nbsp;·&nbsp; E_travailleurs = 3·√f &nbsp; (f en MHz) ; S = f/200 (public), f/40 (trav.)</div>
+      <div class="grid2">
+        <div>
+          <label data-i18n="rf.freq">Fréquence (MHz)</label>
+          <select id="rf-f" onchange="refLvl()">
+            <option value="100">100 MHz — FM/VHF</option>
+            <option value="460">460 MHz — TNT</option>
+            <option value="700">700 MHz — 4G/5G</option>
+            <option value="900" selected>900 MHz — GSM (2G)</option>
+            <option value="1800">1800 MHz — GSM/LTE</option>
+            <option value="2100">2100 MHz — UMTS (3G)</option>
+            <option value="2600">2600 MHz — LTE (4G)</option>
+            <option value="3500">3500 MHz — 5G C-band</option>
+            <option value="26000">26 GHz — 5G mmWave</option>
+          </select>
+          <div class="metrics" id="rf-metrics"></div>
+        </div>
+        <div>
+          <h3 data-i18n="rf.tab">Tableau ICNIRP 98</h3>
+          <table id="rf-table"></table>
+          <h3 data-i18n="rf.das">Restrictions de base — DAS</h3>
+          <table><tr><th></th><th>Public</th><th>Trav.</th></tr>
+            <tr><td data-i18n="rf.wb">Corps entier (W/kg)</td><td>0,08</td><td>0,4</td></tr>
+            <tr><td data-i18n="rf.head">Tête/tronc, local (W/kg)</td><td>2</td><td>10</td></tr>
+            <tr><td data-i18n="rf.limb">Membres, local (W/kg)</td><td>4</td><td>20</td></tr></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ 3 · DISTANCE DE SÉCURITÉ ════ -->
+  <div id="pane-dist" style="display:none">
+    <div class="card">
+      <h2 data-i18n="ds.h">Distance de sécurité dans l'axe d'une antenne</h2>
+      <p class="lead" data-i18n="ds.lead">En champ lointain, S = P_in·G/(4π·d²) et E = √(η₀·S). La distance de sécurité est celle où E atteint le niveau de référence. Pour plusieurs bandes, on somme les contributions : Σ(E_i/E_lim,i)² ≤ 1.</p>
+      <div class="eq">E(d) = √(30·P_in·G) / d &nbsp;→&nbsp; d_sécurité = √(30·P_in·G) / E_limite</div>
+      <div class="grid2">
+        <div>
+          <label data-i18n="ds.pop">Population</label>
+          <select id="ds-pop" onchange="distCalc()"><option value="0" data-i18n="ds.public">Public</option><option value="1" data-i18n="ds.worker">Travailleurs</option></select>
+          <label data-i18n="ds.gen">Bandes (cocher les actives)</label>
+          <div id="ds-bands"></div>
+          <label data-i18n="ds.pin">Puissance injectée totale P_in (W)</label>
+          <input type="number" id="ds-pin" value="20" step="1" oninput="distCalc()">
+          <label data-i18n="ds.gain">Gain antenne (dBi)</label>
+          <input type="number" id="ds-gain" value="15.5" step="0.5" oninput="distCalc()">
+          <label class="chk" style="margin-top:10px"><input type="checkbox" id="ds-split" checked onchange="distCalc()"> <span data-i18n="ds.split">Répartir P_in également entre les bandes cochées</span></label>
+        </div>
+        <div>
+          <div class="metrics" id="ds-metrics"></div>
+          <table id="ds-table"></table>
+          <p class="note" data-i18n="ds.note">La distance combinée (toutes bandes) est telle que Σ(E_i/E_lim,i)² = 1. C'est la distance en avant de l'antenne, dans l'axe du faisceau, à partir de laquelle on est conforme.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ 4 · CARTOGRAPHIE ════ -->
+  <div id="pane-carto" style="display:none">
+    <div class="card">
+      <h2 data-i18n="ca.h">Cartographie autour d'une station de base</h2>
+      <p class="lead" data-i18n="ca.lead">Une station de base typique = un <b>réseau vertical de dipôles</b> (collinéaire) → faisceau étroit en site, omnidirectionnel en azimut, souvent <b>incliné vers le bas</b> (down-tilt). On trace le champ E dans le plan vertical et le <b>volume de sécurité</b> (où E &gt; niveau de référence). Au sol, on vérifie qu'une personne est bien <b>sous</b> la limite.</p>
+      <div class="grid2">
+        <div>
+          <label data-i18n="ca.gen">Génération / bande</label>
+          <select id="ca-gen" onchange="cartoPreset()"></select>
+          <div class="row">
+            <div><label data-i18n="ca.pin">P_in (W)</label><input type="number" id="ca-pin" value="20" step="1" oninput="carto()"></div>
+            <div><label data-i18n="ca.gain">Gain (dBi)</label><input type="number" id="ca-gain" value="16" step="0.5" oninput="carto()"></div>
+          </div>
+          <label><span data-i18n="ca.h2">Hauteur antenne (m)</span> <b class="muted" id="ca-h-v"></b></label>
+          <div class="rng"><input type="range" id="ca-h" min="6" max="40" value="20" oninput="carto()"><b id="ca-h-b"></b></div>
+          <label><span data-i18n="ca.tilt">Down-tilt (°)</span> <b class="muted" id="ca-tilt-v"></b></label>
+          <div class="rng"><input type="range" id="ca-tilt" min="0" max="12" value="4" oninput="carto()"><b id="ca-tilt-b"></b></div>
+          <label data-i18n="ca.env">Environnement</label>
+          <select id="ca-env" onchange="carto()">
+            <option value="2" data-i18n="ca.free">Champ libre (vue dégagée)</option>
+            <option value="2.4" data-i18n="ca.rural">Champ / rural</option>
+            <option value="3" data-i18n="ca.urban">Ville</option>
+            <option value="3.5" data-i18n="ca.dense">Ville dense / forêt</option>
+          </select>
+          <select id="ca-pop" onchange="carto()"><option value="0" data-i18n="ds.public">Public</option><option value="1" data-i18n="ds.worker">Travailleurs</option></select>
+          <div class="metrics" id="ca-metrics"></div>
+        </div>
+        <div>
+          <canvas id="cv-carto" width="460" height="360"></canvas>
+          <div class="cap" data-i18n="ca.cap">Plan vertical : champ E (couleur), contour de sécurité (blanc, champ libre), antenne ▶, personne au sol (1,7 m)</div>
+          <canvas id="cv-ground" width="460" height="120" style="margin-top:10px"></canvas>
+          <div class="cap" data-i18n="ca.capg">E au niveau du sol (1,7 m) vs distance — comparé au niveau de référence</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const ETA0=377, K30=30; // E=√(30·P·G)/d
+function met(k,v,u,cls){return `<div class="metric ${cls||''}"><div class="k">${k}</div><div class="v">${v} <small>${u||''}</small></div></div>`;}
+// niveaux de référence ICNIRP 98
+function Elim(fMHz,w){ if(fMHz<400)return w?61:28; if(fMHz<2000)return (w?3:1.375)*Math.sqrt(fMHz); return w?137:61; }
+function Slim(fMHz,w){ if(fMHz<400)return w?10:2; if(fMHz<2000)return fMHz/(w?40:200); return w?50:10; }
+// bandes par génération
+const BANDS=[
+ {id:'gsm900',g:'2G',f:900,name:'GSM 900',pin:20},{id:'gsm1800',g:'2G',f:1800,name:'GSM 1800',pin:20},
+ {id:'umts2100',g:'3G',f:2100,name:'UMTS 2100',pin:20},
+ {id:'lte800',g:'4G',f:800,name:'LTE 800',pin:20},{id:'lte1800',g:'4G',f:1800,name:'LTE 1800',pin:20},{id:'lte2600',g:'4G',f:2600,name:'LTE 2600',pin:20},
+ {id:'nr700',g:'5G',f:700,name:'5G 700',pin:20},{id:'nr3500',g:'5G',f:3500,name:'5G 3,5 GHz',pin:40},{id:'nr26000',g:'5G',f:26000,name:'5G 26 GHz',pin:10}
+];
+
+// ════ 1 · GÉNÉRATIONS ════
+const GENS=[
+ ['1G','~1985',['gn.an','gn.voix','gn.circ','gn.kbps0','gn.no']],
+ ['2G','~1991',['gn.dig','gn.voixsms','gn.circ','9,6–384 kbit/s','gn.no']],
+ ['3G','~2001',['gn.dig','gn.data','gn.paq','0,4–42 Mbit/s','gn.yes']],
+ ['4G','~2010',['gn.dig','gn.bb','gn.paqip','10–300 Mbit/s','gn.yes']],
+ ['5G','~2019',['gn.dig','gn.bbiot','gn.paqip','0,1–10 Gbit/s','gn.yes']],
+ ['6G','~2030',['gn.dig','gn.fut','gn.paqip','>100 Gbit/s','gn.yes']]
+];
+function genTable(){
+  let h='<tr><th>Gén.</th><th data-i18n="gn.year">Année</th><th data-i18n="gn.tech">Codage</th><th data-i18n="gn.use">Usage</th><th data-i18n="gn.commut">Commut.</th><th data-i18n="gn.rate">Débit</th><th data-i18n="gn.vid">Vidéo</th></tr>';
+  for(const r of GENS)h+=`<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td>${T(r[2][0])}</td><td>${T(r[2][1])}</td><td>${T(r[2][2])}</td><td>${r[2][3].includes('bit')?r[2][3]:T(r[2][3])}</td><td>${T(r[2][4])}</td></tr>`;
+  document.getElementById('gen-table').innerHTML=h;
+  drawAnt();
+}
+function drawAnt(){
+  const cv=document.getElementById('cv-ant'),x=cv.getContext('2d');x.clearRect(0,0,cv.width,cv.height);
+  const W=cv.width,H=cv.height,cu="#e0884b",ph="#222b35",txt="#8b97a3"; x.font="11px sans-serif";x.textAlign="center";
+  const stages=[T('gn.s1'),T('gn.s2'),T('gn.s3'),T('gn.s4'),T('gn.s5')];
+  for(let i=0;i<5;i++){const cx=W*(i+0.5)/5, by=H-30;
+    x.fillStyle=ph;x.strokeStyle="#3a4754";x.lineWidth=1;x.fillRect(cx-32,by-78,64,78);x.strokeRect(cx-32,by-78,64,78); // phone
+    x.strokeStyle=cu;x.fillStyle=cu;x.lineWidth=2.5;
+    if(i===0){x.beginPath();x.moveTo(cx+20,by-78);x.lineTo(cx+20,by-110);x.stroke();} // whip
+    else if(i===1){x.fillRect(cx-22,by-72,18,8);} // PIFA
+    else if(i===2){x.fillRect(cx-22,by-72,18,6);x.fillRect(cx-22,by-62,14,5);} // multibande
+    else if(i===3){x.fillRect(cx-24,by-72,10,6);x.fillRect(cx+6,by-72,10,6);x.fillRect(cx-24,by-12,10,6);x.fillRect(cx+6,by-12,10,6);} // MIMO 4
+    else{for(let r=0;r<4;r++)for(let c=0;c<4;c++)x.fillRect(cx-20+c*9,by-70+r*9,5,5);} // array
+    x.fillStyle=txt;x.fillText(stages[i],cx,H-12);x.fillStyle="#c7d0d8";x.fillText(["1G/2G","2G/3G","3G/4G","4G","5G"][i],cx,by-90>0?16:16);}
+}
+
+// ════ 2 · NIVEAUX DE RÉFÉRENCE ════
+function refLvl(){
+  const f=parseFloat(document.getElementById('rf-f').value);
+  const ep=Elim(f,0),et=Elim(f,1),sp=Slim(f,0),st=Slim(f,1);
+  document.getElementById('rf-metrics').innerHTML=
+    met(T('rf.ep'),ep.toFixed(1),"V/m")+met(T('rf.hp'),(ep/ETA0*1000).toFixed(1),"mA/m")+met(T('rf.sp'),(sp*0.1).toFixed(3),"mW/cm²")+met(T('rf.dbu'),(20*Math.log10(ep*1e6)).toFixed(1),"dBµV/m");
+  document.getElementById('rf-table').innerHTML=
+    '<tr><th data-i18n="rf.range">Gamme</th><th>E pub.</th><th>E trav.</th><th>S pub.</th><th>S trav.</th></tr>'+
+    '<tr><td>10–400 MHz</td><td>28</td><td>61</td><td>2</td><td>10</td></tr>'+
+    '<tr><td>400 MHz–2 GHz</td><td>1,375√f</td><td>3√f</td><td>f/200</td><td>f/40</td></tr>'+
+    '<tr><td>2–300 GHz</td><td>61</td><td>137</td><td>10</td><td>50</td></tr>'+
+    `<tr style="color:var(--acc)"><td>${f>=1000?(f/1000)+' GHz':f+' MHz'}</td><td>${ep.toFixed(1)}</td><td>${et.toFixed(1)}</td><td>${sp.toFixed(2)}</td><td>${st.toFixed(2)}</td></tr>`;
+}
+
+// ════ 3 · DISTANCE DE SÉCURITÉ ════
+function buildBands(){
+  let h=''; for(const b of BANDS)h+=`<label class="chk"><input type="checkbox" class="ds-b" value="${b.id}" ${b.id==='gsm900'?'checked':''} onchange="distCalc()"> ${b.g} · ${b.name} (${b.f>=1000?(b.f/1000)+'G':b.f+'M'}Hz)</label>`;
+  document.getElementById('ds-bands').innerHTML=h;
+}
+function distCalc(){
+  const w=+document.getElementById('ds-pop').value, Pin=parseFloat(document.getElementById('ds-pin').value)||20, G=Math.pow(10,(parseFloat(document.getElementById('ds-gain').value)||15)/10);
+  const sel=[...document.querySelectorAll('.ds-b:checked')].map(e=>BANDS.find(b=>b.id===e.value));
+  const split=document.getElementById('ds-split').checked, Pi=sel.length?(split?Pin/sel.length:Pin):Pin;
+  let html='<tr><th data-i18n="ds.band">Bande</th><th>E_lim</th><th>d_séc (m)</th></tr>', sumSq=0;
+  for(const b of sel){const el=Elim(b.f,w), d=Math.sqrt(K30*Pi*G)/el; sumSq+=1; // chaque bande seule à sa d
+    html+=`<tr><td>${b.name}</td><td>${el.toFixed(1)}</td><td>${d.toFixed(2)}</td></tr>`;}
+  // distance combinée : Σ(E_i/E_lim)²=1 avec E_i=√(30 Pi G)/d
+  let dcomb=0; if(sel.length){let k=0; for(const b of sel){const el=Elim(b.f,w); k+=K30*Pi*G/(el*el);} dcomb=Math.sqrt(k);}
+  document.getElementById('ds-table').innerHTML=html;
+  document.getElementById('ds-metrics').innerHTML=
+    met(T('ds.eirp'),(10*Math.log10(Pin*G*1000)).toFixed(1),"dBm")+
+    met(T('ds.nb'),sel.length,"")+
+    met(T('ds.dcomb'),dcomb.toFixed(2),"m",'good');
+}
+
+// ════ 4 · CARTOGRAPHIE ════
+function cartoBands(){let h='';for(const b of BANDS)h+=`<option value="${b.id}">${b.g} · ${b.name}</option>`;document.getElementById('ca-gen').innerHTML=h;document.getElementById('ca-gen').value='gsm900';}
+function cartoPreset(){const b=BANDS.find(x=>x.id===document.getElementById('ca-gen').value);document.getElementById('ca-pin').value=b.pin;carto();}
+function Ndip(G){return Math.max(2,Math.round(Math.pow(10,G/10)/1.64));}
+function AF(alpha,N,tilt){const psi=Math.PI*(Math.sin(alpha)+Math.sin(tilt*Math.PI/180));const s=Math.sin(psi/2);if(Math.abs(s)<1e-9)return 1;return Math.abs(Math.sin(N*psi/2)/(N*s));}
+function carto(){
+  const b=BANDS.find(x=>x.id===document.getElementById('ca-gen').value), f=b.f;
+  const Pin=parseFloat(document.getElementById('ca-pin').value)||20, Gdb=parseFloat(document.getElementById('ca-gain').value)||16, G=Math.pow(10,Gdb/10);
+  const h=parseFloat(document.getElementById('ca-h').value), tilt=parseFloat(document.getElementById('ca-tilt').value), n=parseFloat(document.getElementById('ca-env').value), w=+document.getElementById('ca-pop').value;
+  document.getElementById('ca-h-b').textContent=h+" m"; document.getElementById('ca-tilt-b').textContent=tilt+"°";
+  const N=Ndip(Gdb), El=Elim(f,w), A=Math.sqrt(K30*Pin*G);
+  const Efs=(x,z)=>{const dx=x,dz=z-h,r=Math.hypot(dx,dz);if(r<0.5)return 1e3;const al=Math.atan2(dz,dx);return A*AF(al,N,tilt)/r;};
+  const Eenv=(x,z)=>{const dx=x,dz=z-h,r=Math.hypot(dx,dz);return Efs(x,z)*Math.pow(10/Math.max(10,r),(n-2)/2);};
+  // carte plan vertical
+  const Xmax=80, Zmax=Math.max(50,h+10);
+  const cv=document.getElementById('cv-carto'), x=cv.getContext('2d');x.clearRect(0,0,cv.width,cv.height);
+  const W=cv.width,H=cv.height,mL=36,mB=26,mT=8,mR=8,pw=W-mL-mR,ph=H-mT-mB;
+  const Np=140; const im=x.createImageData(Np,Math.round(Np*ph/pw));
+  const Nh=im.height;
+  for(let j=0;j<Nh;j++)for(let i=0;i<Np;i++){const X=Xmax*i/(Np-1), Z=Zmax*(1-j/(Nh-1)), E=Eenv(X,Z);
+    const t=Math.max(0,Math.min(1,E/(El*1.5))); const c=jet(t); const p=(j*Np+i)*4;
+    im.data[p]=c[0];im.data[p+1]=c[1];im.data[p+2]=c[2];im.data[p+3]=255;}
+  const off=document.createElement('canvas');off.width=Np;off.height=Nh;off.getContext('2d').putImageData(im,0,0);
+  x.imageSmoothingEnabled=true;x.drawImage(off,mL,mT,pw,ph);
+  // contour de sécurité E=El (champ libre, conservatif)
+  x.strokeStyle="#fff";x.lineWidth=1.6;x.beginPath();let pen=false;
+  for(let i=0;i<=pw;i+=2){ // pour chaque colonne, trouve z où Efs=El (haut du lobe)
+    const X=Xmax*i/pw; let zf=-1;
+    for(let zz=0;zz<=Zmax;zz+=0.4){ if(Efs(X,zz)>=El){ // trouve enveloppe : on marque le contour supérieur
+      // affine
+      zf=zz; } }
+    if(zf>=0){const px=mL+i, py=mT+ph*(1-zf/Zmax); pen?x.lineTo(px,py):x.moveTo(px,py);pen=true;} else pen=false;
+  }
+  x.stroke();
+  // axes
+  x.strokeStyle="#3a4754";x.strokeRect(mL,mT,pw,ph);
+  x.fillStyle="#8b97a3";x.font="10px sans-serif";x.textAlign="right";
+  for(let g=0;g<=4;g++){const z=Zmax*g/4;x.fillText(z.toFixed(0),mL-3,mT+ph*(1-g/4)+3);}
+  x.textAlign="center";for(let g=0;g<=4;g++){x.fillText((Xmax*g/4).toFixed(0),mL+pw*g/4,mT+ph+13);}
+  x.fillText(T('ca.xax'),mL+pw/2,H-1);x.save();x.translate(10,mT+ph/2);x.rotate(-Math.PI/2);x.fillText(T('ca.zax'),0,0);x.restore();
+  // antenne + sol + personne
+  const PX=v=>mL+v/Xmax*pw, PZ=v=>mT+ph*(1-v/Zmax);
+  x.fillStyle="#e0884b";x.fillRect(PX(0)-2,PZ(h)-8,5,16);x.fillText("▶",PX(0)+8,PZ(h)+4);
+  x.strokeStyle="#9aa7c9";x.setLineDash([4,3]);x.beginPath();x.moveTo(mL,PZ(1.7));x.lineTo(mL+pw,PZ(1.7));x.stroke();x.setLineDash([]);
+  x.fillStyle="#9aa7c9";x.textAlign="left";x.fillText("☻ 1,7 m",mL+4,PZ(1.7)-4);
+  // profil au sol (1,7 m)
+  const cv2=document.getElementById('cv-ground'),y=cv2.getContext('2d');y.clearRect(0,0,cv2.width,cv2.height);
+  const W2=cv2.width,H2=cv2.height,m2L=40,m2B=20,m2T=8,pw2=W2-m2L-12,ph2=H2-m2T-m2B;
+  let emax=El*1.2; for(let i=0;i<=pw2;i++){const X=Xmax*i/pw2;emax=Math.max(emax,Eenv(X,1.7));}
+  const Y2=e=>m2T+ph2-Math.min(e,emax)/emax*ph2;
+  y.strokeStyle="#2d3742";y.beginPath();y.moveTo(m2L,m2T);y.lineTo(m2L,m2T+ph2);y.lineTo(m2L+pw2,m2T+ph2);y.stroke();
+  // niveau de référence
+  y.strokeStyle="#e05a5a";y.setLineDash([5,4]);y.beginPath();y.moveTo(m2L,Y2(El));y.lineTo(m2L+pw2,Y2(El));y.stroke();y.setLineDash([]);
+  y.fillStyle="#e05a5a";y.font="10px sans-serif";y.textAlign="left";y.fillText("E_lim "+El.toFixed(0),m2L+3,Y2(El)-3);
+  y.strokeStyle="#4db6a4";y.lineWidth=2;y.beginPath();for(let i=0;i<=pw2;i++){const X=Xmax*i/pw2,e=Eenv(X,1.7);i?y.lineTo(m2L+i,Y2(e)):y.moveTo(m2L+i,Y2(e));}y.stroke();
+  y.fillStyle="#8b97a3";y.textAlign="center";for(let g=0;g<=4;g++)y.fillText((Xmax*g/4).toFixed(0),m2L+pw2*g/4,H2-6);
+  y.textAlign="right";y.fillText((emax).toFixed(0),m2L-3,m2T+8);y.fillText("0",m2L-3,m2T+ph2);
+  // métriques + verdict
+  const dsec=A/El; // distance de sécurité champ libre dans l'axe
+  let egroundMax=0; for(let X=0.5;X<Xmax;X+=0.5)egroundMax=Math.max(egroundMax,Eenv(X,1.7));
+  const safe=egroundMax<El;
+  document.getElementById('ca-metrics').innerHTML=
+    met("E_lim",El.toFixed(1),"V/m")+met(T('ca.dsec'),dsec.toFixed(1),"m")+met(T('ca.eground'),egroundMax.toFixed(1),"V/m",safe?'good':'bad')+
+    met(T('ca.verdict'),safe?T('ca.ok'):T('ca.exceed'),"",safe?'good':'bad');
+}
+function jet(t){t=Math.max(0,Math.min(1,t));const r=Math.max(0,Math.min(1,1.5-Math.abs(4*t-3))),g=Math.max(0,Math.min(1,1.5-Math.abs(4*t-2))),b=Math.max(0,Math.min(1,1.5-Math.abs(4*t-1)));return[Math.round(255*r),Math.round(255*g),Math.round(255*b)];}
+
+// ════ ONGLETS ════
+function showTab(t){['gen','ref','dist','carto'].forEach(p=>{document.getElementById('pane-'+p).style.display=p===t?'block':'none';document.getElementById('tab-'+p).classList.toggle('on',p===t);});
+  if(t==='gen')genTable(); if(t==='ref')refLvl(); if(t==='dist')distCalc(); if(t==='carto')carto();}
+
+// ════ I18N ════
+const I18N={
+ title:{fr:"Téléphonie mobile & sécurité RF",en:"Mobile telephony & RF safety"},
+ sub:{fr:"générations, niveaux de référence, distances de sécurité, cartographie",en:"generations, reference levels, safety distances, mapping"},
+ 't.gen':{fr:"1 · Générations 1G→6G",en:"1 · Generations 1G→6G"},'t.ref':{fr:"2 · Niveaux de référence",en:"2 · Reference levels"},'t.dist':{fr:"3 · Distance de sécurité",en:"3 · Safety distance"},'t.carto':{fr:"4 · Cartographie station de base",en:"4 · Base-station mapping"},
+ 'gn.h':{fr:"Des générations : de la voix analogique au Gbit/s",en:"Generations: from analog voice to Gbit/s"},
+ 'gn.lead':{fr:"Chaque génération change la <b>façon de coder l'information</b> sur l'onde, donc le <b>débit</b>. Le saut clé pour la vidéo : à partir de la <b>3G</b>, on passe en mode <b>paquets</b> (comme Internet) avec un débit suffisant (≥ centaines de kbit/s) pour streamer.",en:"Each generation changes <b>how information is coded</b> on the wave, hence the <b>data rate</b>. The key jump for video: from <b>3G</b>, we move to <b>packet</b> mode (like the Internet) with enough rate (≥ hundreds of kbit/s) to stream."},
+ 'gn.video':{fr:"Pourquoi reçoit-on des vidéos à partir de la 3G ?",en:"Why can we receive video from 3G onward?"},
+ 'gn.video2':{fr:"<b>Débit + commutation.</b> La 2G (≈ 9,6 à 384 kbit/s en EDGE) est conçue pour la voix en <i>commutation de circuits</i> (un canal réservé). La 3G (UMTS, ≈ 0,4 à 42 Mbit/s) introduit la <b>commutation de paquets</b> et un débit qui dépasse celui d'une vidéo compressée (~0,3–2 Mbit/s) → streaming possible. La 4G/5G augmentent le débit (OFDMA, MIMO) et baissent la latence.",en:"<b>Rate + switching.</b> 2G (≈ 9.6 to 384 kbit/s with EDGE) is built for voice in <i>circuit switching</i> (a reserved channel). 3G (UMTS, ≈ 0.4 to 42 Mbit/s) introduces <b>packet switching</b> and a rate exceeding that of a compressed video (~0.3–2 Mbit/s) → streaming becomes possible. 4G/5G raise the rate (OFDMA, MIMO) and cut latency."},
+ 'gn.ant':{fr:"L'évolution des antennes dans le téléphone",en:"The evolution of phone antennas"},
+ 'gn.ant2':{fr:"D'une <b>antenne externe</b> (fouet quart d'onde, 1G/2G) on est passé à des <b>antennes internes</b> (PIFA, monopôle replié) pour gagner en compacité, puis <b>multibandes</b> (couvrir 700 MHz→2,6 GHz d'un coup), puis des réseaux <b>MIMO</b> (plusieurs antennes pour le débit), et en 5G mmWave des <b>réseaux à formation de faisceau</b> (beamforming). Le défi : tenir toutes les bandes dans quelques cm³, près de la main et de la tête.",en:"From an <b>external antenna</b> (quarter-wave whip, 1G/2G) we moved to <b>internal antennas</b> (PIFA, folded monopole) for compactness, then <b>multiband</b> (covering 700 MHz→2.6 GHz at once), then <b>MIMO</b> arrays (several antennas for throughput), and in 5G mmWave <b>beamforming arrays</b>. The challenge: fit all bands in a few cm³, next to the hand and head."},
+ 'gn.antcap':{fr:"Évolution schématique : fouet externe → PIFA interne → multibande → MIMO → réseau mmWave",en:"Schematic evolution: external whip → internal PIFA → multiband → MIMO → mmWave array"},
+ 'gn.year':{fr:"Année",en:"Year"},'gn.tech':{fr:"Codage",en:"Coding"},'gn.use':{fr:"Usage",en:"Use"},'gn.commut':{fr:"Commut.",en:"Switching"},'gn.rate':{fr:"Débit",en:"Rate"},'gn.vid':{fr:"Vidéo",en:"Video"},
+ 'gn.an':{fr:"Analogique",en:"Analog"},'gn.dig':{fr:"Numérique",en:"Digital"},'gn.voix':{fr:"Voix",en:"Voice"},'gn.voixsms':{fr:"Voix + SMS",en:"Voice + SMS"},'gn.data':{fr:"Voix + data/vidéo",en:"Voice + data/video"},'gn.bb':{fr:"Haut débit IP",en:"IP broadband"},'gn.bbiot':{fr:"Très haut débit + IoT",en:"Ultra-broadband + IoT"},'gn.fut':{fr:"THz, immersif (futur)",en:"THz, immersive (future)"},
+ 'gn.circ':{fr:"Circuits",en:"Circuit"},'gn.paq':{fr:"Paquets",en:"Packet"},'gn.paqip':{fr:"Tout-IP",en:"All-IP"},'gn.kbps0':{fr:"~2 kbit/s",en:"~2 kbit/s"},'gn.no':{fr:"non",en:"no"},'gn.yes':{fr:"oui ✓",en:"yes ✓"},'gn.voixsms2':{fr:"",en:""},
+ 'gn.s1':{fr:"fouet externe",en:"external whip"},'gn.s2':{fr:"PIFA interne",en:"internal PIFA"},'gn.s3':{fr:"multibande",en:"multiband"},'gn.s4':{fr:"MIMO",en:"MIMO"},'gn.s5':{fr:"réseau mmWave",en:"mmWave array"},
+ 'rf.h':{fr:"Niveaux de référence (ICNIRP 1998)",en:"Reference levels (ICNIRP 1998)"},
+ 'rf.lead':{fr:"Les niveaux de référence bornent le champ E (V/m), le champ H (A/m) et la densité de puissance S (W/m²) qu'on peut mesurer simplement, pour rester sous les restrictions de base (DAS). Reliés en champ lointain par <b>S = E²/377</b> et H = E/377.",en:"Reference levels bound the E field (V/m), H field (A/m) and power density S (W/m²) that can be simply measured, to stay below the basic restrictions (SAR). Linked in the far field by <b>S = E²/377</b> and H = E/377."},
+ 'rf.freq':{fr:"Fréquence (MHz)",en:"Frequency (MHz)"},'rf.tab':{fr:"Tableau ICNIRP 98",en:"ICNIRP 98 table"},'rf.das':{fr:"Restrictions de base — DAS",en:"Basic restrictions — SAR"},
+ 'rf.range':{fr:"Gamme",en:"Range"},'rf.wb':{fr:"Corps entier (W/kg)",en:"Whole body (W/kg)"},'rf.head':{fr:"Tête/tronc, local (W/kg)",en:"Head/trunk, local (W/kg)"},'rf.limb':{fr:"Membres, local (W/kg)",en:"Limbs, local (W/kg)"},
+ 'rf.ep':{fr:"E public",en:"E public"},'rf.hp':{fr:"H public",en:"H public"},'rf.sp':{fr:"S public",en:"S public"},'rf.dbu':{fr:"E public",en:"E public"},
+ 'ds.h':{fr:"Distance de sécurité dans l'axe d'une antenne",en:"Safety distance in an antenna's axis"},
+ 'ds.lead':{fr:"En champ lointain, S = P_in·G/(4π·d²) et E = √(η₀·S). La distance de sécurité est celle où E atteint le niveau de référence. Pour plusieurs bandes, on somme : Σ(E_i/E_lim,i)² ≤ 1.",en:"In the far field, S = P_in·G/(4π·d²) and E = √(η₀·S). The safety distance is where E reaches the reference level. For several bands, we sum: Σ(E_i/E_lim,i)² ≤ 1."},
+ 'ds.pop':{fr:"Population",en:"Population"},'ds.public':{fr:"Public",en:"Public"},'ds.worker':{fr:"Travailleurs",en:"Workers"},'ds.gen':{fr:"Bandes (cocher les actives)",en:"Bands (check active)"},'ds.pin':{fr:"Puissance injectée totale P_in (W)",en:"Total input power P_in (W)"},'ds.gain':{fr:"Gain antenne (dBi)",en:"Antenna gain (dBi)"},'ds.split':{fr:"Répartir P_in également entre les bandes cochées",en:"Split P_in equally between checked bands"},
+ 'ds.band':{fr:"Bande",en:"Band"},'ds.eirp':{fr:"PIRE",en:"EIRP"},'ds.nb':{fr:"Bandes actives",en:"Active bands"},'ds.dcomb':{fr:"Distance combinée",en:"Combined distance"},
+ 'ds.note':{fr:"La distance combinée (toutes bandes) est telle que Σ(E_i/E_lim,i)² = 1. C'est la distance en avant de l'antenne, dans l'axe du faisceau, à partir de laquelle on est conforme.",en:"The combined distance (all bands) satisfies Σ(E_i/E_lim,i)² = 1. It is the distance in front of the antenna, in the beam axis, beyond which one is compliant."},
+ 'ca.h':{fr:"Cartographie autour d'une station de base",en:"Mapping around a base station"},
+ 'ca.lead':{fr:"Une station de base typique = un <b>réseau vertical de dipôles</b> (collinéaire) → faisceau étroit en site, omnidirectionnel en azimut, souvent <b>incliné vers le bas</b> (down-tilt). On trace le champ E dans le plan vertical et le <b>volume de sécurité</b> (où E &gt; niveau de référence). Au sol, on vérifie qu'une personne est bien <b>sous</b> la limite.",en:"A typical base station = a <b>vertical dipole array</b> (collinear) → narrow elevation beam, omnidirectional in azimuth, often <b>down-tilted</b>. We map the E field in the vertical plane and the <b>safety volume</b> (where E &gt; reference level). At ground level we check a person is well <b>below</b> the limit."},
+ 'ca.gen':{fr:"Génération / bande",en:"Generation / band"},'ca.pin':{fr:"P_in (W)",en:"P_in (W)"},'ca.gain':{fr:"Gain (dBi)",en:"Gain (dBi)"},'ca.h2':{fr:"Hauteur antenne (m)",en:"Antenna height (m)"},'ca.tilt':{fr:"Down-tilt (°)",en:"Down-tilt (°)"},
+ 'ca.env':{fr:"Environnement",en:"Environment"},'ca.free':{fr:"Champ libre (vue dégagée)",en:"Free space (clear view)"},'ca.rural':{fr:"Champ / rural",en:"Field / rural"},'ca.urban':{fr:"Ville",en:"City"},'ca.dense':{fr:"Ville dense / forêt",en:"Dense city / forest"},
+ 'ca.cap':{fr:"Plan vertical : champ E (couleur), contour de sécurité (blanc, champ libre), antenne ▶, personne au sol (1,7 m)",en:"Vertical plane: E field (colour), safety contour (white, free space), antenna ▶, person at ground (1.7 m)"},
+ 'ca.capg':{fr:"E au niveau du sol (1,7 m) vs distance — comparé au niveau de référence",en:"E at ground level (1.7 m) vs distance — compared to the reference level"},
+ 'ca.xax':{fr:"distance horizontale (m)",en:"horizontal distance (m)"},'ca.zax':{fr:"hauteur (m)",en:"height (m)"},
+ 'ca.dsec':{fr:"d sécurité (axe)",en:"safety dist. (axis)"},'ca.eground':{fr:"E max au sol",en:"max E at ground"},'ca.verdict':{fr:"Au sol",en:"At ground"},'ca.ok':{fr:"✓ conforme",en:"✓ compliant"},'ca.exceed':{fr:"✗ dépassement",en:"✗ exceeded"}
+};
+let LANG='fr';
+function T(k){return I18N[k]?I18N[k][LANG]:'';}
+function setLang(l){LANG=l;document.getElementById('lf').classList.toggle('on',l==='fr');document.getElementById('le').classList.toggle('on',l==='en');
+  document.querySelectorAll('[data-i18n]').forEach(e=>{const k=e.getAttribute('data-i18n');if(I18N[k])e.innerHTML=I18N[k][l];});
+  document.documentElement.lang=l;const cur=['gen','ref','dist','carto'].find(p=>document.getElementById('pane-'+p).style.display!=='none');showTab(cur||'gen');}
+
+buildBands(); cartoBands(); showTab('gen');
+</script>
+</body>
+</html>
