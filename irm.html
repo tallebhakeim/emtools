@@ -90,6 +90,11 @@ b.hl{color:var(--acc2)}
         </div>
       </div>
       <p class="note" data-i18n="lar.note">⚠ À haut champ (3 T et surtout 7 T), la longueur d'onde RF dans les tissus devient comparable à la taille de la tête → ondes stationnaires, <b>inhomogénéité du champ B₁</b> et <b>SAR plus élevé</b> (voir l'onglet SAR). C'est tout l'enjeu dosimétrique de l'IRM moderne.</p>
+      <h3 data-i18n="lar.b1h">Inhomogénéité de B₁⁺ dans la tête (à ce champ)</h3>
+      <div class="grid2">
+        <div><canvas id="cv-b1" width="300" height="300"></canvas><div class="cap" data-i18n="lar.b1cap">Carte schématique de l'amplitude RF B₁⁺ — les ondes stationnaires apparaissent quand λ_tissu ≈ taille de la tête</div></div>
+        <div><div class="metrics" id="b1-metrics"></div><p class="note" data-i18n="lar.b1note">À 1,5 T le champ RF est quasi uniforme ; à 3 T apparaît un renforcement central (effet diélectrique) ; à 7 T la carte devient franchement hétérogène → l'angle de bascule, donc le signal <i>et</i> le SAR, varient d'un point à l'autre.</p></div>
+      </div>
     </div>
   </div>
 
@@ -115,9 +120,11 @@ b.hl{color:var(--acc2)}
           <div class="metrics" id="blo-metrics"></div>
         </div>
         <div>
-          <canvas id="cv-relax" width="460" height="260"></canvas>
+          <canvas id="cv-vec" width="460" height="230"></canvas>
+          <div class="cap" data-i18n="blo.cap3">Vecteur d'aimantation M : bascule de α, précession autour de B₀ (z) et retour à l'équilibre (repère du laboratoire)</div>
+          <canvas id="cv-relax" width="460" height="240" style="margin-top:12px"></canvas>
           <div class="cap" data-i18n="blo.cap1">Repousse longitudinale M<sub>z</sub>(t) (T₁) et décroissance transverse M<sub>xy</sub>(t) (T₂)</div>
-          <canvas id="cv-prec" width="460" height="180" style="margin-top:12px"></canvas>
+          <canvas id="cv-prec" width="460" height="150" style="margin-top:12px"></canvas>
           <div class="cap" data-i18n="blo.cap2">Aimantation transverse en précession (le « FID » que capte l'antenne)</div>
         </div>
       </div>
@@ -185,6 +192,10 @@ b.hl{color:var(--acc2)}
         <button id="ks-anim-btn" onclick="ksAnimate()" data-i18n="ks.anim">▶ Animer le remplissage</button>
       </div>
       <p class="note" data-i18n="ks.animnote">Pendant l'acquisition, le k-space se remplit ligne par ligne (chaque pas d'encodage de phase). Le centre (acquis tôt en mode centrique) fixe le contraste ; les bords affinent les détails.</p>
+      <label><span data-i18n="ks.noise">Bruit RF (thermique)</span> <b class="muted" id="ks-noise-v"></b></label>
+      <div class="rng"><input type="range" id="ks-noise" min="0" max="100" value="0" oninput="kspace()"><b id="ks-noise-b"></b></div>
+      <div class="metric" id="ks-snr" style="margin-top:6px"></div>
+      <p class="note" data-i18n="ks.snrnote">Le triangle de l'IRM : <b>vitesse</b> (moins de lignes) ↔ <b>résolution</b> (bords du k-space) ↔ <b>SNR</b> (bruit). Moins d'acquisitions = examen plus rapide mais plus bruité ; le SNR croît comme √(nombre d'échantillons).</p>
       <p class="note" data-i18n="ks.note">Sous-échantillonner le centre = images plus rapides mais floues (base de l'IRM rapide / parallèle / compressed sensing). L'image source est la coupe cérébrale de l'onglet <b>Contraste</b> (pondération courante).</p>
     </div>
   </div>
@@ -379,6 +390,27 @@ function plotCurves(cvId,series,opt){
 
 // ════════════════════════════ 1 · LARMOR ════════════════════════════
 const FIELDS=[{b:0.5,e:140},{b:1.5,e:97},{b:3,e:84},{b:7,e:72}];
+function jet(t){ t=Math.max(0,Math.min(1,t));
+  const r=Math.max(0,Math.min(1,1.5-Math.abs(4*t-3))), g=Math.max(0,Math.min(1,1.5-Math.abs(4*t-2))), b=Math.max(0,Math.min(1,1.5-Math.abs(4*t-1)));
+  return[Math.round(255*r),Math.round(255*g),Math.round(255*b)];}
+function drawB1(){
+  const cv=document.getElementById('cv-b1'); if(!cv)return;
+  const b0=parseFloat(document.getElementById('b0').value)||3, f=GAMMA*b0, er=80, lam=(C0/f)/Math.sqrt(er), k=2*Math.PI/lam;
+  const x=cv.getContext('2d'), Np=120, R=0.09; // tête : rayon 9 cm
+  const im=x.createImageData(Np,Np), buf=new Float64Array(Np*Np); let mn=1e9,mx=-1e9,sum=0,sq=0,cnt=0;
+  for(let j=0;j<Np;j++)for(let i=0;i<Np;i++){
+    const xm=(i/Np-0.5)*2*R, ym=(j/Np-0.5)*2*R, r=Math.hypot(xm,ym);
+    let v=NaN; if(r<=R){v=Math.abs(0.55*Math.cos(k*xm)*Math.cos(k*ym)+0.45*Math.cos(k*r));}
+    buf[j*Np+i]=v; if(!isNaN(v)){if(v<mn)mn=v;if(v>mx)mx=v;sum+=v;sq+=v*v;cnt++;}
+  }
+  for(let p=0;p<Np*Np;p++){const v=buf[p];
+    if(isNaN(v)){im.data[p*4]=11;im.data[p*4+1]=15;im.data[p*4+2]=20;im.data[p*4+3]=255;}
+    else{const c=jet((v-mn)/(mx-mn+1e-9));im.data[p*4]=c[0];im.data[p*4+1]=c[1];im.data[p*4+2]=c[2];im.data[p*4+3]=255;}}
+  const off=document.createElement('canvas');off.width=Np;off.height=Np;off.getContext('2d').putImageData(im,0,0);
+  x.imageSmoothingEnabled=true;x.clearRect(0,0,cv.width,cv.height);x.drawImage(off,0,0,cv.width,cv.height);
+  const mean=sum/cnt, cv2=Math.sqrt(Math.max(0,sq/cnt-mean*mean))/mean*100;
+  document.getElementById('b1-metrics').innerHTML=met(T('lar.b1var'),cv2.toFixed(0),"%")+met("λ/2 "+T('lar.tcol'),(lam/2*100).toFixed(0),"cm");
+}
 function larmor(){
   const b0=parseFloat(document.getElementById('b0').value)||3;
   const f=GAMMA*b0; const er=84; const lam=(C0/f)/Math.sqrt(er);
@@ -390,6 +422,7 @@ function larmor(){
   for(const r of FIELDS){const fr=GAMMA*r.b, lr=(C0/fr)/Math.sqrt(r.e);
     html+=`<tr><td>${r.b} T</td><td>${(fr/1e6).toFixed(1)}</td><td>${(lr*100).toFixed(0)}</td></tr>`;}
   document.getElementById('lar-table').innerHTML=html;
+  drawB1();
 }
 
 // ════════════════════════════ 2 · BLOCH ════════════════════════════
@@ -409,22 +442,41 @@ function bloch(){
     met("Mxy(0)",Math.sin(ar).toFixed(2),"·M₀")+
     met("T₂*≈",Math.round(T2*0.7),"ms")+
     met(T('blo.rec90'),Math.round(T1*Math.LN2),"ms");
-  // animation FID
+  // animation : vecteur M 3D (repère lab) + FID, pilotés par un temps réel tAnim
   if(blochAnim)cancelAnimationFrame(blochAnim);
-  const cv=document.getElementById('cv-prec'); blochPhase=0;
+  const vcv=document.getElementById('cv-vec'), pcv=document.getElementById('cv-prec');
+  const Tcycle=Math.max(3*T1,5*T2,1500), Tprec=Tcycle/14, T2s=T2*0.7;
+  let tAnim=0, trace=[];
   function frame(){
-    const x=cv.getContext('2d'),W=cv.width,H=cv.height,cyy=H/2; x.clearRect(0,0,W,H);
-    x.strokeStyle="#2d3742";x.beginPath();x.moveTo(40,cyy);x.lineTo(W-12,cyy);x.stroke();
-    const env=Math.sin(ar); const trace=[];
-    for(let px=40;px<W-12;px++){const t=(px-40)/(W-52)*Math.max(5*T2,800);
-      const sig=env*Math.exp(-t/(T2*0.7))*Math.cos(2*Math.PI*t/120 - blochPhase);
-      trace.push([px,cyy-sig*(H/2-14)]);}
-    x.strokeStyle="#e0884b";x.lineWidth=1.8;x.beginPath();trace.forEach((p,k)=>k?x.lineTo(p[0],p[1]):x.moveTo(p[0],p[1]));x.stroke();
-    x.fillStyle="#8b97a3";x.font="10px sans-serif";x.textAlign="left";x.fillText("FID ~ Mxy·e^(-t/T₂*)·cos(ω t)",46,14);
-    blochPhase+=0.12; blochAnim=requestAnimationFrame(frame);
+    const env=Math.sin(ar)*Math.exp(-tAnim/T2s), phi=2*Math.PI*tAnim/Tprec;
+    const Mx=env*Math.cos(phi), My=env*Math.sin(phi), Mz=1-(1-Math.cos(ar))*Math.exp(-tAnim/T1);
+    // ── cv-vec : repère 3D isométrique (z = B₀ vertical) ──
+    const x=vcv.getContext('2d'),W=vcv.width,H=vcv.height; x.clearRect(0,0,W,H);
+    const cx=W*0.46, cy=H*0.70, s=74, P=(a,b,c)=>[cx+(a-b)*s*0.62, cy-c*s+(a+b)*s*0.30], O=P(0,0,0);
+    x.lineWidth=1; x.font="11px sans-serif"; x.textAlign="left";
+    x.strokeStyle="#1c242d";x.beginPath();for(let a=0;a<=360;a+=10){const q=P(Math.cos(a*Math.PI/180),Math.sin(a*Math.PI/180),0);a?x.lineTo(q[0],q[1]):x.moveTo(q[0],q[1]);}x.closePath();x.stroke();
+    x.strokeStyle="#3a4754";x.fillStyle="#6b7682";
+    [['x',1.15,0,0],['y',0,1.15,0]].forEach(ax=>{const E=P(ax[1],ax[2],ax[3]);x.beginPath();x.moveTo(O[0],O[1]);x.lineTo(E[0],E[1]);x.stroke();x.fillText(ax[0],E[0]+3,E[1]+3);});
+    const Z=P(0,0,1.18);x.beginPath();x.moveTo(O[0],O[1]);x.lineTo(Z[0],Z[1]);x.stroke();x.fillText("z (B₀)",Z[0]-2,Z[1]-4);
+    trace.push([Mx,My,Mz]); if(trace.length>150)trace.shift();
+    x.strokeStyle="rgba(224,136,75,0.5)";x.lineWidth=1.4;x.beginPath();trace.forEach((p,k)=>{const q=P(p[0],p[1],p[2]);k?x.lineTo(q[0],q[1]):x.moveTo(q[0],q[1]);});x.stroke();
+    const tip=P(Mx,My,Mz);
+    x.strokeStyle="#4db6a4";x.lineWidth=2.6;x.beginPath();x.moveTo(O[0],O[1]);x.lineTo(tip[0],tip[1]);x.stroke();
+    x.fillStyle="#4db6a4";x.beginPath();x.arc(tip[0],tip[1],4,0,2*Math.PI);x.fill();x.fillText("M",tip[0]+6,tip[1]-2);
+    // ── cv-prec : FID + curseur de temps ──
+    const y=pcv.getContext('2d'),W2=pcv.width,H2=pcv.height,cyy=H2/2; y.clearRect(0,0,W2,H2);
+    y.strokeStyle="#2d3742";y.beginPath();y.moveTo(40,cyy);y.lineTo(W2-12,cyy);y.stroke();
+    y.strokeStyle="#e0884b";y.lineWidth=1.8;y.beginPath();
+    for(let px=40;px<W2-12;px++){const t=(px-40)/(W2-52)*Tcycle, sig=Math.sin(ar)*Math.exp(-t/T2s)*Math.cos(2*Math.PI*t/Tprec), py=cyy-sig*(H2/2-12); px===40?y.moveTo(px,py):y.lineTo(px,py);}
+    y.stroke();
+    const cxp=40+(tAnim/Tcycle)*(W2-52); y.strokeStyle="#4db6a4";y.setLineDash([3,3]);y.beginPath();y.moveTo(cxp,8);y.lineTo(cxp,H2-8);y.stroke();y.setLineDash([]);
+    y.fillStyle="#8b97a3";y.font="10px sans-serif";y.textAlign="left";y.fillText("FID ~ Mxy·e^(−t/T₂*)·cos(ω t)",46,13);
+    tAnim+=Tcycle/260; if(tAnim>Tcycle){tAnim=0;trace=[];}
+    blochAnim=requestAnimationFrame(frame);
   }
   frame();
 }
+function gauss(){const u=1-Math.random(),v=Math.random(),m=Math.sqrt(-2*Math.log(u));return[m*Math.cos(2*Math.PI*v),m*Math.sin(2*Math.PI*v)];}
 
 // ════════════════════════════ 3 · ENCODAGE ════════════════════════════
 function encCalc(){
@@ -453,19 +505,28 @@ function kspace(){
   // masque
   const mode=document.getElementById('ks-mode').value, frac=+document.getElementById('ks-frac').value/100;
   const R=frac*(N/2);
-  const mr=Float64Array.from(re), mi=Float64Array.from(im);
-  if(mode!=='full'){
-    for(let y=0;y<N;y++)for(let x=0;x<N;x++){
-      const fx=x<N/2?x:x-N, fy=y<N/2?y:y-N, d=Math.hypot(fx,fy);
-      const keep = mode==='low' ? d<=R : d>R*1.0;
-      if(!keep){mr[y*N+x]=0;mi[y*N+x]=0;}
-    }
+  const mr=Float64Array.from(re), mi=Float64Array.from(im); const acq=new Uint8Array(N*N);
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+    const fx=x<N/2?x:x-N, fy=y<N/2?y:y-N, d=Math.hypot(fx,fy);
+    const keep = mode==='full' ? true : (mode==='low' ? d<=R : d>R);
+    if(keep)acq[y*N+x]=1; else {mr[y*N+x]=0;mi[y*N+x]=0;}
   }
+  // bruit RF thermique : gaussien complexe sur les échantillons acquis
+  const noiseLvl=+(document.getElementById('ks-noise')?.value||0);
+  if(document.getElementById('ks-noise-b'))document.getElementById('ks-noise-b').textContent=noiseLvl+" %";
+  if(noiseLvl>0){let kmag=0,c2=0; for(let p=0;p<N*N;p++)if(acq[p]){kmag+=Math.hypot(mr[p],mi[p]);c2++;}
+    const sigma=(noiseLvl/100)*0.6*(kmag/Math.max(c2,1));
+    for(let p=0;p<N*N;p++)if(acq[p]){const g=gauss();mr[p]+=g[0]*sigma;mi[p]+=g[1]*sigma;}}
   fft2d(mr,mi,true);
   const rec=new Float64Array(N*N); let rmx=1e-9;
   for(let p=0;p<N*N;p++){rec[p]=Math.hypot(mr[p],mi[p]); if(rec[p]>rmx)rmx=rec[p];}
   for(let p=0;p<N*N;p++)rec[p]/=rmx;
   drawGray('cv-ks-rec',rec,0.7);
+  // estimation SNR : signal (cerveau) / bruit (fond d'air)
+  let ss=0,sc=0,nn=0,nc=0;
+  for(let p=0;p<N*N;p++){if(LBL[p]>2){ss+=rec[p];sc++;}else if(LBL[p]===0){nn+=rec[p]*rec[p];nc++;}}
+  const sig=sc?ss/sc:0, nstd=nc?Math.sqrt(nn/nc):0, snr=nstd>1e-4?sig/nstd:Infinity;
+  if(document.getElementById('ks-snr'))document.getElementById('ks-snr').innerHTML='<div class="k">SNR '+T('ks.est')+'</div><div class="v">'+(isFinite(snr)?snr.toFixed(0):'∞')+'</div>';
 }
 function ksAnimate(){
   if(ksAnim){cancelAnimationFrame(ksAnim);ksAnim=null;}
@@ -594,11 +655,16 @@ const I18N={
  'lar.b0':{fr:"Champ B₀ (T)",en:"Field B₀ (T)"},'lar.tab':{fr:"Machines courantes",en:"Common scanners"},
  'lar.invac':{fr:" (vide)",en:" (vacuum)"},'lar.intis':{fr:" (tissu)",en:" (tissue)"},'lar.tcol':{fr:" tissu",en:" tissue"},
  'lar.note':{fr:"⚠ À haut champ (3 T et surtout 7 T), la longueur d'onde RF dans les tissus devient comparable à la taille de la tête → ondes stationnaires, <b>inhomogénéité du champ B₁</b> et <b>SAR plus élevé</b> (onglet SAR). C'est l'enjeu dosimétrique de l'IRM moderne.",en:"⚠ At high field (3 T and especially 7 T) the in-tissue RF wavelength becomes comparable to head size → standing waves, <b>B₁ inhomogeneity</b> and <b>higher SAR</b> (SAR tab). That is modern MRI's dosimetric challenge."},
+ 'lar.b1h':{fr:"Inhomogénéité de B₁⁺ dans la tête (à ce champ)",en:"B₁⁺ inhomogeneity in the head (at this field)"},
+ 'lar.b1cap':{fr:"Carte schématique de l'amplitude RF B₁⁺ — les ondes stationnaires apparaissent quand λ_tissu ≈ taille de la tête",en:"Schematic map of RF amplitude B₁⁺ — standing waves appear when λ_tissue ≈ head size"},
+ 'lar.b1note':{fr:"À 1,5 T le champ RF est quasi uniforme ; à 3 T apparaît un renforcement central (effet diélectrique) ; à 7 T la carte devient franchement hétérogène → l'angle de bascule, donc le signal <i>et</i> le SAR, varient d'un point à l'autre.",en:"At 1.5 T the RF field is nearly uniform; at 3 T a central brightening appears (dielectric effect); at 7 T the map becomes strongly heterogeneous → the flip angle, hence signal <i>and</i> SAR, vary from point to point."},
+ 'lar.b1var':{fr:"Inhomogénéité B₁ (CV)",en:"B₁ inhomogeneity (CV)"},
  'blo.h':{fr:"Excitation RF et relaxation (équations de Bloch)",en:"RF excitation and relaxation (Bloch equations)"},
  'blo.lead':{fr:"Une impulsion RF bascule l'aimantation M d'un angle α. La composante transverse M<sub>xy</sub> précesse et génère le signal mais <b>décroît en T₂</b> ; la longitudinale M<sub>z</sub> <b>repousse en T₁</b>. Ces deux temps, propres à chaque tissu, font tout le contraste.",en:"An RF pulse tips magnetisation M by an angle α. The transverse component M<sub>xy</sub> precesses and produces signal but <b>decays with T₂</b>; the longitudinal M<sub>z</sub> <b>recovers with T₁</b>. These tissue-specific times create all the contrast."},
  'blo.flip':{fr:"Angle de bascule α",en:"Flip angle α"},'blo.t1':{fr:"T₁ (ms)",en:"T₁ (ms)"},'blo.t2':{fr:"T₂ (ms)",en:"T₂ (ms)"},'blo.csf':{fr:"LCR",en:"CSF"},'blo.fat':{fr:"Graisse",en:"Fat"},
  'blo.cap1':{fr:"Repousse longitudinale M<sub>z</sub>(t) (T₁) et décroissance transverse M<sub>xy</sub>(t) (T₂)",en:"Longitudinal recovery M<sub>z</sub>(t) (T₁) and transverse decay M<sub>xy</sub>(t) (T₂)"},
  'blo.cap2':{fr:"Aimantation transverse en précession (le « FID » que capte l'antenne)",en:"Precessing transverse magnetisation (the FID the coil picks up)"},
+ 'blo.cap3':{fr:"Vecteur d'aimantation M : bascule de α, précession autour de B₀ (z) et retour à l'équilibre (repère du laboratoire)",en:"Magnetisation vector M: tipped by α, precessing about B₀ (z) and relaxing back (laboratory frame)"},
  'blo.time':{fr:"temps (ms)",en:"time (ms)"},'blo.rec90':{fr:"T₁·ln2",en:"T₁·ln2"},
  'enc.h':{fr:"Encodage spatial : les gradients",en:"Spatial encoding: the gradients"},
  'enc.lead':{fr:"Comment savoir d'<i>où</i> vient le signal ? On superpose à B₀ des <b>gradients</b> linéaires (G<sub>x</sub>, G<sub>y</sub>, G<sub>z</sub>) : la fréquence de Larmor devient fonction de la position. Trois étapes :",en:"How do we know <i>where</i> the signal comes from? We add linear <b>gradients</b> (G<sub>x</sub>, G<sub>y</sub>, G<sub>z</sub>) to B₀: the Larmor frequency becomes position-dependent. Three steps:"},
@@ -629,6 +695,8 @@ const I18N={
  'ks.centric':{fr:"Remplissage centrique (centre → bords)",en:"Centric filling (centre → edges)"},'ks.linear':{fr:"Remplissage linéaire (haut → bas)",en:"Linear filling (top → bottom)"},
  'ks.anim':{fr:"▶ Animer le remplissage",en:"▶ Animate the filling"},'ks.acq':{fr:"acquisition…",en:"acquiring…"},'ks.again':{fr:"Rejouer",en:"Replay"},
  'ks.animnote':{fr:"Pendant l'acquisition, le k-space se remplit ligne par ligne (chaque pas d'encodage de phase). Le centre (acquis tôt en mode centrique) fixe le contraste ; les bords affinent les détails.",en:"During acquisition, k-space fills line by line (each phase-encoding step). The centre (acquired early in centric mode) sets the contrast; the edges sharpen the detail."},
+ 'ks.noise':{fr:"Bruit RF (thermique)",en:"RF noise (thermal)"},'ks.est':{fr:"(estim.)",en:"(est.)"},
+ 'ks.snrnote':{fr:"Le triangle de l'IRM : <b>vitesse</b> (moins de lignes) ↔ <b>résolution</b> (bords du k-space) ↔ <b>SNR</b> (bruit). Moins d'acquisitions = examen plus rapide mais plus bruité ; le SNR croît comme √(nombre d'échantillons).",en:"The MRI triangle: <b>speed</b> (fewer lines) ↔ <b>resolution</b> (k-space edges) ↔ <b>SNR</b> (noise). Fewer acquisitions = faster but noisier scan; SNR grows as √(number of samples)."},
  'im.h':{fr:"Effet d'un implant conducteur (effet d'antenne RF)",en:"Conductive-implant effect (RF antenna effect)"},
  'im.lead':{fr:"Un implant métallique allongé (sonde de pacemaker, fil de neurostimulateur, guide) se comporte comme une <b>antenne</b> : il capte le champ RF et concentre l'énergie à ses <b>extrémités</b>. L'effet est maximal quand sa longueur ≈ λ/2 dans les tissus (<b>résonance demi-onde</b>) → le SAR local au bout peut être multiplié par 10 à 100. C'est le principal danger des implants en IRM.",en:"An elongated metallic implant (pacemaker lead, neurostimulator wire, guidewire) acts as an <b>antenna</b>: it picks up the RF field and concentrates energy at its <b>tips</b>. The effect peaks when its length ≈ λ/2 in tissue (<b>half-wave resonance</b>) → local tip SAR can be amplified 10–100×. This is the main implant hazard in MRI."},
  'im.len':{fr:"Longueur de l'implant (cm)",en:"Implant length (cm)"},'im.lenx':{fr:"longueur (cm)",en:"length (cm)"},
