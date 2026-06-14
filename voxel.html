@@ -72,11 +72,32 @@ a.back{color:var(--acc);text-decoration:none;font-size:13px}
       <select id="preset" onchange="onPreset()">
         <option value="torso" data-i18n="o.torso">Tronc — coupe axiale (thorax)</option>
         <option value="head" data-i18n="o.head">Tête — coupe axiale</option>
-        <option value="file" data-i18n="o.file">Charger un fichier voxel (JSON)…</option>
+        <option value="file" data-i18n="o.file">Charger un modèle voxel…</option>
       </select>
+      <div id="res-row">
+        <label data-i18n="l.res">Résolution de voxélisation (mm)</label>
+        <select id="res" onchange="onPreset()">
+          <option value="3">3 mm (rapide)</option>
+          <option value="2.5" selected>2,5 mm</option>
+          <option value="2">2 mm</option>
+          <option value="1.5">1,5 mm (fin)</option>
+        </select>
+      </div>
       <div id="file-row" style="display:none">
-        <label data-i18n="l.file">Fichier .json (volume d'indices tissulaires)</label>
-        <input type="file" id="voxfile" accept=".json" onchange="loadVoxFile(event)">
+        <label data-i18n="l.fmt">Format</label>
+        <select id="impfmt" onchange="onImpFmt()">
+          <option value="json">JSON générique</option>
+          <option value="interfile">Interfile XCAT (.h33 + .i33)</option>
+        </select>
+        <div id="imp-json">
+          <label data-i18n="l.file">Fichier .json (volume d'indices tissulaires)</label>
+          <input type="file" id="voxfile" accept=".json" onchange="loadVoxFile(event)">
+        </div>
+        <div id="imp-interfile" style="display:none">
+          <label data-i18n="l.files33">Fichiers .h33 + .i33 (sélectionne les deux à la fois)</label>
+          <input type="file" id="vox33" accept=".h33,.i33,.hdr,.img" multiple onchange="loadInterfile(event)">
+          <div class="note" data-i18n="n.xcat">Modèle XCAT mesh50 (licence MIT). La version « tête seule » (~43 Mo) passe bien ; le corps entier (650 Mo) peut saturer le navigateur.</div>
+        </div>
         <div class="row" id="slice-row" style="display:none;margin-top:8px">
           <div><label data-i18n="l.axis">Axe de coupe</label>
             <select id="slice-axis" onchange="reslice()"><option value="2">Z</option><option value="1">Y</option><option value="0">X</option></select></div>
@@ -103,9 +124,16 @@ a.back{color:var(--acc);text-decoration:none;font-size:13px}
         <label data-i18n="l.freqv">Valeur (Hz)</label>
         <input type="number" id="freqv" value="128e6" step="1e6">
       </div>
+      <label data-i18n="l.incdir">Direction d'incidence (propagation k)</label>
+      <select id="incdir" onchange="onIncidence()">
+        <option value="+z" data-i18n="inc.z">↓ Haut → bas (+z)</option>
+        <option value="-z" data-i18n="inc.zm">↑ Bas → haut (−z)</option>
+        <option value="+x" data-i18n="inc.x">→ Gauche → droite (+x)</option>
+        <option value="-x" data-i18n="inc.xm">← Droite → gauche (−x)</option>
+      </select>
       <label data-i18n="l.einc">Champ E incident E<sub>rms</sub> (V/m)</label>
       <input type="number" id="einc" value="100" step="10">
-      <div class="note" data-i18n="n.inc">Onde plane entrant par le haut (axe +z, propagation vers le bas). SAR = σ·|E|²/ρ (champ efficace).</div>
+      <div class="note" data-i18n="n.inc">Onde plane. <b>k</b> = direction de propagation (flèche), <b>E</b> = polarisation (⊥ k, dans le plan), <b>H</b> = ⊥ au plan. SAR = σ·|E|²/ρ (champ efficace).</div>
       <button class="go" onclick="computeAll()" data-i18n="b.run">▶ Calculer SAR + thermique</button>
     </div>
 
@@ -177,7 +205,7 @@ a.back{color:var(--acc);text-decoration:none;font-size:13px}
 
     <details>
       <summary data-i18n="about.sum">À propos — modèles voxel & licences</summary>
-      <p data-i18n="about.p1">Les fantômes <b>Tronc</b> et <b>Tête</b> sont procéduraux (générés, sans licence). Pour charger un <b>vrai modèle voxel</b> : le format JSON attendu est <code>{nx,ny,nz,dx,dy,dz,labels:{"1":"Muscle",…},data:[…]}</code> (indices, z d'abord). Convertissez un modèle libre (<b>AustinMan/AustinWoman</b>, <b>Zubal</b>) vers ce format. ⚠ Les modèles <b>Virtual Population</b> (Duke, Ella) ne sont pas libres — ne les redistribuez pas.</p>
+      <p data-i18n="about.p1">Les fantômes <b>Tronc</b> et <b>Tête</b> sont procéduraux (générés, sans licence) ; la résolution de voxélisation est réglable. Pour un <b>vrai modèle voxel</b>, deux voies : (1) <b>Interfile XCAT</b> (.h33+.i33, dépôt <i>BenAuer2021/Mesh-based-Human-Phantom</i>, licence MIT, 1 mm) — chargé directement ; (2) <b>JSON</b> <code>{nx,ny,nz,dx,dy,dz,labels,data}</code> pour convertir un modèle libre (<b>AustinMan</b>, <b>Zubal</b>). ⚠ Les modèles <b>Virtual Population</b> (Duke, Ella) ne sont pas libres — ne les redistribuez pas.</p>
       <p class="muted" data-i18n="about.p2">Limite physique : le moteur SAR est une approximation 1D par colonne (TMM exacte par empilement, couplage transverse négligé). Pour des cartes 2D hétérogènes rigoureuses → extension FDTD 2D prévue.</p>
     </details>
   </div>
@@ -296,8 +324,8 @@ function runTMM(f,E0,layerDefs,Npts){
 let G=null, SAR=null, DT=null, TFULL=null, lastMeta={};
 const idx=(i,j)=>i*G.nz+j; // i=x (largeur), j=z (profondeur, propagation)
 
-function buildTorso(){
-  const h=3, nx=120, nz=80; const t=new Int16Array(nx*nz);
+function buildTorso(h){
+  h=h||3; const nx=Math.round(360/h), nz=Math.round(240/h); const t=new Int16Array(nx*nz);
   const names=["Air","Skin","Fat","Muscle","Bone (Cortical)","Spinal Cord","Lung (Inflated)","Heart Muscle"];
   const NI=Object.fromEntries(names.map((n,k)=>[n,k]));
   const cx=180, cz=120, a=165, b=108; // mm (ellipse corps)
@@ -324,8 +352,8 @@ function buildTorso(){
   }
   G={nx,nz,h,t,names}; lastMeta={label:"Tronc (thorax)"};
 }
-function buildHead(){
-  const h=2.5, nx=92, nz=92; const t=new Int16Array(nx*nz);
+function buildHead(h){
+  h=h||2.5; const nx=Math.round(230/h), nz=Math.round(230/h); const t=new Int16Array(nx*nz);
   const names=["Air","Skin","Bone (Cortical)","Cerebrospinal Fluid","Brain"];
   const NI=Object.fromEntries(names.map((n,k)=>[n,k]));
   const cx=115, cz=115; // mm
@@ -358,6 +386,38 @@ function loadVoxFile(ev){
     reslice();
   }catch(e){alert("Lecture JSON : "+e.message);} };
   rd.readAsText(f);
+}
+// XCAT mesh50 (BenAuer2021, licence MIT) : index matériau → notre tissu
+const XCAT_MAP={0:"Air",1:"Muscle",2:"Air",3:"Brain",4:"Air",5:"Liver",6:"Lung (Inflated)",7:"Bone (Cortical)"};
+function loadInterfile(ev){
+  const files=[...ev.target.files];
+  const fh=files.find(f=>/\.(h33|hdr)$/i.test(f.name)), fi=files.find(f=>/\.(i33|img)$/i.test(f.name));
+  if(!fh||!fi){alert("Sélectionne les DEUX fichiers : l'entête (.h33) ET les données (.i33).");return;}
+  const info=document.getElementById('grid-info'); info.textContent="Lecture "+fi.name+"…";
+  const rh=new FileReader();
+  rh.onload=()=>{
+    const hdr=rh.result; const get=re=>{const m=hdr.match(re);return m?m[1].trim():null;};
+    const nx=+get(/matrix size\s*\[1\]\s*:=\s*(\d+)/i), ny=+get(/matrix size\s*\[2\]\s*:=\s*(\d+)/i), nz=+get(/matrix size\s*\[3\]\s*:=\s*(\d+)/i);
+    if(!nx||!ny||!nz){alert("Entête Interfile illisible (matrix size manquant).");info.textContent="";return;}
+    const dx=parseFloat(get(/scaling factor.*\[1\]\s*:=\s*([\d.]+)/i))||1, dy=parseFloat(get(/scaling factor.*\[2\]\s*:=\s*([\d.]+)/i))||1, dz=parseFloat(get(/scaling factor.*\[3\]\s*:=\s*([\d.]+)/i))||1;
+    const bpp=+(get(/bytes per pixel\s*:=\s*(\d+)/i)||2);
+    const big=/BIGENDIAN/i.test(get(/byte order\s*:=\s*(\w+)/i)||"");
+    if((nx*ny*nz*bpp)>5e8){ if(!confirm("Volume très lourd ("+Math.round(nx*ny*nz*bpp/1e6)+" Mo). Charger quand même ? (privilégie « tête seule »)")){info.textContent="";return;} }
+    const ri=new FileReader();
+    ri.onload=()=>{
+      const buf=ri.result; let data;
+      if(bpp===2){ if(big){const dv=new DataView(buf);data=new Uint16Array(nx*ny*nz);for(let p=0;p<data.length;p++)data[p]=dv.getUint16(p*2,false);}
+        else data=new Uint16Array(buf,0,Math.min(nx*ny*nz,Math.floor(buf.byteLength/2))); }
+      else data=new Uint8Array(buf,0,nx*ny*nz);
+      VOL={nx,ny,nz,dx,dy,dz,labels:XCAT_MAP,data};
+      document.getElementById('slice-row').style.display='flex';
+      const ax=+document.getElementById('slice-axis').value, dim=[nx,ny,nz][ax];
+      const sl=document.getElementById('slice-pos'); sl.max=dim-1; sl.value=Math.floor(dim/2);
+      reslice();
+    };
+    ri.readAsArrayBuffer(fi);
+  };
+  rh.readAsText(fh);
 }
 function reslice(){
   if(!VOL)return;
@@ -393,24 +453,33 @@ function exportVox(){
 }
 
 // ════════════════════════════ CALCUL SAR (TMM par colonne) ════════════════════════════
+// rayons (lignes de voxels) le long de la direction de propagation
+function buildRays(dir){
+  const rays=[];
+  if(dir==='+z'||dir==='-z'){
+    for(let i=0;i<G.nx;i++){const r=[];for(let j=0;j<G.nz;j++)r.push(i*G.nz+j); if(dir==='-z')r.reverse(); rays.push(r);}
+  }else{
+    for(let j=0;j<G.nz;j++){const r=[];for(let i=0;i<G.nx;i++)r.push(i*G.nz+j); if(dir==='-x')r.reverse(); rays.push(r);}
+  }
+  return rays;
+}
 function computeSAR(){
   const f=getFreq(), E0=parseFloat(document.getElementById('einc').value)||100;
   SAR=new Float32Array(G.nx*G.nz); let smax=0, sumW=0, sumWS=0;
-  for(let i=0;i<G.nx;i++){
-    // empilement de la colonne : runs de tissus consécutifs
-    const layers=[]; let cur=G.t[idx(i,0)], len=1;
-    for(let j=1;j<G.nz;j++){const v=G.t[idx(i,j)]; if(v===cur)len++; else{layers.push({t:G.names[cur],d:len*G.h});cur=v;len=1;}}
+  for(const ray of buildRays(DIR)){
+    // empilement le long du rayon : runs de tissus consécutifs
+    const layers=[]; let cur=G.t[ray[0]], len=1;
+    for(let s=1;s<ray.length;s++){const v=G.t[ray[s]]; if(v===cur)len++; else{layers.push({t:G.names[cur],d:len*G.h});cur=v;len=1;}}
     layers.push({t:G.names[cur],d:len*G.h});
-    const allAir=layers.every(l=>l.t==="Air"); if(allAir)continue;
+    if(layers.every(l=>l.t==="Air"))continue;
     const res=runTMM(f,E0,layers,400); if(!res)continue;
-    // échantillonne SAR au centre de chaque voxel
-    for(let j=0;j<G.nz;j++){
-      const zmm=(j+0.5)*G.h, fp=zmm/res.totalD*(res.zArr.length-1);
+    for(let s=0;s<ray.length;s++){
+      const zmm=(s+0.5)*G.h, fp=zmm/res.totalD*(res.zArr.length-1);
       const k0=Math.max(0,Math.min(res.zArr.length-2,Math.floor(fp))), fr=fp-k0;
-      const s=res.sarArr[k0]*(1-fr)+res.sarArr[k0+1]*fr;
-      SAR[idx(i,j)]=s;
-      const nm=G.names[G.t[idx(i,j)]];
-      if(nm!=="Air"){ if(s>smax)smax=s; const m=THERM[nm].perf>=0?1:1; sumW+=1; sumWS+=s; }
+      const val=res.sarArr[k0]*(1-fr)+res.sarArr[k0+1]*fr;
+      SAR[ray[s]]=val;
+      const nm=G.names[G.t[ray[s]]];
+      if(nm!=="Air"){ if(val>smax)smax=val; sumW++; sumWS+=val; }
     }
   }
   lastMeta.sarMax=smax; lastMeta.sarAvg=sumW?sumWS/sumW:0;
@@ -476,7 +545,44 @@ function jet(t){ t=Math.max(0,Math.min(1,t));
   const r=Math.max(0,Math.min(1,1.5-Math.abs(4*t-3))), g=Math.max(0,Math.min(1,1.5-Math.abs(4*t-2))), b=Math.max(0,Math.min(1,1.5-Math.abs(4*t-1)));
   return[Math.round(255*r),Math.round(255*g),Math.round(255*b)];
 }
-function fitCell(cv){const pad=cv===null?0:0; const availW=cv.width-70, availH=cv.height-30; return Math.min(availW/G.nx, availH/G.nz);}
+function fitCell(cv){const availW=cv.width-70, availH=cv.height-30; return Math.min(availW/G.nx, availH/G.nz);}
+// arrow with white halo for readability
+function arr(x,x0,y0,x1,y1,col){
+  const ang=Math.atan2(y1-y0,x1-x0), hl=8;
+  for(const [c,w] of [["#0b0f14cc",5.5],[col,2.5]]){
+    x.strokeStyle=c; x.fillStyle=c; x.lineWidth=w; x.lineCap="round";
+    x.beginPath(); x.moveTo(x0,y0); x.lineTo(x1,y1); x.stroke();
+    x.beginPath(); x.moveTo(x1,y1);
+    x.lineTo(x1-hl*Math.cos(ang-0.4),y1-hl*Math.sin(ang-0.4));
+    x.lineTo(x1-hl*Math.cos(ang+0.4),y1-hl*Math.sin(ang+0.4));
+    x.closePath(); x.fill();
+  }
+}
+function txt(x,s,px,py,col){x.font="bold 13px sans-serif";x.textAlign="center";x.textBaseline="middle";
+  x.lineWidth=3;x.strokeStyle="#0b0f14cc";x.strokeText(s,px,py);x.fillStyle=col;x.fillText(s,px,py);x.textBaseline="alphabetic";}
+// triade k (propagation), E (polarisation ⊥k, dans le plan), H (⊥ plan)
+function drawIncidence(x,ox,oy,gw,gh){
+  const kC="#4db6a4", eC="#e0884b", hC="#9aa7c9";
+  const cxp=ox+gw/2, cyp=oy+gh/2, L=Math.min(gw,gh)*0.18, E=Math.min(gw,gh)*0.07;
+  let kx0,ky0,kx1,ky1, vert; // k : queue→tête (tête = vers l'intérieur)
+  if(DIR==='+z'){kx0=cxp;ky0=oy+6;kx1=cxp;ky1=oy+6+L;vert=true;}
+  else if(DIR==='-z'){kx0=cxp;ky0=oy+gh-6;kx1=cxp;ky1=oy+gh-6-L;vert=true;}
+  else if(DIR==='+x'){kx0=ox+6;ky0=cyp;kx1=ox+6+L;ky1=cyp;vert=false;}
+  else {kx0=ox+gw-6;ky0=cyp;kx1=ox+gw-6-L;ky1=cyp;vert=false;}
+  arr(x,kx0,ky0,kx1,ky1,kC);
+  const mx=(kx0+kx1)/2, my=(ky0+ky1)/2;
+  // E : double flèche ⊥ k, dans le plan
+  if(vert){arr(x,mx-E,my,mx+E,my,eC);arr(x,mx+E,my,mx-E,my,eC);}
+  else{arr(x,mx,my-E,mx,my+E,eC);arr(x,mx,my+E,mx,my-E,eC);}
+  // H : ⊥ plan (⊙)
+  const hx=vert?mx+E+16:mx, hy=vert?my:my+E+16;
+  x.beginPath();x.arc(hx,hy,6,0,2*Math.PI);x.lineWidth=3;x.strokeStyle="#0b0f14cc";x.stroke();x.lineWidth=2;x.strokeStyle=hC;x.stroke();
+  x.beginPath();x.arc(hx,hy,1.6,0,2*Math.PI);x.fillStyle=hC;x.fill();
+  // labels
+  txt(x,"k",vert?kx1+12:kx1,vert?ky1:ky1-12,kC);
+  txt(x,"E",vert?mx:mx+12,vert?my-12:my,eC);
+  txt(x,"H",hx+12,hy-10,hC);
+}
 function drawTissue(){
   const cv=document.getElementById('cv-tissue'), x=cv.getContext('2d'); x.clearRect(0,0,cv.width,cv.height);
   const cell=fitCell(cv), ox=10, oy=12;
@@ -484,11 +590,7 @@ function drawTissue(){
     x.fillStyle=THERM[G.names[G.t[idx(i,j)]]].col;
     x.fillRect(ox+i*cell, oy+j*cell, Math.ceil(cell), Math.ceil(cell));
   }
-  // flèche incidence
-  x.strokeStyle="#4db6a4"; x.fillStyle="#4db6a4"; x.lineWidth=2;
-  const ax=ox+G.nx*cell+18; x.beginPath(); x.moveTo(ax,oy+6); x.lineTo(ax,oy+40); x.stroke();
-  x.beginPath(); x.moveTo(ax-4,oy+34); x.lineTo(ax,oy+42); x.lineTo(ax+4,oy+34); x.fill();
-  x.font="11px sans-serif"; x.fillText("E", ax+6, oy+24);
+  drawIncidence(x,ox,oy,G.nx*cell,G.nz*cell);
   // légende
   const present=[...new Set(G.t)].map(v=>G.names[v]);
   document.getElementById('legend').innerHTML=present.map(n=>`<span><i style="background:${THERM[n].col}"></i>${TL(n)}</span>`).join('');
@@ -513,6 +615,7 @@ function drawField(cvId,F,opt){
   x.fillText(opt.fmt((vmax+vmin)/2), bx+bw+4, by+bh/2+3);
   x.fillText(opt.fmt(vmin), bx+bw+4, by+bh-2);
   if(opt.unit){x.fillText(opt.unit, bx-2, by+bh+16);}
+  if(opt.inc)drawIncidence(x,ox,oy,G.nx*cell,G.nz*cell);
 }
 
 // propriété diélectrique/thermique par voxel
@@ -539,7 +642,7 @@ function drawProp(){
   document.getElementById('prop-table').innerHTML=html;
 }
 function drawSARmap(){
-  drawField('cv-sar',SAR,{showAir:false,fmt:v=>v>=10?v.toFixed(1):v.toFixed(2),unit:"W/kg"});
+  drawField('cv-sar',SAR,{showAir:false,fmt:v=>v>=10?v.toFixed(1):v.toFixed(2),unit:"W/kg",inc:true});
   document.getElementById('sar-metrics').innerHTML=
     metric(L('m.sarmax'),lastMeta.sarMax.toFixed(2),"W/kg")+
     metric(L('m.saravg'),lastMeta.sarAvg.toFixed(3),"W/kg")+
@@ -555,17 +658,17 @@ function drawDTmap(){
 }
 function drawProfile(){
   const cv=document.getElementById('cv-prof'), x=cv.getContext('2d'); x.clearRect(0,0,cv.width,cv.height);
-  const ic=Math.floor(G.nx/2); // colonne centrale
+  const rays=buildRays(DIR), ray=rays[Math.floor(rays.length/2)], n=ray.length; // rayon central
   const W=cv.width, H=cv.height, mL=52, mR=16, mT=16, mB=40, pw=W-mL-mR, ph=H-mT-mB;
-  // données colonne
+  // données le long du rayon central
   const zs=[], ss=[]; let smax=0;
-  for(let j=0;j<G.nz;j++){const s=SAR?SAR[idx(ic,j)]:0; zs.push((j+0.5)*G.h); ss.push(s); if(s>smax)smax=s;}
+  for(let s=0;s<n;s++){const v=SAR?SAR[ray[s]]:0; zs.push((s+0.5)*G.h); ss.push(v); if(v>smax)smax=v;}
   if(smax<=0)smax=1;
-  const zmax=G.nz*G.h;
+  const zmax=n*G.h;
   const X=z=>mL+z/zmax*pw, Y=s=>mT+ph-s/smax*ph;
   // bandes de tissu (couleur de fond)
-  for(let j=0;j<G.nz;j++){x.fillStyle=THERM[G.names[G.t[idx(ic,j)]]].col; x.globalAlpha=0.22;
-    x.fillRect(X(j*G.h),mT,Math.ceil(pw/G.nz)+1,ph);} x.globalAlpha=1;
+  for(let s=0;s<n;s++){x.fillStyle=THERM[G.names[G.t[ray[s]]]].col; x.globalAlpha=0.22;
+    x.fillRect(X(s*G.h),mT,Math.ceil(pw/n)+1,ph);} x.globalAlpha=1;
   // axes
   x.strokeStyle="#2d3742"; x.lineWidth=1; x.beginPath(); x.moveTo(mL,mT); x.lineTo(mL,mT+ph); x.lineTo(mL+pw,mT+ph); x.stroke();
   x.fillStyle="#8b97a3"; x.font="11px sans-serif"; x.textAlign="right";
@@ -584,10 +687,19 @@ function getFreq(){const s=document.getElementById('freq').value; return s==='cu
 function fmtF(f){if(f>=1e9)return(f/1e9).toFixed(3)+' GHz';if(f>=1e6)return(f/1e6).toFixed(1)+' MHz';return(f/1e3).toFixed(0)+' kHz';}
 function fmtFshort(f){if(f>=1e9)return(f/1e9).toFixed(2)+'GHz';if(f>=1e6)return(f/1e6).toFixed(0)+'MHz';return(f/1e3).toFixed(0)+'kHz';}
 function onPreset(){const v=document.getElementById('preset').value;
-  document.getElementById('file-row').style.display=v==='file'?'block':'none';
-  if(v==='torso'){buildTorso();afterBuild();}
-  else if(v==='head'){buildHead();afterBuild();}
+  const isFile=v==='file';
+  document.getElementById('file-row').style.display=isFile?'block':'none';
+  document.getElementById('res-row').style.display=isFile?'none':'block';
+  const h=parseFloat(document.getElementById('res').value)||2.5;
+  if(v==='torso'){buildTorso(h);afterBuild();}
+  else if(v==='head'){buildHead(h);afterBuild();}
 }
+function onImpFmt(){const f=document.getElementById('impfmt').value;
+  document.getElementById('imp-json').style.display=f==='json'?'block':'none';
+  document.getElementById('imp-interfile').style.display=f==='interfile'?'block':'none';
+}
+let DIR='+z';
+function onIncidence(){DIR=document.getElementById('incdir').value; drawTissue(); if(SAR)computeAll();}
 function onFreqSel(){document.getElementById('freq-custom').style.display=document.getElementById('freq').value==='custom'?'block':'none';}
 function afterBuild(){
   document.getElementById('grid-info').innerHTML=`${G.nx}×${G.nz} voxels · ${G.h} mm · ${lastMeta.label}`;
@@ -615,13 +727,18 @@ const I18N={
  title:{fr:"Dosimétrie sur fantôme voxel",en:"Voxel-phantom dosimetry"},
  sub:{fr:"SAR (TMM par colonne) + bio-chaleur de Pennes 2D",en:"SAR (per-column TMM) + 2D Pennes bioheat"},
  'h.model':{fr:"Fantôme",en:"Phantom"},'l.preset':{fr:"Modèle",en:"Model"},
- 'o.torso':{fr:"Tronc — coupe axiale (thorax)",en:"Trunk — axial slice (thorax)"},'o.head':{fr:"Tête — coupe axiale",en:"Head — axial slice"},'o.file':{fr:"Charger un fichier voxel (JSON)…",en:"Load voxel file (JSON)…"},
+ 'o.torso':{fr:"Tronc — coupe axiale (thorax)",en:"Trunk — axial slice (thorax)"},'o.head':{fr:"Tête — coupe axiale",en:"Head — axial slice"},'o.file':{fr:"Charger un modèle voxel…",en:"Load voxel model…"},
+ 'l.res':{fr:"Résolution de voxélisation (mm)",en:"Voxelisation resolution (mm)"},
+ 'l.fmt':{fr:"Format",en:"Format"},'l.files33':{fr:"Fichiers .h33 + .i33 (sélectionne les deux à la fois)",en:".h33 + .i33 files (select both at once)"},
+ 'n.xcat':{fr:"Modèle XCAT mesh50 (licence MIT). La version « tête seule » (~43 Mo) passe bien ; le corps entier (650 Mo) peut saturer le navigateur.",en:"XCAT mesh50 model (MIT license). The “head only” variant (~43 MB) works well; the whole body (650 MB) may overload the browser."},
+ 'l.incdir':{fr:"Direction d'incidence (propagation k)",en:"Incidence direction (propagation k)"},
+ 'inc.z':{fr:"↓ Haut → bas (+z)",en:"↓ Top → bottom (+z)"},'inc.zm':{fr:"↑ Bas → haut (−z)",en:"↑ Bottom → top (−z)"},'inc.x':{fr:"→ Gauche → droite (+x)",en:"→ Left → right (+x)"},'inc.xm':{fr:"← Droite → gauche (−x)",en:"← Right → left (−x)"},
  'l.file':{fr:"Fichier .json (volume d'indices tissulaires)",en:".json file (tissue-index volume)"},'l.axis':{fr:"Axe de coupe",en:"Cut axis"},'l.pos':{fr:"Position",en:"Position"},
  'b.export':{fr:"⤓ Exporter ce fantôme (JSON)",en:"⤓ Export this phantom (JSON)"},
  'h.source':{fr:"Source EM",en:"EM source"},'l.freq':{fr:"Fréquence",en:"Frequency"},
  'f.64':{fr:"64 MHz — IRM 1,5 T (¹H)",en:"64 MHz — MRI 1.5 T (¹H)"},'f.128':{fr:"128 MHz — IRM 3 T (¹H)",en:"128 MHz — MRI 3 T (¹H)"},'f.298':{fr:"298 MHz — IRM 7 T (¹H)",en:"298 MHz — MRI 7 T (¹H)"},'f.900':{fr:"900 MHz — GSM",en:"900 MHz — GSM"},'f.245':{fr:"2,45 GHz — Wi-Fi / four",en:"2.45 GHz — Wi-Fi / oven"},'f.custom':{fr:"Personnalisée…",en:"Custom…"},
  'l.freqv':{fr:"Valeur (Hz)",en:"Value (Hz)"},'l.einc':{fr:"Champ E incident E_rms (V/m)",en:"Incident E-field E_rms (V/m)"},
- 'n.inc':{fr:"Onde plane entrant par le haut (axe +z). SAR = σ·|E|²/ρ (champ efficace).",en:"Plane wave entering from the top (+z axis). SAR = σ·|E|²/ρ (rms field)."},
+ 'n.inc':{fr:"Onde plane. k = direction de propagation (flèche), E = polarisation (⊥ k, dans le plan), H = ⊥ au plan. SAR = σ·|E|²/ρ (champ efficace).",en:"Plane wave. k = propagation direction (arrow), E = polarisation (⊥ k, in-plane), H = ⊥ plane. SAR = σ·|E|²/ρ (rms field)."},
  'b.run':{fr:"▶ Calculer SAR + thermique",en:"▶ Compute SAR + thermal"},
  'h.thermal':{fr:"Thermique (Pennes)",en:"Thermal (Pennes)"},'l.tamb':{fr:"T_air (°C)",en:"T_air (°C)"},'l.tblood':{fr:"T_sang (°C)",en:"T_blood (°C)"},'l.hconv':{fr:"h_conv (W/m²K)",en:"h_conv (W/m²K)"},'l.texp':{fr:"Durée expo (min)",en:"Exposure (min)"},
  'n.thermal':{fr:"État stationnaire de Pennes hétérogène. ΔT = T(avec EM) − T(sans EM).",en:"Heterogeneous steady-state Pennes. ΔT = T(with EM) − T(without EM)."},
