@@ -173,6 +173,16 @@ footer a{color:var(--text2)}
       </div>
     </a>
 
+    <a class="card live" href="radar.html">
+      <div class="ico">📡</div>
+      <h3 data-i18n="rad.title">Radar — détecter un objet</h3>
+      <p data-i18n="rad.desc">Comment un radar détecte une cible : équation du radar et portée (loi en 1/R⁴), effet Doppler pour mesurer une vitesse (radar routier, effet cosinus), et surface équivalente radar (SER/RCS) par forme canonique + ordres de grandeur (voiture, avion, furtif).</p>
+      <div class="tags">
+        <span class="badge ok" data-i18n="rad.badge">portée · Doppler · SER</span>
+        <span class="badge free" data-i18n="badge.free">accès libre</span>
+      </div>
+    </a>
+
     <div class="card soon">
       <div>
         <div class="ico" style="opacity:.5">＋</div>
@@ -241,6 +251,10 @@ const I18N={
   'irm.desc':{fr:"Chapitre interactif sur l'IRM : fréquence de Larmor, équations de Bloch (relaxation T₁/T₂, FID), encodage spatial par gradients, k-space ↔ image par FFT 2D, contraste TR/TE sur une coupe cérébrale, et la sécurité RF (SAR, IEC 60601-2-33) reliée à la dosimétrie.",
               en:"Interactive MRI chapter: Larmor frequency, Bloch equations (T₁/T₂ relaxation, FID), gradient spatial encoding, k-space ↔ image via 2D FFT, TR/TE contrast on a brain slice, and RF safety (SAR, IEC 60601-2-33) tied to dosimetry."},
   'irm.badge':{fr:"Bloch · k-space · contraste · SAR", en:"Bloch · k-space · contrast · SAR"},
+  'rad.title':{fr:"Radar — détecter un objet", en:"Radar — detecting a target"},
+  'rad.desc':{fr:"Comment un radar détecte une cible : équation du radar et portée (loi en 1/R⁴), effet Doppler pour mesurer une vitesse (radar routier, effet cosinus), et surface équivalente radar (SER/RCS) par forme canonique + ordres de grandeur (voiture, avion, furtif).",
+              en:"How a radar detects a target: radar equation and range (1/R⁴ law), Doppler effect to measure speed (traffic radar, cosine effect), and radar cross section (RCS) by canonical shape + typical values (car, aircraft, stealth)."},
+  'rad.badge':{fr:"portée · Doppler · SER", en:"range · Doppler · RCS"},
   'ant.title':{fr:"Antennes", en:"Antennas"},
   'ant.desc':{fr:"Outils sur les antennes : antennes filaires (méthode des moments — dipôle, Yagi, environnements de fils, champ proche) et réseaux d'antennes (dépointage du faisceau). Cornet et patch à venir.",
               en:"Antenna tools: wire antennas (Method of Moments — dipole, Yagi, wire environments, near field) and antenna arrays (beam steering). Horn and patch coming soon."},
