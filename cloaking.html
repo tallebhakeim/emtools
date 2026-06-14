@@ -51,6 +51,7 @@ b.mag{color:var(--mag)}
     <button id="tab-principe" class="on" onclick="showTab('principe')" data-i18n="t.principe">1 · Principe</button>
     <button id="tab-profils" onclick="showTab('profils')" data-i18n="t.profils">2 · Profils ε, μ</button>
     <button id="tab-rayons" onclick="showTab('rayons')" data-i18n="t.rayons">3 · Cartographie (rayons)</button>
+    <button id="tab-realise" onclick="showTab('realise')" data-i18n="t.realise">4 · Réalisation (anneaux + varactor)</button>
   </div>
 
   <!-- ════ 1 · PRINCIPE ════ -->
@@ -123,9 +124,41 @@ b.mag{color:var(--mag)}
       </div>
     </div>
   </div>
+
+  <!-- ════ 4 · RÉALISATION ════ -->
+  <div id="pane-realise" style="display:none">
+    <div class="card">
+      <h2 data-i18n="re.h">Réaliser ε et μ : les anneaux fendus (SRR) et la fréquence</h2>
+      <p class="lead" data-i18n="re.lead">Un <b>anneau fendu (SRR)</b> est un petit circuit résonant L-C : son champ magnétique propre lui donne une <b>perméabilité résonante</b> μ(ω). Juste au-dessus de la résonance ω₀, μ devient <b>inférieur à 1</b> (voire négatif) — c'est ce qu'il faut pour la cape. Pour obtenir le μ_r(r) voulu <b>à la fréquence de travail</b>, chaque anneau est <b>accordé</b> : par sa taille (anneaux gradués de Schurig) ou, mieux, par un <b>varactor</b> dans la fente qui ajuste sa capacité.</p>
+      <div class="eq">μ_eff(ω) = 1 − F·ω² / (ω² − ω₀² + jγω) &nbsp;,&nbsp; ω₀ = 1/√(L·C) &nbsp;,&nbsp; C = C₀ + C_varactor</div>
+      <div class="grid2">
+        <div>
+          <label data-i18n="re.f">Fréquence de travail f (GHz)</label>
+          <input type="number" id="re-f" value="8.5" step="0.5" oninput="realise()">
+          <label><span data-i18n="re.r1">Rayon caché R₁ (mm)</span> <b class="muted" id="re-r1-v"></b></label>
+          <div class="rng"><input type="range" id="re-r1" min="10" max="40" value="20" oninput="realise()"><b id="re-r1-b"></b></div>
+          <label><span data-i18n="re.r2">Rayon cape R₂ (mm)</span> <b class="muted" id="re-r2-v"></b></label>
+          <div class="rng"><input type="range" id="re-r2" min="30" max="80" value="58" oninput="realise()"><b id="re-r2-b"></b></div>
+          <label><span data-i18n="re.ff">Taux de remplissage F</span> <b class="muted" id="re-ff-v"></b></label>
+          <div class="rng"><input type="range" id="re-ff" min="0.1" max="0.6" value="0.4" step="0.02" oninput="realise()"><b id="re-ff-b"></b></div>
+          <label><span data-i18n="re.var">Varactor de l'anneau démo : C/C₀</span> <b class="muted" id="re-c-v"></b></label>
+          <div class="rng"><input type="range" id="re-c" min="0.4" max="2.5" value="1" step="0.02" oninput="realise()"><b id="re-c-b"></b></div>
+          <div class="metrics" id="re-metrics"></div>
+          <div class="box" data-i18n="re.var2"><b class="mag">Le varactor</b> : une diode dont la capacité varie avec la tension. Placée dans la fente de l'anneau, elle décale ω₀ → on <b>règle μ à la demande</b> pour chaque anneau, et on peut <b>retuner</b> toute la cape pour une autre fréquence (cape reconfigurable / moins « bande étroite »).</div>
+        </div>
+        <div>
+          <canvas id="cv-mu" width="440" height="220"></canvas>
+          <div class="cap" data-i18n="re.capmu">μ_eff(ω) de l'anneau démo ; ● = μ obtenu à f ; le varactor déplace la résonance ω₀</div>
+          <canvas id="cv-rings" width="440" height="240" style="margin-top:12px"></canvas>
+          <div class="cap" data-i18n="re.caprings">La cape : anneaux gradués, colorés par la résonance ω₀ requise (du rouge au bleu selon le rayon)</div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
+const C0=3e8;
 function met(k,v,u){return `<div class="metric"><div class="k">${k}</div><div class="v">${v} <small>${u||''}</small></div></div>`;}
 
 // ════ 1 · PRINCIPE : grille comprimée ════
@@ -218,15 +251,70 @@ function rayons(){
     : met(T('ry.state'),T('ry.visible'),"")+met(T('ry.blocked'),blocked,T('ry.rays'));
 }
 
+// ════ 4 · RÉALISATION (SRR + varactor) ════
+function jet(t){t=Math.max(0,Math.min(1,t));const r=Math.max(0,Math.min(1,1.5-Math.abs(4*t-3))),g=Math.max(0,Math.min(1,1.5-Math.abs(4*t-2))),b=Math.max(0,Math.min(1,1.5-Math.abs(4*t-1)));return[Math.round(255*r),Math.round(255*g),Math.round(255*b)];}
+function muEff(w,w0,F,g){const wr=w*w-w0*w0, den=wr*wr+(g*w)*(g*w); return 1 - F*w*w*wr/den;}
+// ω₀ requis pour obtenir μ_r à la fréquence f (sans pertes) : μ=1−F f²/(f²−f0²)
+function f0forMu(f,mu,F){const denom=1-mu; if(denom<=F)return f*0.3; return f*Math.sqrt(Math.max(0.05,1-F/denom));}
+function realise(){
+  const f=parseFloat(document.getElementById('re-f').value), R1=parseFloat(document.getElementById('re-r1').value), R2=Math.max(R1+8,parseFloat(document.getElementById('re-r2').value)), F=parseFloat(document.getElementById('re-ff').value), cr=parseFloat(document.getElementById('re-c').value);
+  document.getElementById('re-r1-b').textContent=R1; document.getElementById('re-r2-b').textContent=R2; document.getElementById('re-ff-b').textContent=F.toFixed(2); document.getElementById('re-c-b').textContent="×"+cr.toFixed(2);
+  // anneau démo : f0 ∝ 1/√(C/C0), calé à 0.80 f pour C/C0=1
+  const f0demo=0.80*f/Math.sqrt(cr), g=0.025*f0demo, muDemo=muEff(f,f0demo,F,g);
+  // rayon où ce μ est requis : μ_r(r)=((r−R1)/r)²
+  const lam=C0/(f*1e9)*1000; // mm
+  document.getElementById('re-metrics').innerHTML=
+    met("λ @ f",lam.toFixed(1),"mm")+met(T('re.ring'),(lam/10).toFixed(1),"mm")+met(T('re.mudemo'),muDemo.toFixed(2),"")+met("f₀ "+T('re.demo'),f0demo.toFixed(2),"GHz");
+  // ── courbe μ(ω) ──
+  const cv=document.getElementById('cv-mu'),x=cv.getContext('2d');x.clearRect(0,0,cv.width,cv.height);
+  const W=cv.width,H=cv.height,mL=42,mR=12,mT=12,mB=26,pw=W-mL-mR,ph=H-mT-mB, wlo=0.5*f, whi=1.6*f, ymin=-2, ymax=3;
+  const X=w=>mL+(w-wlo)/(whi-wlo)*pw, Y=v=>mT+ph-(Math.max(ymin,Math.min(ymax,v))-ymin)/(ymax-ymin)*ph;
+  x.strokeStyle="#2d3742";x.beginPath();x.moveTo(mL,mT);x.lineTo(mL,mT+ph);x.lineTo(mL+pw,mT+ph);x.stroke();
+  x.fillStyle="#8b97a3";x.font="10px sans-serif";x.textAlign="right";
+  for(const v of [-2,-1,0,1,2,3]){x.fillText(v,mL-4,Y(v)+3);x.strokeStyle=v===0?"#3a4754":"#1c242d";x.beginPath();x.moveTo(mL,Y(v));x.lineTo(mL+pw,Y(v));x.stroke();}
+  x.textAlign="center";for(let gw=Math.ceil(wlo);gw<=whi;gw++){x.fillText(gw,X(gw),mT+ph+13);} x.fillText(T('re.freq'),mL+pw/2,H-1);
+  // zone μ<1 (utile pour la cape)
+  x.fillStyle="rgba(77,182,164,0.08)";x.fillRect(mL,Y(1),pw,mT+ph-Y(1));
+  x.fillStyle="#4db6a4";x.textAlign="left";x.fillText("μ < 1 ✓",mL+6,Y(1)+14);
+  // courbe μ_eff
+  x.strokeStyle="#b48ad8";x.lineWidth=2.2;x.beginPath();let pen=false;
+  for(let px=0;px<=pw;px++){const w=wlo+(whi-wlo)*px/pw, v=muEff(w,f0demo,F,g); if(v>ymax+1||v<ymin-1){pen=false;continue;} const py=Y(v); pen?x.lineTo(mL+px,py):x.moveTo(mL+px,py);pen=true;}
+  x.stroke();
+  // f0 (résonance) + f (travail)
+  x.strokeStyle="#e05a5a";x.setLineDash([3,3]);x.beginPath();x.moveTo(X(f0demo),mT);x.lineTo(X(f0demo),mT+ph);x.stroke();
+  x.strokeStyle="#e0884b";x.beginPath();x.moveTo(X(f),mT);x.lineTo(X(f),mT+ph);x.stroke();x.setLineDash([]);
+  x.fillStyle="#e05a5a";x.textAlign="center";x.fillText("ω₀",X(f0demo),mT+10); x.fillStyle="#e0884b";x.fillText("f",X(f),mT+10);
+  x.fillStyle="#4db6a4";x.beginPath();x.arc(X(f),Y(muDemo),5,0,2*Math.PI);x.fill();
+  // ── carte des anneaux gradués ──
+  const cv2=document.getElementById('cv-rings'),y=cv2.getContext('2d');y.clearRect(0,0,cv2.width,cv2.height);
+  const W2=cv2.width,H2=cv2.height,cx=W2/2,cy=H2/2,sc=Math.min(W2,H2)*0.44/R2;
+  // gamme de f0 requise sur la cape
+  let f0min=1e9,f0max=0; const NR=11; const f0s=[];
+  for(let i=0;i<NR;i++){const r=R1+(R2-R1)*(i+0.5)/NR, mu=Math.pow((r-R1)/r,2), f0=f0forMu(f,mu,F); f0s.push([r,f0]); if(f0<f0min)f0min=f0; if(f0>f0max)f0max=f0;}
+  y.fillStyle="rgba(224,136,75,0.28)";y.beginPath();y.arc(cx,cy,R1*sc,0,2*Math.PI);y.fill();
+  for(const [r,f0] of f0s){const t=(f0-f0min)/Math.max(1e-6,f0max-f0min), c=jet(1-t);
+    y.strokeStyle=`rgb(${c[0]},${c[1]},${c[2]})`;y.lineWidth=3;y.beginPath();y.arc(cx,cy,r*sc,0,2*Math.PI);y.stroke();}
+  y.strokeStyle="#9aa7c9";y.lineWidth=1;y.beginPath();y.arc(cx,cy,R2*sc,0,2*Math.PI);y.stroke();
+  y.fillStyle="#8b97a3";y.font="11px sans-serif";y.textAlign="center";
+  y.fillText("f₀ "+f0max.toFixed(1)+" GHz",cx,cy-R1*sc*0.5); y.fillText(f0min.toFixed(1)+" GHz →",cx+ (R1+R2)/2*sc, cy);
+}
+
 // ════ ONGLETS ════
-function showTab(t){['principe','profils','rayons'].forEach(p=>{document.getElementById('pane-'+p).style.display=p===t?'block':'none';document.getElementById('tab-'+p).classList.toggle('on',p===t);});
-  if(t==='principe')drawGrid(); if(t==='profils')profils(); if(t==='rayons')rayons();}
+function showTab(t){['principe','profils','rayons','realise'].forEach(p=>{document.getElementById('pane-'+p).style.display=p===t?'block':'none';document.getElementById('tab-'+p).classList.toggle('on',p===t);});
+  if(t==='principe')drawGrid(); if(t==='profils')profils(); if(t==='rayons')rayons(); if(t==='realise')realise();}
 
 // ════ I18N ════
 const I18N={
  title:{fr:"Cape d'invisibilité de Pendry",en:"Pendry's invisibility cloak"},
  sub:{fr:"optique de transformation : courber la lumière autour d'un objet",en:"transformation optics: bending light around an object"},
- 't.principe':{fr:"1 · Principe",en:"1 · Principle"},'t.profils':{fr:"2 · Profils ε, μ",en:"2 · ε, μ profiles"},'t.rayons':{fr:"3 · Cartographie (rayons)",en:"3 · Ray map"},
+ 't.principe':{fr:"1 · Principe",en:"1 · Principle"},'t.profils':{fr:"2 · Profils ε, μ",en:"2 · ε, μ profiles"},'t.rayons':{fr:"3 · Cartographie (rayons)",en:"3 · Ray map"},'t.realise':{fr:"4 · Réalisation (anneaux + varactor)",en:"4 · Realisation (rings + varactor)"},
+ 're.h':{fr:"Réaliser ε et μ : les anneaux fendus (SRR) et la fréquence",en:"Building ε and μ: split-ring resonators (SRR) and frequency"},
+ 're.lead':{fr:"Un <b>anneau fendu (SRR)</b> est un petit circuit résonant L-C : son champ magnétique propre lui donne une <b>perméabilité résonante</b> μ(ω). Juste au-dessus de la résonance ω₀, μ devient <b>inférieur à 1</b> (voire négatif) — c'est ce qu'il faut pour la cape. Pour obtenir le μ_r(r) voulu <b>à la fréquence de travail</b>, chaque anneau est <b>accordé</b> : par sa taille (anneaux gradués de Schurig) ou, mieux, par un <b>varactor</b> dans la fente qui ajuste sa capacité.",en:"A <b>split-ring resonator (SRR)</b> is a tiny L-C resonant circuit: its own magnetic field gives it a <b>resonant permeability</b> μ(ω). Just above the resonance ω₀, μ drops <b>below 1</b> (even negative) — exactly what the cloak needs. To get the desired μ_r(r) <b>at the operating frequency</b>, each ring is <b>tuned</b>: by its size (Schurig's graded rings) or, better, by a <b>varactor</b> in the gap that adjusts its capacitance."},
+ 're.f':{fr:"Fréquence de travail f (GHz)",en:"Operating frequency f (GHz)"},'re.r1':{fr:"Rayon caché R₁ (mm)",en:"Hidden radius R₁ (mm)"},'re.r2':{fr:"Rayon cape R₂ (mm)",en:"Cloak radius R₂ (mm)"},'re.ff':{fr:"Taux de remplissage F",en:"Filling fraction F"},'re.var':{fr:"Varactor de l'anneau démo : C/C₀",en:"Demo ring varactor: C/C₀"},
+ 're.var2':{fr:"<b class='mag'>Le varactor</b> : une diode dont la capacité varie avec la tension. Placée dans la fente de l'anneau, elle décale ω₀ → on <b>règle μ à la demande</b> pour chaque anneau, et on peut <b>retuner</b> toute la cape pour une autre fréquence (cape reconfigurable / moins « bande étroite »).",en:"<b class='mag'>The varactor</b>: a diode whose capacitance varies with voltage. Placed in the ring's gap, it shifts ω₀ → you <b>set μ on demand</b> for each ring, and can <b>retune</b> the whole cloak to another frequency (reconfigurable / less narrow-band)."},
+ 're.capmu':{fr:"μ_eff(ω) de l'anneau démo ; ● = μ obtenu à f ; le varactor déplace la résonance ω₀",en:"μ_eff(ω) of the demo ring; ● = μ achieved at f; the varactor moves the resonance ω₀"},
+ 're.caprings':{fr:"La cape : anneaux gradués, colorés par la résonance ω₀ requise (du rouge au bleu selon le rayon)",en:"The cloak: graded rings, coloured by the required resonance ω₀ (red to blue with radius)"},
+ 're.ring':{fr:"Taille anneau ~λ/10",en:"Ring size ~λ/10"},'re.mudemo':{fr:"μ obtenu à f",en:"μ achieved at f"},'re.demo':{fr:"(démo)",en:"(demo)"},'re.freq':{fr:"fréquence (GHz)",en:"frequency (GHz)"},
  'pr.h':{fr:"L'idée : déformer l'espace vu par la lumière",en:"The idea: deform the space light sees"},
  'pr.lead':{fr:"Pendry (2006) a eu une idée magnifique : les équations de Maxwell sont <b>invariantes par changement de coordonnées</b>, à condition de remplacer le changement de géométrie par un <b>milieu</b> ε(r), μ(r) bien choisi. Pour cacher un objet, on « comprime » tout un disque (rayon R₂) dans une <b>couronne</b> (R₁→R₂) : il se crée un <b>trou</b> central (r &lt; R₁) que la lumière ne visite jamais. Tout ce qu'on y met devient invisible — et l'onde ressort comme si rien n'était là.",en:"Pendry (2006) had a beautiful idea: Maxwell's equations are <b>invariant under coordinate change</b>, provided the geometry change is replaced by a well-chosen <b>medium</b> ε(r), μ(r). To hide an object, one \"compresses\" a whole disk (radius R₂) into an <b>annulus</b> (R₁→R₂): a central <b>hole</b> (r &lt; R₁) appears that light never visits. Anything placed there becomes invisible — and the wave re-emerges as if nothing were there."},
  'pr.lead2':{fr:"Le prix à payer : le milieu doit être <b>anisotrope</b> (différent selon la direction radiale/azimutale) et ses paramètres deviennent <b>extrêmes</b> près de R₁ (ε radial → 0, ε azimutal → ∞). On ne sait fabriquer ça qu'avec des <b>métamatériaux</b> (résonateurs sub-longueur d'onde), et seulement sur une <b>bande étroite</b> de fréquence.",en:"The price: the medium must be <b>anisotropic</b> (different radially vs azimuthally) and its parameters become <b>extreme</b> near R₁ (radial ε → 0, azimuthal ε → ∞). This can only be built with <b>metamaterials</b> (sub-wavelength resonators), and only over a <b>narrow</b> frequency band."},
