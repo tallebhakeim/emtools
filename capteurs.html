@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Capteurs & chaîne d'acquisition — EMtools</title>
+<style>
+:root{--bg:#0f1419;--panel:#1a2129;--panel2:#222b35;--ink:#e6edf3;--mut:#8b97a3;--acc:#4db6a4;--acc2:#e0884b;--line:#2d3742;--bad:#e05a5a;--blu:#6fb6d6;--mag:#b48ad8;--grn:#7fc77f}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+header{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+header h1{font-size:19px;margin:0;font-weight:650}header .sub{color:var(--mut);font-size:13px}
+.lang{margin-left:auto;display:flex;gap:6px}
+.lang button{background:var(--panel2);color:var(--mut);border:1px solid var(--line);border-radius:7px;padding:5px 11px;cursor:pointer;font-size:13px}
+.lang button.on{background:var(--acc);color:#06231d;border-color:var(--acc);font-weight:650}
+.wrap{max-width:1040px;margin:0 auto;padding:20px 22px 90px}
+a.back{color:var(--acc);text-decoration:none;font-size:13px}
+.tabs{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap}
+.tabs button{background:var(--panel2);color:var(--mut);border:1px solid var(--line);border-radius:9px;padding:8px 13px;cursor:pointer;font-size:13px}
+.tabs button.on{background:var(--acc);color:#06231d;border-color:var(--acc);font-weight:650}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:18px}
+.card h2{font-size:16px;margin:0 0 6px}
+.lead{color:var(--mut);font-size:14px;margin:0 0 14px}
+.grid2{display:grid;grid-template-columns:320px 1fr;gap:18px;align-items:start}
+@media(max-width:780px){.grid2{grid-template-columns:1fr}}
+label{display:block;font-size:12.5px;color:var(--mut);margin:10px 0 4px}
+input[type=number],select{width:100%;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px}
+input[type=range]{width:100%}.rng{display:flex;align-items:center;gap:10px}.rng input[type=range]{flex:1}.rng b{min-width:80px;text-align:right;font-variant-numeric:tabular-nums}
+.row{display:flex;gap:10px}.row>*{flex:1}
+canvas{max-width:100%;background:#0b0f14;border-radius:8px;display:block}
+.cap{font-size:12px;color:var(--mut);text-align:center;margin-top:6px}
+.eq{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:8px;padding:10px 13px;margin:12px 0;font-size:13.5px;overflow-x:auto}
+.metrics{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.metric{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 13px;min-width:108px}
+.metric .k{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+.metric .v{font-size:17px;font-weight:680;margin-top:2px}.metric .v small{font-size:11px;color:var(--mut)}
+.metric.good{border-color:var(--acc)}.metric.bad{border-color:var(--bad)}
+.note{font-size:13px;color:var(--mut);margin-top:12px}
+.lg{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;margin-top:6px}.lg span{display:inline-flex;align-items:center;gap:5px}.lg i{width:14px;height:3px;border-radius:2px;display:inline-block}
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="index.html">← EMtools</a>
+  <h1 data-i18n="title">Capteurs & chaîne d'acquisition</h1>
+  <span class="sub" data-i18n="sub">transducteur · pont · échantillonnage · quantification · capteur de pression</span>
+  <div class="lang"><button id="lf" class="on" onclick="setLang('fr')">FR</button><button id="le" onclick="setLang('en')">EN</button></div>
+</header>
+<div class="wrap">
+  <div class="tabs">
+    <button id="tab-chain" class="on" onclick="showTab('chain')" data-i18n="t.chain">1 · Le capteur & la chaîne</button>
+    <button id="tab-bridge" onclick="showTab('bridge')" data-i18n="t.bridge">2 · Conditionnement (pont)</button>
+    <button id="tab-samp" onclick="showTab('samp')" data-i18n="t.samp">3 · Échantillonnage</button>
+    <button id="tab-quant" onclick="showTab('quant')" data-i18n="t.quant">4 · Quantification (CAN)</button>
+    <button id="tab-pres" onclick="showTab('pres')" data-i18n="t.pres">5 · Capteur de pression</button>
+  </div>
+
+  <!-- ═══ 1 · CHAÎNE ═══ -->
+  <div id="pane-chain">
+    <div class="card">
+      <h2 data-i18n="ch.h">Le capteur (transducteur) et la chaîne d'acquisition</h2>
+      <p class="lead" data-i18n="ch.lead">Un <b>capteur</b> (ou <b>transducteur</b>) convertit une grandeur physique (le <b>mesurande</b> : pression, température, lumière…) en signal électrique. Il est rarement parfait : sa <b>caractéristique de transfert</b> a une sensibilité S, un offset, de la <b>non-linéarité</b>, de l'<b>hystérésis</b> et du bruit. Le rôle de la chaîne — conditionnement, numérisation, traitement — et de l'<b>étalonnage</b> est de remonter au mesurande le plus fidèlement possible.</p>
+      <canvas id="cv-blocks" width="900" height="110" style="margin-bottom:10px"></canvas>
+      <div class="eq">V = V₀ + S·m + (non-linéarité, hystérésis, bruit) &nbsp;·&nbsp; étalonnage : m̂ = (V − V₀)/S &nbsp;·&nbsp; sensibilité S = dV/dm</div>
+      <div class="grid2">
+        <div>
+          <label data-i18n="ch.s">Sensibilité S (mV / unité)</label>
+          <input type="number" id="ch-s" value="20" step="1" oninput="chain()">
+          <label data-i18n="ch.off">Offset V₀ (mV)</label>
+          <input type="number" id="ch-off" value="100" step="10" oninput="chain()">
+          <label><span data-i18n="ch.nl">Non-linéarité (% pleine échelle)</span> <b class="muted" id="ch-nl-v"></b></label>
+          <div class="rng"><input type="range" id="ch-nl" min="0" max="15" value="5" step="0.5" oninput="chain()"><b id="ch-nl-b"></b></div>
+          <label><span data-i18n="ch.hy">Hystérésis (% PE)</span> <b class="muted" id="ch-hy-v"></b></label>
+          <div class="rng"><input type="range" id="ch-hy" min="0" max="10" value="2" step="0.5" oninput="chain()"><b id="ch-hy-b"></b></div>
+          <label><span data-i18n="ch.no">Bruit (% PE)</span> <b class="muted" id="ch-no-v"></b></label>
+          <div class="rng"><input type="range" id="ch-no" min="0" max="5" value="1" step="0.25" oninput="chain()"><b id="ch-no-b"></b></div>
+          <div class="metrics" id="ch-metrics"></div>
+        </div>
+        <div>
+          <canvas id="cv-chain" width="440" height="280"></canvas>
+          <div class="lg" id="ch-lg"></div>
+          <div class="cap" data-i18n="ch.cap">Caractéristique V(m) : montée/descente (hystérésis) vs droite idéale. L'écart à la droite = erreur de non-linéarité.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 2 · PONT ═══ -->
+  <div id="pane-bridge" style="display:none">
+    <div class="card">
+      <h2 data-i18n="br.h">Conditionnement : le pont de Wheatstone</h2>
+      <p class="lead" data-i18n="br.lead">Beaucoup de capteurs sont <b>résistifs</b> (jauges de contrainte, capteurs de pression piézorésistifs) : le mesurande fait varier R de très peu (ΔR/R ~ 0,1 %). Le <b>pont de Wheatstone</b> convertit cette variation infime en tension différentielle, puis un <b>amplificateur d'instrumentation</b> de gain G l'amplifie. Plus on rend de bras du pont <b>actifs</b> (¼ → ½ → pont complet), plus la sortie est grande et <b>linéaire</b>.</p>
+      <div class="eq">¼ de pont : V_out/V_ex = (ΔR/R)/(4 + 2ΔR/R) &nbsp;·&nbsp; ½ pont : ½·(ΔR/R) &nbsp;·&nbsp; pont complet : ΔR/R &nbsp;→&nbsp; ×G (ampli)</div>
+      <div class="grid2">
+        <div>
+          <label data-i18n="br.cfg">Configuration du pont</label>
+          <select id="br-cfg" onchange="bridge()"><option value="q" data-i18n="br.q">Quart de pont (1 jauge active)</option><option value="h" data-i18n="br.hh">Demi-pont (2 jauges)</option><option value="f" data-i18n="br.f">Pont complet (4 jauges)</option></select>
+          <label data-i18n="br.ex">Tension d'excitation V_ex (V)</label>
+          <input type="number" id="br-ex" value="5" step="0.5" oninput="bridge()">
+          <label data-i18n="br.gf">Facteur de jauge GF · gain ampli G</label>
+          <div class="row"><input type="number" id="br-gf" value="2" step="0.1" oninput="bridge()"><input type="number" id="br-g" value="100" step="10" oninput="bridge()"></div>
+          <label><span data-i18n="br.eps">Déformation ε au max (µε)</span> <b class="muted" id="br-eps-v"></b></label>
+          <div class="rng"><input type="range" id="br-eps" min="100" max="5000" value="2000" step="100" oninput="bridge()"><b id="br-eps-b"></b></div>
+          <div class="metrics" id="br-metrics"></div>
+        </div>
+        <div>
+          <canvas id="cv-bridge" width="440" height="280"></canvas>
+          <div class="lg" id="br-lg"></div>
+          <div class="cap" data-i18n="br.cap">Tension de sortie (après ampli) vs déformation, pour les trois configurations. Le quart de pont est légèrement non linéaire.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 3 · ÉCHANTILLONNAGE ═══ -->
+  <div id="pane-samp" style="display:none">
+    <div class="card">
+      <h2 data-i18n="sa.h">Échantillonnage & repliement (Shannon-Nyquist)</h2>
+      <p class="lead" data-i18n="sa.lead">Numériser, c'est prélever le signal à intervalles réguliers (fréquence d'échantillonnage f_s). Le théorème de <b>Shannon-Nyquist</b> impose f_s > 2·f_max : sinon, une fréquence trop haute se fait passer pour une fréquence basse — c'est le <b>repliement</b> (aliasing). D'où le <b>filtre anti-repliement</b> placé AVANT le convertisseur. Ci-dessous, baisse f_s sous 2·f₀ et regarde le signal reconstruit « mentir ».</p>
+      <div class="eq">f_Nyquist = f_s / 2 &nbsp;·&nbsp; si f₀ > f_s/2 → fréquence repliée f_alias = |f₀ − f_s·round(f₀/f_s)|</div>
+      <div class="grid2">
+        <div>
+          <label><span data-i18n="sa.f0">Fréquence du signal f₀ (Hz)</span> <b class="muted" id="sa-f0-v"></b></label>
+          <div class="rng"><input type="range" id="sa-f0" min="1" max="60" value="7" step="1" oninput="samp()"><b id="sa-f0-b"></b></div>
+          <label><span data-i18n="sa.fs">Fréquence d'échantillonnage f_s (Hz)</span> <b class="muted" id="sa-fs-v"></b></label>
+          <div class="rng"><input type="range" id="sa-fs" min="5" max="120" value="50" step="1" oninput="samp()"><b id="sa-fs-b"></b></div>
+          <div class="metrics" id="sa-metrics"></div>
+          <p class="note" data-i18n="sa.note">Règle pratique : on échantillonne souvent à 5–10× la fréquence utile, et on filtre tout ce qui dépasse f_s/2 avant le CAN.</p>
+        </div>
+        <div>
+          <canvas id="cv-samp" width="440" height="280"></canvas>
+          <div class="lg" id="sa-lg"></div>
+          <div class="cap" data-i18n="sa.cap">Signal vrai (gris) · échantillons (points) · signal reconstruit par les échantillons (vert). En sous-échantillonnage, le vert ≠ le gris.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 4 · QUANTIFICATION ═══ -->
+  <div id="pane-quant" style="display:none">
+    <div class="card">
+      <h2 data-i18n="qu.h">Quantification : le convertisseur N bits</h2>
+      <p class="lead" data-i18n="qu.lead">Le CAN code l'amplitude sur N bits, soit 2ᴺ niveaux discrets séparés du <b>pas de quantification</b> q. L'arrondi introduit un <b>bruit de quantification</b> (RMS = q/√12) qui fixe le rapport signal/bruit maximal : <b>SNR ≈ 6,02·N + 1,76 dB</b> (≈ 6 dB, soit 1 bit, par doublement de résolution). Chaque bit gagné, c'est deux fois plus de niveaux.</p>
+      <div class="eq">q = pleine échelle / 2ᴺ &nbsp;·&nbsp; bruit RMS = q/√12 &nbsp;·&nbsp; SNR_max = 6,02·N + 1,76 dB</div>
+      <div class="grid2">
+        <div>
+          <label><span data-i18n="qu.n">Résolution N (bits)</span> <b class="muted" id="qu-n-v"></b></label>
+          <div class="rng"><input type="range" id="qu-n" min="2" max="12" value="4" step="1" oninput="quant()"><b id="qu-n-b"></b></div>
+          <label data-i18n="qu.sig">Signal de test</label>
+          <select id="qu-sig" onchange="quant()"><option value="sine" data-i18n="qu.sine">Sinusoïde</option><option value="ramp" data-i18n="qu.ramp">Rampe (montée)</option></select>
+          <div class="metrics" id="qu-metrics"></div>
+        </div>
+        <div>
+          <canvas id="cv-quant" width="440" height="280"></canvas>
+          <div class="lg" id="qu-lg"></div>
+          <div class="cap" data-i18n="qu.cap">Signal continu (gris) · sortie quantifiée en escalier (vert) · erreur de quantification ×4 (orange).</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 5 · CAPTEUR DE PRESSION ═══ -->
+  <div id="pane-pres" style="display:none">
+    <div class="card">
+      <h2 data-i18n="pr.h">Exemple complet : un capteur de pression artérielle</h2>
+      <p class="lead" data-i18n="pr.lead">On déroule toute la chaîne sur une <b>vraie forme de signal</b> : une onde de pression artérielle (pic systolique + incisure dicrote, ~75 bpm). Le capteur piézorésistif la convertit en tension (avec bruit), un <b>filtre anti-repliement</b> coupe le haut du spectre, le CAN l'<b>échantillonne</b> et la <b>quantifie</b>, puis on <b>reconstruit</b> la pression par étalonnage inverse. Joue sur f_s, les bits, le filtre et le bruit : trop peu d'échantillons/de bits → la reconstruction se dégrade.</p>
+      <div class="eq">p(t) →[transducteur+bruit]→ V →[filtre f_c]→[échantillon f_s]→[quantif. N bits]→ p̂(t) &nbsp;·&nbsp; fidélité : RMSE, SNR</div>
+      <div class="grid2">
+        <div>
+          <label><span data-i18n="pr.fs">Échantillonnage f_s (Hz)</span> <b class="muted" id="pr-fs-v"></b></label>
+          <div class="rng"><input type="range" id="pr-fs" min="8" max="200" value="100" step="2" oninput="pres()"><b id="pr-fs-b"></b></div>
+          <label><span data-i18n="pr.n">Résolution CAN N (bits)</span> <b class="muted" id="pr-n-v"></b></label>
+          <div class="rng"><input type="range" id="pr-n" min="3" max="12" value="10" step="1" oninput="pres()"><b id="pr-n-b"></b></div>
+          <label><span data-i18n="pr.fc">Filtre anti-repliement f_c (Hz)</span> <b class="muted" id="pr-fc-v"></b></label>
+          <div class="rng"><input type="range" id="pr-fc" min="3" max="100" value="30" step="1" oninput="pres()"><b id="pr-fc-b"></b></div>
+          <label><span data-i18n="pr.no">Bruit capteur (% PE)</span> <b class="muted" id="pr-no-v"></b></label>
+          <div class="rng"><input type="range" id="pr-no" min="0" max="6" value="1" step="0.25" oninput="pres()"><b id="pr-no-b"></b></div>
+          <div class="metrics" id="pr-metrics"></div>
+        </div>
+        <div>
+          <canvas id="cv-pres" width="440" height="300"></canvas>
+          <div class="lg" id="pr-lg"></div>
+          <div class="cap" data-i18n="pr.cap">Pression vraie (gris) · échantillons acquis (points) · pression reconstruite (vert). RMSE = écart de reconstruction.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function met(k,v,u,cls){return `<div class="metric ${cls||''}"><div class="k">${k}</div><div class="v">${v} <small>${u||''}</small></div></div>`;}
+function lgItem(c,t){return `<span><i style="background:${c}"></i>${t}</span>`;}
+function v(id){return document.getElementById(id).value;}
+function $(id){return document.getElementById(id);}
+// traceur linéaire
+function plotXY(cv,cfg){
+  const c=cv.getContext('2d'),W=cv.width,Hh=cv.height;c.clearRect(0,0,W,Hh);
+  const mL=cfg.mL||48,mR=12,mT=12,mB=28,pw=W-mL-mR,ph=Hh-mT-mB;
+  const {xmin,xmax,ymin,ymax}=cfg;
+  const X=x=>mL+(x-xmin)/(xmax-xmin)*pw, Y=y=>mT+ph-(Math.min(Math.max(y,ymin),ymax)-ymin)/(ymax-ymin)*ph;
+  c.font='10px sans-serif';c.textAlign='center';
+  const xt=cfg.xticks||5;for(let i=0;i<=xt;i++){const x=xmin+(xmax-xmin)*i/xt,Xx=X(x);c.strokeStyle='#161e26';c.beginPath();c.moveTo(Xx,mT);c.lineTo(Xx,mT+ph);c.stroke();c.fillStyle='#8b97a3';c.fillText(cfg.xfmt?cfg.xfmt(x):x.toFixed(cfg.xdec??0),Xx,mT+ph+13);}
+  c.textAlign='right';const yt=cfg.yticks||4;for(let i=0;i<=yt;i++){const y=ymin+(ymax-ymin)*i/yt,Yy=Y(y);c.strokeStyle='#161e26';c.beginPath();c.moveTo(mL,Yy);c.lineTo(mL+pw,Yy);c.stroke();c.fillStyle='#8b97a3';c.fillText(cfg.yfmt?cfg.yfmt(y):y.toFixed(cfg.ydec??0),mL-4,Yy+3);}
+  if(ymin<0&&ymax>0){c.strokeStyle='#2d3742';c.beginPath();c.moveTo(mL,Y(0));c.lineTo(mL+pw,Y(0));c.stroke();}
+  c.strokeStyle='#3a4754';c.lineWidth=1;c.strokeRect(mL,mT,pw,ph);
+  c.fillStyle='#8b97a3';c.textAlign='center';c.fillText(cfg.xlab||'',mL+pw/2,Hh-2);
+  c.save();c.translate(11,mT+ph/2);c.rotate(-Math.PI/2);c.fillText(cfg.ylab||'',0,0);c.restore();
+  (cfg.curves||[]).forEach(cu=>{c.strokeStyle=cu.col;c.lineWidth=cu.w||2;c.setLineDash(cu.dash||[]);
+    if(cu.step){c.beginPath();let st=false;cu.x.forEach((x,i)=>{const Xx=X(x),Yy=Y(cu.y[i]);if(!st){c.moveTo(Xx,Yy);st=true;}else{c.lineTo(Xx,Yy);}if(i<cu.x.length-1)c.lineTo(X(cu.x[i+1]),Yy);});c.stroke();}
+    else{c.beginPath();let st=false;cu.x.forEach((x,i)=>{const Xx=X(x),Yy=Y(cu.y[i]);st?c.lineTo(Xx,Yy):c.moveTo(Xx,Yy);st=true;});c.stroke();}
+    c.setLineDash([]);});
+  (cfg.dots||[]).forEach(d=>{d.x.forEach((x,i)=>{c.fillStyle=d.col;c.beginPath();c.arc(X(x),Y(d.y[i]),d.r||2.6,0,7);c.fill();});});
+  (cfg.vlines||[]).forEach(m=>{const Xx=X(m.x);c.strokeStyle=m.col;c.setLineDash([4,3]);c.beginPath();c.moveTo(Xx,mT);c.lineTo(Xx,mT+ph);c.stroke();c.setLineDash([]);if(m.t){c.fillStyle=m.col;c.font='10px sans-serif';c.textAlign='left';c.fillText(m.t,Xx+3,mT+10);}});
+  return {X,Y,mL,mT,pw,ph};
+}
+
+// ═══ 1 · CHAÎNE ═══
+function drawBlocks(){
+  const cv=$('cv-blocks'),c=cv.getContext('2d'),W=cv.width,H=cv.height;c.clearRect(0,0,W,H);
+  const labs=[T('ch.b1'),T('ch.b2'),T('ch.b3'),T('ch.b4'),T('ch.b5')];
+  const cols=['#6fb6d6','#4db6a4','#e0884b','#b48ad8','#7fc77f'];
+  const n=5,bw=148,gap=(W-n*bw)/(n+1),y=28,bh=54;
+  labs.forEach((l,i)=>{const x=gap+i*(bw+gap);
+    c.fillStyle='#1a2129';c.strokeStyle=cols[i];c.lineWidth=2;c.beginPath();c.roundRect(x,y,bw,bh,9);c.fill();c.stroke();
+    c.fillStyle='#e6edf3';c.font='600 13px sans-serif';c.textAlign='center';
+    l.split('\n').forEach((ln,k)=>c.fillText(ln,x+bw/2,y+bh/2+4+(k-(l.split('\n').length-1)/2)*15));
+    if(i<n-1){const ax=x+bw,ax2=x+bw+gap;c.strokeStyle='#8b97a3';c.lineWidth=2;c.beginPath();c.moveTo(ax+2,y+bh/2);c.lineTo(ax2-4,y+bh/2);c.stroke();
+      c.fillStyle='#8b97a3';c.beginPath();c.moveTo(ax2-4,y+bh/2);c.lineTo(ax2-11,y+bh/2-4);c.lineTo(ax2-11,y+bh/2+4);c.fill();}});
+  c.fillStyle='#8b97a3';c.font='11px sans-serif';c.textAlign='center';c.fillText(T('ch.flow'),W/2,H-6);
+}
+function chain(){
+  const S=+v('ch-s'), V0=+v('ch-off'), nl=+v('ch-nl')/100, hy=+v('ch-hy')/100, no=+v('ch-no')/100;
+  $('ch-nl-b').textContent=(+v('ch-nl'))+' %';$('ch-hy-b').textContent=(+v('ch-hy'))+' %';$('ch-no-b').textContent=(+v('ch-no'))+' %';
+  const mmax=100, FS=S*mmax; // pleine échelle en mV
+  const M=[],Vup=[],Vdn=[],Vlin=[];
+  const seed=(k)=>Math.sin(k*12.9898)*43758.5453%1; // bruit pseudo-déterministe
+  let maxdev=0;
+  for(let i=0;i<=100;i++){const m=mmax*i/100;M.push(m);
+    const nlterm=nl*FS*Math.pow(m/mmax,2);           // non-linéarité quadratique
+    const lin=V0+S*m;
+    const nz=(no*FS)*(seed(i)-0.5)*0.6;
+    Vup.push(lin+nlterm - hy*FS/2 + nz);
+    Vdn.push(lin+nlterm + hy*FS/2 + (seed(i+50)-0.5)*no*FS*0.6);
+    Vlin.push(lin);
+    maxdev=Math.max(maxdev,Math.abs((lin+nlterm)-lin));}
+  const nlErr=maxdev/FS*100, res=no*FS/S; // résolution ~ bruit ramené au mesurande
+  plotXY($('cv-chain'),{xmin:0,xmax:mmax,ymin:Math.min(V0-20,0),ymax:V0+FS*(1+nl)+30,xlab:T('ch.meas'),ylab:'V (mV)',ydec:0,
+    curves:[{x:M,y:Vlin,col:'#6fb6d6',dash:[5,3],w:1.4},{x:M,y:Vup,col:'#4db6a4',w:2},{x:M,y:Vdn,col:'#e0884b',w:2}]});
+  $('ch-lg').innerHTML=lgItem('#6fb6d6',T('ch.ideal'))+lgItem('#4db6a4',T('ch.up'))+lgItem('#e0884b',T('ch.dn'));
+  $('ch-metrics').innerHTML=
+    met(T('ch.sens'),S.toFixed(0),'mV/u')+met(T('ch.nlin'),nlErr.toFixed(1),'% PE',nlErr>3?'bad':'good')+
+    met(T('ch.hyst'),(hy*100).toFixed(1),'% PE')+met(T('ch.reso'),res.toFixed(2),'u');
+}
+
+// ═══ 2 · PONT ═══
+function bridge(){
+  const cfg=v('br-cfg'), Vex=+v('br-ex'), GF=+v('br-gf'), G=+v('br-g'), epsMax=+v('br-eps')*1e-6;
+  $('br-eps-b').textContent=(+v('br-eps'))+' µε';
+  const E=[],Vq=[],Vh=[],Vf=[];
+  for(let i=0;i<=100;i++){const eps=epsMax*i/100, x=GF*eps; E.push(eps*1e6);
+    Vq.push(Vex*(x/(4+2*x))*G*1000); Vh.push(Vex*(x/2)*G*1000); Vf.push(Vex*x*G*1000);}
+  const cur=cfg==='q'?Vq:cfg==='h'?Vh:Vf;
+  const xm=GF*epsMax, vout={q:Vex*(xm/(4+2*xm)),h:Vex*(xm/2),f:Vex*xm}[cfg];
+  // non-linéarité du quart de pont
+  const ideal=Vex*xm/4, nl=cfg==='q'?Math.abs((vout-ideal)/ideal*100):0;
+  plotXY($('cv-bridge'),{xmin:0,xmax:epsMax*1e6,ymin:0,ymax:Math.max(...Vf)*1.1,xlab:'ε (µε)',ylab:'V_out (mV)',ydec:0,
+    curves:[{x:E,y:Vq,col:cfg==='q'?'#4db6a4':'#3a4754',w:cfg==='q'?2.4:1.2},{x:E,y:Vh,col:cfg==='h'?'#4db6a4':'#3a4754',w:cfg==='h'?2.4:1.2},{x:E,y:Vf,col:cfg==='f'?'#4db6a4':'#3a4754',w:cfg==='f'?2.4:1.2}]});
+  $('br-lg').innerHTML=lgItem(cfg==='q'?'#4db6a4':'#3a4754','¼')+lgItem(cfg==='h'?'#4db6a4':'#3a4754','½')+lgItem(cfg==='f'?'#4db6a4':'#3a4754',T('br.full'));
+  $('br-metrics').innerHTML=
+    met('ΔR/R',(GF*epsMax*100).toFixed(3),'%')+met('V_out',(vout*1000).toFixed(2),'mV')+met(T('br.amp'),(cur[100]).toFixed(0),'mV')+
+    met(T('br.nlin'),cfg==='q'?nl.toFixed(2)+' %':'~0 %','',cfg==='q'?'bad':'good');
+}
+
+// ═══ 3 · ÉCHANTILLONNAGE ═══
+function samp(){
+  const f0=+v('sa-f0'), fs=+v('sa-fs'); $('sa-f0-b').textContent=f0+' Hz';$('sa-fs-b').textContent=fs+' Hz';
+  const Tt=1.0; const X=[],Y=[]; for(let i=0;i<=600;i++){const t=Tt*i/600;X.push(t);Y.push(Math.sin(2*Math.PI*f0*t));}
+  const sx=[],sy=[]; for(let k=0;k<=fs*Tt;k++){const t=k/fs;if(t<=Tt){sx.push(t);sy.push(Math.sin(2*Math.PI*f0*t));}}
+  // fréquence repliée
+  const falias=Math.abs(f0-fs*Math.round(f0/fs)); const aliased=f0>fs/2;
+  const rx=[],ry=[]; for(let i=0;i<=600;i++){const t=Tt*i/600;rx.push(t);
+    // reconstruction : sinusoïde apparente à falias, phase alignée sur les échantillons
+    ry.push(Math.sin(2*Math.PI*falias*t));}
+  plotXY($('cv-samp'),{xmin:0,xmax:Tt,ymin:-1.3,ymax:1.3,xlab:'t (s)',ylab:'',ydec:1,xfmt:x=>x.toFixed(2),
+    curves:[{x:X,y:Y,col:'#8b97a3',w:1.4}].concat(aliased?[{x:rx,y:ry,col:'#4db6a4',w:2}]:[]),
+    dots:[{x:sx,y:sy,col:'#e0884b',r:3}]});
+  $('sa-lg').innerHTML=lgItem('#8b97a3',T('sa.sig'))+lgItem('#e0884b',T('sa.samp'))+(aliased?lgItem('#4db6a4',T('sa.alias')):'');
+  $('sa-metrics').innerHTML=
+    met('f_Nyquist',(fs/2).toFixed(0),'Hz')+met('f₀',f0+'','Hz',aliased?'bad':'good')+
+    met(T('sa.aliasf'),aliased?falias.toFixed(1)+' Hz':'—','',aliased?'bad':'good')+met(T('sa.state'),aliased?T('sa.bad'):T('sa.ok'),'',aliased?'bad':'good');
+}
+
+// ═══ 4 · QUANTIFICATION ═══
+function quant(){
+  const N=+v('qu-n'), kind=v('qu-sig'); $('qu-n-b').textContent=N+' bits';
+  const lvl=Math.pow(2,N), q=2/lvl; // signal dans [-1,1], pleine échelle 2
+  const X=[],Yc=[],Yq=[],Ye=[];let ssum=0,nsum=0;
+  for(let i=0;i<=400;i++){const t=i/400;X.push(t);
+    const s=kind==='sine'?Math.sin(2*Math.PI*2*t):(2*t-1);
+    const qd=Math.max(-1,Math.min(1-q,Math.round((s+1)/q)*q-1));
+    Yc.push(s);Yq.push(qd);Ye.push((s-qd)*4);ssum+=s*s;nsum+=(s-qd)*(s-qd);}
+  const snrMeas=10*Math.log10(ssum/Math.max(nsum,1e-12)), snrTheo=6.02*N+1.76;
+  plotXY($('cv-quant'),{xmin:0,xmax:1,ymin:-1.3,ymax:1.3,xlab:'t (norm.)',ylab:'',ydec:1,xfmt:x=>x.toFixed(1),
+    curves:[{x:X,y:Yc,col:'#8b97a3',w:1.4},{x:X,y:Yq,col:'#4db6a4',w:1.8,step:true},{x:X,y:Ye,col:'#e0884b',w:1}]});
+  $('qu-lg').innerHTML=lgItem('#8b97a3',T('qu.cont'))+lgItem('#4db6a4',T('qu.qz'))+lgItem('#e0884b',T('qu.err'));
+  $('qu-metrics').innerHTML=
+    met(T('qu.lvl'),lvl+'','')+met(T('qu.step'),(q*100).toFixed(2),'% PE')+
+    met('SNR '+T('qu.theo'),snrTheo.toFixed(1),'dB',true)+met('SNR '+T('qu.mes'),snrMeas.toFixed(1),'dB');
+}
+
+// ═══ 5 · CAPTEUR DE PRESSION ═══
+function pwave(t,T0){ // onde de pression artérielle (mmHg), période T0
+  const ph=(t%T0)/T0;
+  let p=72 + 46*Math.exp(-Math.pow((ph-0.16)/0.07,2))      // pic systolique
+        + 11*Math.exp(-Math.pow((ph-0.40)/0.055,2))         // incisure/onde dicrote
+        + 6*Math.exp(-Math.pow((ph-0.0)/0.04,2));
+  return p;
+}
+function pres(){
+  const fs=+v('pr-fs'), N=+v('pr-n'), fc=+v('pr-fc'), no=+v('pr-no')/100;
+  $('pr-fs-b').textContent=fs+' Hz';$('pr-n-b').textContent=N+' bits';$('pr-fc-b').textContent=fc+' Hz';$('pr-no-b').textContent=(+v('pr-no'))+' %';
+  const T0=0.8, Ttot=2.4, S=2.0, V0=200; // S mV/mmHg, offset mV ; PE pression 0..200 mmHg
+  const FSv=S*200;
+  // signal vrai (grille fine) + tension capteur bruitée + filtre RC passe-bas (fc)
+  const NF=1200, dt=Ttot/NF, X=[],Ptrue=[],Vf=[];
+  const seed=k=>(Math.sin(k*12.9898)*43758.5453)%1;
+  const rc=1/(2*Math.PI*fc); const alpha=dt/(rc+dt); let vprev=null;
+  for(let i=0;i<=NF;i++){const t=i*dt;X.push(t);const p=pwave(t,T0);Ptrue.push(p);
+    let vc=V0+S*p+(seed(i)-0.5)*no*FSv;             // transducteur + bruit
+    vprev=(vprev===null)?vc:vprev+alpha*(vc-vprev); // filtre 1 pôle
+    Vf.push(vprev);}
+  // échantillonnage + quantification du signal filtré, puis reconstruction (étalonnage inverse)
+  const lvl=Math.pow(2,N), Vmin=V0, Vmax=V0+FSv, q=(Vmax-Vmin)/lvl;
+  const sx=[],sp=[];
+  for(let k=0;k<=fs*Ttot;k++){const t=k/fs;if(t>Ttot)break;const idx=Math.min(NF,Math.round(t/dt));
+    let vq=Math.round((Vf[idx]-Vmin)/q)*q+Vmin; const pest=(vq-V0)/S; sx.push(t);sp.push(pest);}
+  // reconstruction interpolée linéairement pour le RMSE
+  let se=0,cnt=0;
+  for(let i=0;i<=NF;i++){const t=i*dt; let j=0;while(j<sx.length-1&&sx[j+1]<t)j++;
+    let pe; if(t<=sx[0])pe=sp[0]; else if(t>=sx[sx.length-1])pe=sp[sx.length-1];
+    else {const f=(t-sx[j])/(sx[j+1]-sx[j]);pe=sp[j]+(sp[j+1]-sp[j])*f;}
+    se+=Math.pow(pe-Ptrue[i],2);cnt++;}
+  const rmse=Math.sqrt(se/cnt);
+  let pmean=Ptrue.reduce((a,b)=>a+b,0)/Ptrue.length, pvar=Ptrue.reduce((a,b)=>a+(b-pmean)*(b-pmean),0)/Ptrue.length;
+  const snr=10*Math.log10(pvar/Math.max(rmse*rmse,1e-9));
+  const aliasRisk=fs<2*fc;
+  plotXY($('cv-pres'),{xmin:0,xmax:Ttot,ymin:60,ymax:130,xlab:'t (s)',ylab:'P (mmHg)',ydec:0,xfmt:x=>x.toFixed(1),
+    curves:[{x:X,y:Ptrue,col:'#8b97a3',w:1.6},{x:sx,y:sp,col:'#4db6a4',w:1.8,step:true}],
+    dots:[{x:sx,y:sp,col:'#e0884b',r:2.4}]});
+  $('pr-lg').innerHTML=lgItem('#8b97a3',T('pr.true'))+lgItem('#e0884b',T('pr.samp'))+lgItem('#4db6a4',T('pr.rec'));
+  $('pr-metrics').innerHTML=
+    met('RMSE',rmse.toFixed(2),'mmHg',rmse>3?'bad':'good')+met('SNR',snr.toFixed(1),'dB')+
+    met(T('pr.np'),Math.round(fs*T0)+'','/'+T('pr.beat'),fs<2*fc?'bad':'')+met(T('pr.state'),aliasRisk?T('pr.risk'):T('pr.ok'),'',aliasRisk?'bad':'good');
+}
+
+// ═══ onglets ═══
+function showTab(t){['chain','bridge','samp','quant','pres'].forEach(p=>{$('pane-'+p).style.display=p===t?'block':'none';$('tab-'+p).classList.toggle('on',p===t);});
+  if(t==='chain'){drawBlocks();chain();} if(t==='bridge')bridge(); if(t==='samp')samp(); if(t==='quant')quant(); if(t==='pres')pres();}
+
+// ═══ i18n ═══
+const I18N={
+ title:{fr:"Capteurs & chaîne d'acquisition",en:"Sensors & acquisition chain"},
+ sub:{fr:"transducteur · pont · échantillonnage · quantification · capteur de pression",en:"transducer · bridge · sampling · quantization · pressure sensor"},
+ 't.chain':{fr:"1 · Le capteur & la chaîne",en:"1 · Sensor & chain"},'t.bridge':{fr:"2 · Conditionnement (pont)",en:"2 · Conditioning (bridge)"},'t.samp':{fr:"3 · Échantillonnage",en:"3 · Sampling"},'t.quant':{fr:"4 · Quantification (CAN)",en:"4 · Quantization (ADC)"},'t.pres':{fr:"5 · Capteur de pression",en:"5 · Pressure sensor"},
+ 'ch.h':{fr:"Le capteur (transducteur) et la chaîne d'acquisition",en:"The sensor (transducer) and the acquisition chain"},
+ 'ch.lead':{fr:"Un <b>capteur</b> (ou <b>transducteur</b>) convertit une grandeur physique (le <b>mesurande</b> : pression, température, lumière…) en signal électrique. Il est rarement parfait : sa <b>caractéristique de transfert</b> a une sensibilité S, un offset, de la <b>non-linéarité</b>, de l'<b>hystérésis</b> et du bruit. Le rôle de la chaîne — conditionnement, numérisation, traitement — et de l'<b>étalonnage</b> est de remonter au mesurande le plus fidèlement possible.",
+   en:"A <b>sensor</b> (or <b>transducer</b>) converts a physical quantity (the <b>measurand</b>: pressure, temperature, light…) into an electrical signal. It is rarely perfect: its <b>transfer characteristic</b> has a sensitivity S, an offset, <b>nonlinearity</b>, <b>hysteresis</b> and noise. The role of the chain — conditioning, digitizing, processing — and of <b>calibration</b> is to recover the measurand as faithfully as possible."},
+ 'ch.b1':{fr:"Mesurande\n(physique)",en:"Measurand\n(physical)"},'ch.b2':{fr:"Transducteur\n(capteur)",en:"Transducer\n(sensor)"},'ch.b3':{fr:"Conditionnement\n(pont, ampli, filtre)",en:"Conditioning\n(bridge, amp, filter)"},'ch.b4':{fr:"Convertisseur\nA/N (CAN)",en:"A/D converter\n(ADC)"},'ch.b5':{fr:"Traitement\n& reconstruction",en:"Processing\n& reconstruction"},
+ 'ch.flow':{fr:"la chaîne d'acquisition, du monde physique au nombre",en:"the acquisition chain, from the physical world to a number"},
+ 'ch.s':{fr:"Sensibilité S (mV / unité)",en:"Sensitivity S (mV / unit)"},'ch.off':{fr:"Offset V₀ (mV)",en:"Offset V₀ (mV)"},'ch.nl':{fr:"Non-linéarité (% pleine échelle)",en:"Nonlinearity (% full scale)"},'ch.hy':{fr:"Hystérésis (% PE)",en:"Hysteresis (% FS)"},'ch.no':{fr:"Bruit (% PE)",en:"Noise (% FS)"},
+ 'ch.meas':{fr:"mesurande m (unités)",en:"measurand m (units)"},'ch.ideal':{fr:"droite idéale",en:"ideal line"},'ch.up':{fr:"montée",en:"upward"},'ch.dn':{fr:"descente",en:"downward"},
+ 'ch.sens':{fr:"Sensibilité",en:"Sensitivity"},'ch.nlin':{fr:"Non-linéarité",en:"Nonlinearity"},'ch.hyst':{fr:"Hystérésis",en:"Hysteresis"},'ch.reso':{fr:"Résolution",en:"Resolution"},
+ 'ch.cap':{fr:"Caractéristique V(m) : montée/descente (hystérésis) vs droite idéale. L'écart à la droite = erreur de non-linéarité.",en:"Characteristic V(m): up/down (hysteresis) vs ideal line. The gap to the line = nonlinearity error."},
+ 'br.h':{fr:"Conditionnement : le pont de Wheatstone",en:"Conditioning: the Wheatstone bridge"},
+ 'br.lead':{fr:"Beaucoup de capteurs sont <b>résistifs</b> (jauges de contrainte, capteurs de pression piézorésistifs) : le mesurande fait varier R de très peu (ΔR/R ~ 0,1 %). Le <b>pont de Wheatstone</b> convertit cette variation infime en tension différentielle, puis un <b>amplificateur d'instrumentation</b> de gain G l'amplifie. Plus on rend de bras du pont <b>actifs</b> (¼ → ½ → pont complet), plus la sortie est grande et <b>linéaire</b>.",
+   en:"Many sensors are <b>resistive</b> (strain gauges, piezoresistive pressure sensors): the measurand changes R by very little (ΔR/R ~ 0.1 %). The <b>Wheatstone bridge</b> converts this tiny change into a differential voltage, then an <b>instrumentation amplifier</b> of gain G boosts it. The more bridge arms are made <b>active</b> (¼ → ½ → full bridge), the larger and more <b>linear</b> the output."},
+ 'br.cfg':{fr:"Configuration du pont",en:"Bridge configuration"},'br.q':{fr:"Quart de pont (1 jauge active)",en:"Quarter bridge (1 active gauge)"},'br.hh':{fr:"Demi-pont (2 jauges)",en:"Half bridge (2 gauges)"},'br.f':{fr:"Pont complet (4 jauges)",en:"Full bridge (4 gauges)"},
+ 'br.ex':{fr:"Tension d'excitation V_ex (V)",en:"Excitation voltage V_ex (V)"},'br.gf':{fr:"Facteur de jauge GF · gain ampli G",en:"Gauge factor GF · amp gain G"},'br.eps':{fr:"Déformation ε au max (µε)",en:"Strain ε at max (µε)"},
+ 'br.full':{fr:"complet",en:"full"},'br.amp':{fr:"Sortie ×G",en:"Output ×G"},'br.nlin':{fr:"Non-linéarité",en:"Nonlinearity"},
+ 'br.cap':{fr:"Tension de sortie (après ampli) vs déformation, pour les trois configurations. Le quart de pont est légèrement non linéaire.",en:"Output voltage (after amp) vs strain, for the three configurations. The quarter bridge is slightly nonlinear."},
+ 'sa.h':{fr:"Échantillonnage & repliement (Shannon-Nyquist)",en:"Sampling & aliasing (Shannon-Nyquist)"},
+ 'sa.lead':{fr:"Numériser, c'est prélever le signal à intervalles réguliers (fréquence d'échantillonnage f_s). Le théorème de <b>Shannon-Nyquist</b> impose f_s > 2·f_max : sinon, une fréquence trop haute se fait passer pour une fréquence basse — c'est le <b>repliement</b> (aliasing). D'où le <b>filtre anti-repliement</b> placé AVANT le convertisseur. Ci-dessous, baisse f_s sous 2·f₀ et regarde le signal reconstruit « mentir ».",
+   en:"Digitizing means sampling the signal at regular intervals (sampling frequency f_s). The <b>Shannon-Nyquist</b> theorem requires f_s > 2·f_max: otherwise a too-high frequency masquerades as a low one — that's <b>aliasing</b>. Hence the <b>anti-aliasing filter</b> placed BEFORE the converter. Below, drop f_s under 2·f₀ and watch the reconstructed signal 'lie'."},
+ 'sa.f0':{fr:"Fréquence du signal f₀ (Hz)",en:"Signal frequency f₀ (Hz)"},'sa.fs':{fr:"Fréquence d'échantillonnage f_s (Hz)",en:"Sampling frequency f_s (Hz)"},
+ 'sa.note':{fr:"Règle pratique : on échantillonne souvent à 5–10× la fréquence utile, et on filtre tout ce qui dépasse f_s/2 avant le CAN.",en:"Rule of thumb: sample at 5–10× the useful frequency, and filter everything above f_s/2 before the ADC."},
+ 'sa.sig':{fr:"signal vrai",en:"true signal"},'sa.samp':{fr:"échantillons",en:"samples"},'sa.alias':{fr:"reconstruit (replié)",en:"reconstructed (aliased)"},'sa.aliasf':{fr:"Fréq. repliée",en:"Alias freq."},'sa.state':{fr:"État",en:"State"},'sa.ok':{fr:"Correct",en:"OK"},'sa.bad':{fr:"Repliement !",en:"Aliasing!"},
+ 'sa.cap':{fr:"Signal vrai (gris) · échantillons (points) · signal reconstruit par les échantillons (vert). En sous-échantillonnage, le vert ≠ le gris.",en:"True signal (grey) · samples (dots) · signal reconstructed from samples (green). Under-sampled, green ≠ grey."},
+ 'qu.h':{fr:"Quantification : le convertisseur N bits",en:"Quantization: the N-bit converter"},
+ 'qu.lead':{fr:"Le CAN code l'amplitude sur N bits, soit 2ᴺ niveaux discrets séparés du <b>pas de quantification</b> q. L'arrondi introduit un <b>bruit de quantification</b> (RMS = q/√12) qui fixe le rapport signal/bruit maximal : <b>SNR ≈ 6,02·N + 1,76 dB</b> (≈ 6 dB, soit 1 bit, par doublement de résolution). Chaque bit gagné, c'est deux fois plus de niveaux.",
+   en:"The ADC codes the amplitude on N bits, i.e. 2ᴺ discrete levels separated by the <b>quantization step</b> q. Rounding introduces <b>quantization noise</b> (RMS = q/√12) which sets the maximum signal-to-noise ratio: <b>SNR ≈ 6.02·N + 1.76 dB</b> (≈ 6 dB, one bit, per doubling of resolution). Each extra bit means twice as many levels."},
+ 'qu.n':{fr:"Résolution N (bits)",en:"Resolution N (bits)"},'qu.sig':{fr:"Signal de test",en:"Test signal"},'qu.sine':{fr:"Sinusoïde",en:"Sine"},'qu.ramp':{fr:"Rampe (montée)",en:"Ramp"},
+ 'qu.cont':{fr:"continu",en:"continuous"},'qu.qz':{fr:"quantifié",en:"quantized"},'qu.err':{fr:"erreur ×4",en:"error ×4"},'qu.lvl':{fr:"Niveaux",en:"Levels"},'qu.step':{fr:"Pas q",en:"Step q"},'qu.theo':{fr:"théo.",en:"theo."},'qu.mes':{fr:"mesuré",en:"meas."},
+ 'qu.cap':{fr:"Signal continu (gris) · sortie quantifiée en escalier (vert) · erreur de quantification ×4 (orange).",en:"Continuous signal (grey) · quantized staircase output (green) · quantization error ×4 (orange)."},
+ 'pr.h':{fr:"Exemple complet : un capteur de pression artérielle",en:"Full example: an arterial pressure sensor"},
+ 'pr.lead':{fr:"On déroule toute la chaîne sur une <b>vraie forme de signal</b> : une onde de pression artérielle (pic systolique + incisure dicrote, ~75 bpm). Le capteur piézorésistif la convertit en tension (avec bruit), un <b>filtre anti-repliement</b> coupe le haut du spectre, le CAN l'<b>échantillonne</b> et la <b>quantifie</b>, puis on <b>reconstruit</b> la pression par étalonnage inverse. Joue sur f_s, les bits, le filtre et le bruit : trop peu d'échantillons/de bits → la reconstruction se dégrade.",
+   en:"We run the whole chain on a <b>real signal shape</b>: an arterial pressure wave (systolic peak + dicrotic notch, ~75 bpm). The piezoresistive sensor converts it to voltage (with noise), an <b>anti-aliasing filter</b> cuts the high end of the spectrum, the ADC <b>samples</b> and <b>quantizes</b> it, then we <b>reconstruct</b> the pressure by inverse calibration. Play with f_s, bits, filter and noise: too few samples/bits → the reconstruction degrades."},
+ 'pr.fs':{fr:"Échantillonnage f_s (Hz)",en:"Sampling f_s (Hz)"},'pr.n':{fr:"Résolution CAN N (bits)",en:"ADC resolution N (bits)"},'pr.fc':{fr:"Filtre anti-repliement f_c (Hz)",en:"Anti-aliasing filter f_c (Hz)"},'pr.no':{fr:"Bruit capteur (% PE)",en:"Sensor noise (% FS)"},
+ 'pr.true':{fr:"pression vraie",en:"true pressure"},'pr.samp':{fr:"échantillons",en:"samples"},'pr.rec':{fr:"reconstruite",en:"reconstructed"},'pr.np':{fr:"Éch.",en:"Smp."},'pr.beat':{fr:"battement",en:"beat"},'pr.state':{fr:"État",en:"State"},'pr.risk':{fr:"f_s < 2·f_c !",en:"f_s < 2·f_c!"},'pr.ok':{fr:"OK",en:"OK"},
+ 'pr.cap':{fr:"Pression vraie (gris) · échantillons acquis (points) · pression reconstruite (vert). RMSE = écart de reconstruction.",en:"True pressure (grey) · acquired samples (dots) · reconstructed pressure (green). RMSE = reconstruction error."}
+};
+let LANG='fr';
+function T(k){return I18N[k]?I18N[k][LANG]:'';}
+function setLang(l){LANG=l;$('lf').classList.toggle('on',l==='fr');$('le').classList.toggle('on',l==='en');
+  document.querySelectorAll('[data-i18n]').forEach(e=>{const k=e.getAttribute('data-i18n');if(I18N[k])e.innerHTML=I18N[k][l];});
+  document.documentElement.lang=l;const cur=['chain','bridge','samp','quant','pres'].find(p=>$('pane-'+p).style.display!=='none');showTab(cur||'chain');}
+
+showTab('chain');
+</script>
+</body>
+</html>
