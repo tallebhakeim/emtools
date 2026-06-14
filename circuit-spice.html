@@ -96,6 +96,10 @@ details.help code{background:var(--bg);padding:1px 4px;border-radius:4px;font-si
         <button class="tool" data-tool="V" onclick="setTool('V')" data-i18n="tool.v">Source V</button>
         <button class="tool" data-tool="I" onclick="setTool('I')" data-i18n="tool.i">Source I</button>
         <button class="tool" data-tool="D" onclick="setTool('D')">Diode</button>
+        <button class="tool" data-tool="Q" onclick="setTool('Q')" title="Transistor bipolaire (NPN/PNP)">Q · BJT</button>
+        <button class="tool" data-tool="M" onclick="setTool('M')" title="Transistor MOSFET (NMOS/PMOS)">M · MOS</button>
+        <button class="tool" data-tool="O" onclick="setTool('O')" title="Amplificateur opérationnel idéal">AOP</button>
+        <button class="tool" data-tool="T" onclick="setTool('T')" data-i18n="tool.trf" title="Transformateur (deux bobines couplées)">Transfo</button>
         <button class="tool" data-tool="probe" onclick="setTool('probe')" data-i18n="tool.probe">🔍 Sonde</button>
         <button class="tool" data-tool="GND" onclick="setTool('GND')" data-i18n="tool.gnd">Masse</button>
         <button class="tool" data-tool="del" onclick="setTool('del')" data-i18n="tool.del">Supprimer</button>
@@ -128,6 +132,9 @@ details.help code{background:var(--bg);padding:1px 4px;border-radius:4px;font-si
             <option value="oamp" data-i18n="pre.oamp">Ampli non-inverseur (AOP)</option>
             <option value="aflt" data-i18n="pre.aflt">Filtre actif passe-bas (AOP)</option>
             <option value="piezo" data-i18n="pre.piezo">Récupération piézo (pont + stockage)</option>
+            <option value="ce" data-i18n="pre.ce">Ampli émetteur commun (BJT)</option>
+            <option value="cs" data-i18n="pre.cs">Ampli source commune (MOS)</option>
+            <option value="mosinv" data-i18n="pre.mosinv">Inverseur NMOS (commutation)</option>
           </select>
         </div>
         <div class="ctrl" style="justify-content:flex-end"><label data-i18n="lbl.importasc">Importer LTspice</label>
@@ -210,6 +217,12 @@ function parseNetlist(text){
     const type=t0[0], name=tok[0];
     if(type==='k'){couples.push({name,l1:tok[1],l2:tok[2],k:pval(tok[3])});continue;}  // couplage mutuel
     if(type==='o'){const p=tok[1],m=tok[2],o=tok[3]; nodeset.add(p);nodeset.add(m);nodeset.add(o); els.push({type:'o',name,a:p,b:m,out:o});continue;}  // AOP idéal : O1 in+ in- out
+    if(type==='q'){const c=tok[1],b=tok[2],e=tok[3],mo=(tok[4]||'npn').toLowerCase();nodeset.add(c);nodeset.add(b);nodeset.add(e);  // BJT : Q1 C B E NPN|PNP [Is bf br]
+      const num=k=>(tok[k]!==undefined&&!isNaN(parseFloat(tok[k])))?pval(tok[k]):undefined;
+      els.push({type:'q',name,c,b,e,npn:!/pnp/.test(mo),Is:num(5)??1e-15,bf:num(6)??100,br:num(7)??1});continue;}
+    if(type==='m'){const D=tok[1],G=tok[2],S=tok[3],mo=(tok[4]||'nmos').toLowerCase();nodeset.add(D);nodeset.add(G);nodeset.add(S);  // MOS : M1 D G S NMOS|PMOS [kp vth lam]
+      const num=k=>(tok[k]!==undefined&&!isNaN(parseFloat(tok[k])))?pval(tok[k]):undefined;
+      els.push({type:'m',name,d:D,g:G,s:S,nmos:!/pmos/.test(mo),kp:num(5)??1e-3,vth:num(6)??1,lam:num(7)??0.02});continue;}
     const a=tok[1], b=tok[2]; if(!'rclvid'.includes(type))continue;
     nodeset.add(a);nodeset.add(b); const el={type,name,a,b};
     if(type==='r'||type==='c'||type==='l'){el.value=pval(tok[3]);}
@@ -229,7 +242,7 @@ function parseNetlist(text){
   const inds=els.filter(e=>e.type==='l'); const muts=[];
   for(const c of couples){const e1=inds.find(e=>e.name.toLowerCase()===(''+c.l1).toLowerCase()), e2=inds.find(e=>e.name.toLowerCase()===(''+c.l2).toLowerCase());
     if(e1&&e2)muts.push({i:inds.indexOf(e1),j:inds.indexOf(e2),M:c.k*Math.sqrt(e1.value*e2.value)});}
-  return {els,nodes,idx,inds,muts,diodes:els.filter(e=>e.type==='d'),opamps:els.filter(e=>e.type==='o')};
+  return {els,nodes,idx,inds,muts,diodes:els.filter(e=>e.type==='d'),opamps:els.filter(e=>e.type==='o'),bjts:els.filter(e=>e.type==='q'),moss:els.filter(e=>e.type==='m')};
 }
 const cadd=(a,b)=>[a[0]+b[0],a[1]+b[1]], csub=(a,b)=>[a[0]-b[0],a[1]-b[1]];
 const cmul=(a,b)=>[a[0]*b[0]-a[1]*b[1],a[0]*b[1]+a[1]*b[0]];
@@ -298,6 +311,7 @@ function dcOp(net){   // point de repos DC (Newton) : R + diodes + AOP ; C ouver
     vs.forEach((e,k)=>{const r=N+k,i=net.idx[e.a],j=net.idx[e.b];if(i>=0){A[i][r]+=1;A[r][i]+=1;}if(j>=0){A[j][r]-=1;A[r][j]-=1;}z[r]=e.dc;});
     net.inds.forEach((e,p)=>{const r=N+Mv+p,i=net.idx[e.a],j=net.idx[e.b];if(i>=0){A[i][r]+=1;A[r][i]+=1;}if(j>=0){A[j][r]-=1;A[r][j]-=1;}});
     net.diodes.forEach((d,di)=>{const i=net.idx[d.a],j=net.idx[d.b];let Vd=vnod(Vn,net.idx,d.a)-vnod(Vn,net.idx,d.b);Vd=pnjlim(Vd,vd[di],d.Is,d.n);const {g,I}=diodeGI(Vd,d.Is,d.n);sG(i,j,g);sI(i,j,I-g*Vd);vd[di]=Vd;});
+    stampBJTMOS_dc(net,Vn,sG,sI,A,z,N,Mv,P,Q);
     net.opamps.forEach((o,q)=>{const r=N+Mv+P+q,p=net.idx[o.a],m=net.idx[o.b],oN=net.idx[o.out];if(oN>=0)A[oN][r]+=1;if(p>=0)A[r][p]+=1;if(m>=0)A[r][m]-=1;});
     const x=rsolve(A,z,K);let mx=0;for(let i=0;i<N;i++){mx=Math.max(mx,Math.abs(x[i]-Vn[i]));Vn[i]=x[i];}
     if(mx<1e-9+1e-6*Math.max(...Array.from(Vn,Math.abs),1e-9))break;
@@ -348,9 +362,21 @@ function stampBJTMOS_dc(net,Vn,sG,sI,A,z,N,Mv,P,Q){
     const term=(T,dvg,dvs,dvd,It)=>{if(T<0)return;if(ig>=0)A[T][ig]+=dvg;if(is>=0)A[T][is]+=dvs;if(id>=0)A[T][id]+=dvd;z[T]-=sgn*(It-(gm*ev.Vgs+gds*ev.Vds));};
     term(id,gm,-(gm+gds),gds,ev.Id); term(is,-gm,gm+gds,-gds,-ev.Id);});
 }
+// stamp petit-signal AC (conductances linéarisées au point de repos Vdc)
+function stampBJTMOS_ac(net,Vdc,A){
+  const Vof=nm=>vnod(Vdc,net.idx,nm);
+  (net.bjts||[]).forEach(d=>{const ic=net.idx[d.c],ib=net.idx[d.b],ie=net.idx[d.e];
+    const ev=bjtEval(d,Vof(d.b),Vof(d.e),Vof(d.c));
+    const term=(T,dbe,dbc)=>{if(T<0)return;if(ib>=0)A[T][ib]=cadd(A[T][ib],[dbe+dbc,0]);if(ie>=0)A[T][ie]=csub(A[T][ie],[dbe,0]);if(ic>=0)A[T][ic]=csub(A[T][ic],[dbc,0]);};
+    term(ic,ev.gee,-ev.gcc*(1+1/d.br)); term(ib,ev.gee/d.bf,ev.gcc/d.br); term(ie,-(ev.gee+ev.gee/d.bf),ev.gcc);});
+  (net.moss||[]).forEach(d=>{const id=net.idx[d.d],ig=net.idx[d.g],is=net.idx[d.s];
+    const ev=mosEval(d,Vof(d.g),Vof(d.s),Vof(d.d)),gm=ev.gm,gds=ev.gds;
+    const term=(T,dvg,dvs,dvd)=>{if(T<0)return;if(ig>=0)A[T][ig]=cadd(A[T][ig],[dvg,0]);if(is>=0)A[T][is]=cadd(A[T][is],[dvs,0]);if(id>=0)A[T][id]=cadd(A[T][id],[dvd,0]);};
+    term(id,gm,-(gm+gds),gds); term(is,-gm,gm+gds,-gds);});
+}
 function acSolve(net,omega){
   const N=net.nodes.length, vs=net.els.filter(e=>e.type==='v'), Mv=vs.length, P=net.inds.length, Q=net.opamps.length, K=N+Mv+P+Q;
-  const Vdc=net.diodes.length?dcOp(net):null;   // point de repos pour le petit-signal des diodes
+  const Vdc=(net.diodes.length||net.bjts.length||net.moss.length)?dcOp(net):null;   // point de repos pour le petit-signal (diodes + transistors)
   const A=Array.from({length:K},()=>Array.from({length:K},()=>[0,0])); const z=Array.from({length:K},()=>[0,0]);
   const sY=(i,j,y)=>{if(i>=0)A[i][i]=cadd(A[i][i],y);if(j>=0)A[j][j]=cadd(A[j][j],y);if(i>=0&&j>=0){A[i][j]=csub(A[i][j],y);A[j][i]=csub(A[j][i],y);}};
   for(const e of net.els){const i=net.idx[e.a],j=net.idx[e.b];
@@ -368,6 +394,7 @@ function acSolve(net,omega){
     A[r][r]=csub(A[r][r],[0,omega*e.value]);});
   net.muts.forEach(m=>{const ri=N+Mv+m.i,rj=N+Mv+m.j; A[ri][rj]=csub(A[ri][rj],[0,omega*m.M]); A[rj][ri]=csub(A[rj][ri],[0,omega*m.M]);});  // −jωM
   net.diodes.forEach(d=>{const i=net.idx[d.a],j=net.idx[d.b];const Vd=vnod(Vdc,net.idx,d.a)-vnod(Vdc,net.idx,d.b);sY(i,j,[diodeGI(Vd,d.Is,d.n).g,0]);});  // petit-signal au repos
+  stampBJTMOS_ac(net,Vdc,A);   // petit-signal transistors au point de repos
   // AOP idéal : sortie en courant inconnu (norator) + contrainte V+−V−=0 (nullateur)
   net.opamps.forEach((o,q)=>{const r=N+Mv+P+q,p=net.idx[o.a],m=net.idx[o.b],oN=net.idx[o.out];
     if(oN>=0)A[oN][r]=cadd(A[oN][r],[1,0]);
@@ -381,7 +408,7 @@ function tranRun(net,h,stop){
   const capV={}; net.els.forEach(e=>{if(e.type==='c')capV[e.name]=0;});
   const iL=new Float64Array(P), Vn=new Float64Array(N), vdSt=net.diodes.map(()=>0);   // état (Euler implicite)
   const out={t:[],V:{}}; net.nodes.concat('0').forEach(n=>out.V[n]=[]);
-  for(let s=0;s<=steps;s++){const t=s*h; let x=null; const vd=vdSt.slice(); const maxit=net.diodes.length?60:1;
+  for(let s=0;s<=steps;s++){const t=s*h; let x=null; const vd=vdSt.slice(); const maxit=(net.diodes.length||net.bjts.length||net.moss.length)?60:1;
     for(let it=0;it<maxit;it++){   // Newton-Raphson (1 passe si pas de diode)
       const A=Array.from({length:K},()=>new Float64Array(K)); const z=new Float64Array(K);
       const sG=(i,j,g)=>{if(i>=0)A[i][i]+=g;if(j>=0)A[j][j]+=g;if(i>=0&&j>=0){A[i][j]-=g;A[j][i]-=g;}};
@@ -397,6 +424,7 @@ function tranRun(net,h,stop){
         A[r][r]-=e.value/h; z[r]-=(e.value/h)*iL[p];});
       net.muts.forEach(m=>{const ri=N+Mv+m.i,rj=N+Mv+m.j; A[ri][rj]-=m.M/h; A[rj][ri]-=m.M/h; z[ri]-=(m.M/h)*iL[m.j]; z[rj]-=(m.M/h)*iL[m.i];});
       net.diodes.forEach((d,di)=>{const i=net.idx[d.a],j=net.idx[d.b];let Vd=vnod(Vn,net.idx,d.a)-vnod(Vn,net.idx,d.b);Vd=pnjlim(Vd,vd[di],d.Is,d.n);const {g,I}=diodeGI(Vd,d.Is,d.n);sG(i,j,g);sI(i,j,I-g*Vd);vd[di]=Vd;});
+      stampBJTMOS_dc(net,Vn,sG,sI,A,z,N,Mv,P,Q);
       net.opamps.forEach((o,q)=>{const r=N+Mv+P+q,p=net.idx[o.a],m=net.idx[o.b],oN=net.idx[o.out];if(oN>=0)A[oN][r]+=1;if(p>=0)A[r][p]+=1;if(m>=0)A[r][m]-=1;});  // AOP idéal
       x=rsolve(A,z,K); let mx=0; for(let i=0;i<N;i++){mx=Math.max(mx,Math.abs(x[i]-Vn[i]));Vn[i]=x[i];}
       if(mx<1e-7+1e-5*Math.max(...Array.from(Vn,Math.abs),1e-9))break;
@@ -424,7 +452,10 @@ const PRESETS={
   clip:{m:'tran',tr:[3e-3,900],txt:`* Écrêteur à diode — la sortie est limitée à ~+0,6 V\nV1 in 0 SIN(0 5 1k)\nR1 in out 1k\nD1 out 0\nR2 out 0 1meg`},
   oamp:{m:'ac',ac:[10,1e6],txt:`* Ampli non-inverseur (AOP idéal) — gain = 1 + R2/R1 = 10\n* O1 in+ in- out\nV1 in 0 AC 1\nO1 in nm out\nR2 out nm 9k\nR1 nm 0 1k`},
   aflt:{m:'ac',ac:[10,1e6],txt:`* Filtre actif passe-bas (AOP) — gain DC -10, coupure 1 kHz\n* inverseur avec C en réaction : fc = 1/(2*pi*R2*C)\nV1 in 0 AC 1\nR1 in nm 1k\nR2 out nm 10k\nC1 out nm 15.915n\nO1 0 nm out`},
-  piezo:{m:'tran',tr:[40e-3,1600],txt:`* Récupération d'énergie piézo — pont redresseur (4 diodes) + stockage\n* le piézo (~5 V, 100 Hz) est redressé en double alternance puis lissé sur Cs\nV1 a b SIN(0 5 100)\nCp a b 10n\nD1 a out\nD2 b out\nD3 0 a\nD4 0 b\nCs out 0 100u\nRL out 0 10k`}
+  piezo:{m:'tran',tr:[40e-3,1600],txt:`* Récupération d'énergie piézo — pont redresseur (4 diodes) + stockage\n* le piézo (~5 V, 100 Hz) est redressé en double alternance puis lissé sur Cs\nV1 a b SIN(0 5 100)\nCp a b 10n\nD1 a out\nD2 b out\nD3 0 a\nD4 0 b\nCs out 0 100u\nRL out 0 10k`},
+  ce:{m:'ac',ac:[10,1e7],txt:`* Ampli émetteur commun (NPN) — gain ≈ -gm·Rc, gm = Ic/Vt\n* polarisation par pont de base ; Re découplé par Ce\nVcc vcc 0 DC 12\nR1 vcc b 47k\nR2 b 0 10k\nVin in 0 AC 0.01\nC1 in b 10u\nRc vcc c 2.2k\nRe e 0 1k\nCe e 0 100u\nQ1 c b e NPN`},
+  cs:{m:'ac',ac:[10,1e7],txt:`* Ampli source commune (NMOS) — gain ≈ -gm·Rd, sortie inversée\n* Kp=1m, Vth=1 ; polarisation de grille à 2 V\nVdd vdd 0 DC 5\nVg g 0 DC 2 AC 0.01\nRd vdd d 1k\nM1 d g 0 NMOS 1m 1 0.02`},
+  mosinv:{m:'tran',tr:[4e-3,800],txt:`* Inverseur NMOS (drain commun à charge résistive) — commutation\n* grille en créneau ~0↔3 V : la sortie bascule haut↔bas\nVdd vdd 0 DC 5\nVg g 0 SIN(1.5 1.5 1k)\nRd vdd d 2k\nM1 d g 0 NMOS 1m 1 0.02`}
 };
 let MODE='ac', LASTNODES=[], CHECKED={};
 const COLORS=['#0d9488','#d97706','#6366f1','#db2777','#16a34a','#0891b2','#9333ea','#dc2626'];
@@ -434,7 +465,7 @@ function setMode(m){MODE=m;
   $('ac-ctrls').style.display=m==='ac'?'':'none'; $('tran-ctrls').style.display=m==='tran'?'':'none';
   $('plot-title').textContent=t(m==='ac'?'p.bode':'p.tran');
 }
-function loadPreset(k){const p=PRESETS[k]; $('netlist').value=p.txt; setMode(p.m);
+function loadPreset(k){const p=PRESETS[k]; setInput('net'); $('netlist').value=p.txt; setMode(p.m);
   if(p.ac){$('fmin').value=p.ac[0];$('fmax').value=p.ac[1];} if(p.tr){$('tstop').value=p.tr[0];$('npts').value=p.tr[1];}
   CHECKED={}; run();}
 
@@ -576,7 +607,14 @@ const GS=30, MG=22;                       // pas de grille / marge (px CSS)
 let INPUT='sch', TOOL='sel', ORIENT='h', SEL=null, SCH={comps:[],wires:[]}, CNT={R:0,L:0,C:0,V:0,I:0,G:0,D:0,Q:0,M:0,O:0,T:0}, wireStart=null, drag=null, PROBES=new Set(), AUTOROUTE=true, DCMODE=false, DCDATA=null, dcPhase=0, dcRAF=null;
 const px=g=>MG+g*GS;
 const gridOf=(mx,my)=>[Math.max(0,Math.round((mx-MG)/GS)),Math.max(0,Math.round((my-MG)/GS))];
-function termsOf(c){return c.type==='GND'?[[c.x,c.y]]:c.dir==='h'?[[c.x,c.y],[c.x+2,c.y]]:[[c.x,c.y],[c.x,c.y+2]];}
+// broches des composants multi-bornes (ordre = ordre netlist). Q:[C,B,E] · M:[D,G,S] · O:[in+,in-,out] · T:[p+,p-,s+,s-]
+const PINMAP={Q:[[2,0],[0,1],[2,2]],M:[[2,0],[0,1],[2,2]],O:[[0,0],[0,2],[3,1]],T:[[0,0],[0,2],[3,0],[3,2]]};
+function termsOf(c){
+  if(c.type==='GND')return [[c.x,c.y]];
+  const pm=PINMAP[c.type];
+  if(pm)return pm.map(o=>c.dir==='h'?[c.x+o[0],c.y+o[1]]:[c.x+o[1],c.y+o[0]]);
+  return c.dir==='h'?[[c.x,c.y],[c.x+2,c.y]]:[[c.x,c.y],[c.x,c.y+2]];
+}
 
 // ── routage orthogonal A* (Manhattan, contourne les composants) ──
 function toggleAuto(){AUTOROUTE=!AUTOROUTE;$('ar-toggle').classList.toggle('on',AUTOROUTE);}
@@ -618,7 +656,7 @@ function setInput(m){INPUT=m;$('in-sch').classList.toggle('on',m==='sch');$('in-
   $('sch-wrap').style.display=m==='sch'?'':'none';$('net-wrap').style.display=m==='net'?'':'none';
   if(m==='sch')drawSch();}
 function setTool(t){TOOL=t;wireStart=null;document.querySelectorAll('#sch-tools .tool[data-tool]').forEach(b=>b.classList.toggle('on',b.dataset.tool===t));drawSch();}
-function clearSch(){SCH={comps:[],wires:[]};CNT={R:0,L:0,C:0,V:0,I:0,G:0,D:0};SEL=null;PROBES.clear();editPanel();syncNet();drawSch();}
+function clearSch(){SCH={comps:[],wires:[]};CNT={R:0,L:0,C:0,V:0,I:0,G:0,D:0,Q:0,M:0,O:0,T:0};SEL=null;PROBES.clear();editPanel();syncNet();drawSch();}
 function rotateSel(){ORIENT=ORIENT==='h'?'v':'h'; if(SEL&&SEL.type!=='GND'){SEL.dir=SEL.dir==='h'?'v':'h';syncNet();} drawSch();}
 
 function newComp(type,x,y){
@@ -629,6 +667,10 @@ function newComp(type,x,y){
   else if(type==='V'){c.name='V'+(++CNT.V);c.src={kind:'ac',mag:1,ph:0,dc:1,off:0,amp:1,freq:1000};}
   else if(type==='I'){c.name='I'+(++CNT.I);c.src={kind:'ac',mag:1,ph:0,dc:1,off:0,amp:1,freq:1000};}
   else if(type==='D'){c.name='D'+(++CNT.D);}
+  else if(type==='Q'){c.name='Q'+(++CNT.Q);c.npn=true;c.bf=100;}
+  else if(type==='M'){c.name='M'+(++CNT.M);c.nmos=true;c.kp='1m';c.vth=1;c.lam=0.02;}
+  else if(type==='O'){c.name='O'+(++CNT.O);}
+  else if(type==='T'){c.name='T'+(++CNT.T);c.lp='1m';c.ls='4m';c.k=0.98;}
   else if(type==='GND'){c.name='GND'+(++CNT.G);}
   return c;
 }
@@ -636,6 +678,7 @@ function newComp(type,x,y){
 function dSeg(px0,py0,ax,ay,bx,by){const dx=bx-ax,dy=by-ay,L2=dx*dx+dy*dy||1;let t=((px0-ax)*dx+(py0-ay)*dy)/L2;t=Math.max(0,Math.min(1,t));return Math.hypot(px0-(ax+t*dx),py0-(ay+t*dy));}
 function hitComp(mx,my){for(let i=SCH.comps.length-1;i>=0;i--){const c=SCH.comps[i];const T=termsOf(c).map(p=>[px(p[0]),px(p[1])]);
   if(c.type==='GND'){if(Math.hypot(mx-T[0][0],my-T[0][1])<16)return c;}
+  else if(T.length>2){const cx=T.reduce((s,p)=>s+p[0],0)/T.length,cy=T.reduce((s,p)=>s+p[1],0)/T.length;if(Math.hypot(mx-cx,my-cy)<30)return c;}
   else if(dSeg(mx,my,T[0][0],T[0][1],T[1][0],T[1][1])<12)return c;} return null;}
 function hitWire(mx,my){for(let i=SCH.wires.length-1;i>=0;i--){const w=SCH.wires[i];if(dSeg(mx,my,px(w.x1),px(w.y1),px(w.x2),px(w.y2))<8)return w;}return null;}
 
@@ -683,10 +726,14 @@ function extractNodes(){
 function srcSpec(c){const s=c.src; return s.kind==='ac'?('AC '+s.mag+(s.ph?(' '+s.ph):'')) : s.kind==='dc'?('DC '+s.dc) : ('SIN('+s.off+' '+s.amp+' '+s.freq+')');}
 function genNetlist(){
   const E=extractNodes(), lines=['* Schéma EMtools — netlist générée'];
-  SCH.comps.forEach(c=>{ if(c.type==='GND')return; const T=termsOf(c); const na=E.nameOf(T[0][0],T[0][1]), nb=E.nameOf(T[1][0],T[1][1]);
-    if('RLC'.includes(c.type))lines.push(`${c.name} ${na} ${nb} ${c.value}`);
-    else if(c.type==='D')lines.push(`${c.name} ${na} ${nb}`);     // anode → cathode
-    else lines.push(`${c.name} ${na} ${nb} ${srcSpec(c)}`); });
+  SCH.comps.forEach(c=>{ if(c.type==='GND')return; const T=termsOf(c); const nn=T.map(p=>E.nameOf(p[0],p[1]));
+    if('RLC'.includes(c.type))lines.push(`${c.name} ${nn[0]} ${nn[1]} ${c.value}`);
+    else if(c.type==='D')lines.push(`${c.name} ${nn[0]} ${nn[1]}`);     // anode → cathode
+    else if(c.type==='Q')lines.push(`${c.name} ${nn[0]} ${nn[1]} ${nn[2]} ${c.npn?'NPN':'PNP'} 1e-15 ${c.bf}`);  // C B E
+    else if(c.type==='M')lines.push(`${c.name} ${nn[0]} ${nn[1]} ${nn[2]} ${c.nmos?'NMOS':'PMOS'} ${c.kp} ${c.vth} ${c.lam}`);  // D G S
+    else if(c.type==='O')lines.push(`${c.name} ${nn[0]} ${nn[1]} ${nn[2]}`);  // in+ in- out
+    else if(c.type==='T'){const la='L'+c.name+'A',lb='L'+c.name+'B';lines.push(`${la} ${nn[0]} ${nn[1]} ${c.lp}`);lines.push(`${lb} ${nn[2]} ${nn[3]} ${c.ls}`);lines.push(`K${c.name} ${la} ${lb} ${c.k}`);}  // transfo = 2 L couplées
+    else lines.push(`${c.name} ${nn[0]} ${nn[1]} ${srcSpec(c)}`); });
   return lines.join('\n');
 }
 function syncNet(){ if(INPUT==='sch')$('netlist').value=genNetlist(); if(DCMODE)computeDC(); }
@@ -700,6 +747,23 @@ function editPanel(){
     l.querySelector('input').oninput=e=>{c.value=e.target.value.trim()||'0';syncNet();drawSch();};box.appendChild(l);
   } else if(c.type==='D'){
     const s=document.createElement('div');s.style.cssText='font-size:.8rem;color:var(--text2);align-self:center';s.textContent='Diode (anode → cathode, modèle Shockley)';box.appendChild(s);
+  } else if(c.type==='Q'){
+    const ty=document.createElement('label');ty.innerHTML='Type<select><option value="npn">NPN</option><option value="pnp">PNP</option></select>';
+    ty.querySelector('select').value=c.npn?'npn':'pnp';ty.querySelector('select').onchange=e=>{c.npn=e.target.value==='npn';syncNet();drawSch();};box.appendChild(ty);
+    const bf=document.createElement('label');bf.innerHTML='β (gain)<input value="'+c.bf+'" style="width:70px">';bf.querySelector('input').oninput=e=>{c.bf=parseFloat(e.target.value)||100;syncNet();};box.appendChild(bf);
+    const s=document.createElement('div');s.style.cssText='font-size:.76rem;color:var(--text2);align-self:center';s.textContent='C · B · E (Ebers-Moll)';box.appendChild(s);
+  } else if(c.type==='M'){
+    const ty=document.createElement('label');ty.innerHTML='Type<select><option value="nmos">NMOS</option><option value="pmos">PMOS</option></select>';
+    ty.querySelector('select').value=c.nmos?'nmos':'pmos';ty.querySelector('select').onchange=e=>{c.nmos=e.target.value==='nmos';syncNet();drawSch();};box.appendChild(ty);
+    const kp=document.createElement('label');kp.innerHTML='Kp=µCoxW/L (A/V²)<input value="'+c.kp+'" style="width:70px">';kp.querySelector('input').oninput=e=>{c.kp=e.target.value.trim()||'1m';syncNet();};box.appendChild(kp);
+    const vth=document.createElement('label');vth.innerHTML='Vth (V)<input value="'+c.vth+'" style="width:60px">';vth.querySelector('input').oninput=e=>{c.vth=parseFloat(e.target.value)||1;syncNet();};box.appendChild(vth);
+    const s=document.createElement('div');s.style.cssText='font-size:.76rem;color:var(--text2);align-self:center';s.textContent='D · G · S (loi quadratique, bulk=S)';box.appendChild(s);
+  } else if(c.type==='O'){
+    const s=document.createElement('div');s.style.cssText='font-size:.8rem;color:var(--text2);align-self:center';s.textContent='AOP idéal — entrées +/− puis sortie (gain ∞, V+=V−)';box.appendChild(s);
+  } else if(c.type==='T'){
+    const fld=(lab,key)=>{const l=document.createElement('label');l.innerHTML=lab+'<input value="'+c[key]+'" style="width:64px">';l.querySelector('input').oninput=e=>{c[key]=e.target.value.trim();syncNet();drawSch();};box.appendChild(l);};
+    fld('L₁ primaire (H)','lp');fld('L₂ secondaire (H)','ls');
+    const k=document.createElement('label');k.innerHTML='Couplage k (0–1)<input value="'+c.k+'" style="width:60px">';k.querySelector('input').oninput=e=>{c.k=parseFloat(e.target.value)||0;syncNet();drawSch();};box.appendChild(k);
   } else {
     const ksel=document.createElement('label');ksel.innerHTML='Type<select><option value="ac">AC (Bode)</option><option value="dc">DC (échelon)</option><option value="sin">SIN (transitoire)</option></select>';
     const sel=ksel.querySelector('select');sel.value=c.src.kind;sel.onchange=e=>{c.src.kind=e.target.value;editPanel();syncNet();};box.appendChild(ksel);
@@ -735,6 +799,7 @@ function drawComp(x,c){
   if(c.type==='GND'){const X=px(c.x),Y=px(c.y);x.strokeStyle=col;x.lineWidth=sel?2.4:1.8;
     x.beginPath();x.moveTo(X,Y);x.lineTo(X,Y+10);x.moveTo(X-9,Y+10);x.lineTo(X+9,Y+10);x.moveTo(X-5.5,Y+15);x.lineTo(X+5.5,Y+15);x.moveTo(X-2.5,Y+20);x.lineTo(X+2.5,Y+20);x.stroke();
     x.fillStyle=col;x.beginPath();x.arc(X,Y,2.6,0,7);x.fill();return;}
+  if(PINMAP[c.type]){drawMulti(x,c,sel,col);return;}
   const T=termsOf(c),ax=px(T[0][0]),ay=px(T[0][1]),bx=px(T[1][0]),by=px(T[1][1]);
   const ang=Math.atan2(by-ay,bx-ax),L=Math.hypot(bx-ax,by-ay),mx=(ax+bx)/2,my=(ay+by)/2,half=L/2;
   x.save();x.translate(mx,my);x.rotate(ang);x.strokeStyle=col;x.lineWidth=sel?2.4:1.8;x.fillStyle=col;
@@ -756,6 +821,44 @@ function drawComp(x,c){
   const lx=mx+(c.dir==='h'?0:18), ly=my+(c.dir==='h'?-15:3);
   const val=('RLC'.includes(c.type))?c.value:c.type==='D'?'':(c.src.kind==='ac'?('AC '+c.src.mag):c.src.kind==='dc'?(c.src.dc+''):'SIN');
   x.fillText(c.name,lx,ly); x.font='10px sans-serif';x.fillStyle='#64748b';x.fillText(val,lx,ly+12);
+}
+// dessin des composants multi-bornes (BJT, MOS, AOP, transfo)
+function drawMulti(x,c,sel,col){
+  const T=termsOf(c).map(p=>[px(p[0]),px(p[1])]);
+  const cx=T.reduce((s,p)=>s+p[0],0)/T.length, cy=T.reduce((s,p)=>s+p[1],0)/T.length;
+  x.strokeStyle=col;x.fillStyle=col;x.lineWidth=sel?2.4:1.8;
+  const lead=(a,bx,by)=>{x.beginPath();x.moveTo(a[0],a[1]);x.lineTo(bx,by);x.stroke();};
+  const arrow=(x1,y1,x2,y2)=>{const a=Math.atan2(y2-y1,x2-x1);x.beginPath();x.moveTo(x2,y2);x.lineTo(x2-7*Math.cos(a-0.4),y2-7*Math.sin(a-0.4));x.lineTo(x2-7*Math.cos(a+0.4),y2-7*Math.sin(a+0.4));x.closePath();x.fill();};
+  const dot=(p)=>{x.beginPath();x.arc(p[0],p[1],2.4,0,7);x.fill();};
+  if(c.type==='Q'){ const [C,B,E]=T; const bx=cx, top=cy-9, bot=cy+9;
+    lead(B,bx-9,cy); x.beginPath();x.moveTo(bx-9,top);x.lineTo(bx-9,bot);x.stroke();          // barre de base
+    x.beginPath();x.moveTo(bx-9,cy-4);x.lineTo(C[0],C[1]);x.moveTo(bx-9,cy+4);x.lineTo(E[0],E[1]);x.stroke();  // collecteur / émetteur
+    // flèche d'émetteur : NPN sort, PNP entre
+    const ex=bx-9+(E[0]-(bx-9))*0.6, ey=cy+4+(E[1]-(cy+4))*0.6;
+    if(c.npn)arrow(bx-9,cy+4,E[0],E[1]); else arrow(E[0],E[1],bx-9,cy+4);
+    [C,B,E].forEach(dot);
+  } else if(c.type==='M'){ const [D,G,S]=T; const chx=cx+2, gx=cx-5, top=cy-10, bot=cy+10;
+    lead(G,gx,cy); x.beginPath();x.moveTo(gx,top);x.lineTo(gx,bot);x.stroke();                 // grille
+    x.beginPath();x.moveTo(chx,top);x.lineTo(chx,bot);x.stroke();                               // canal
+    x.beginPath();x.moveTo(chx,cy-8);x.lineTo(D[0],cy-8);x.lineTo(D[0],D[1]);x.moveTo(chx,cy+8);x.lineTo(S[0],cy+8);x.lineTo(S[0],S[1]);x.stroke();
+    if(c.nmos)arrow(chx,cy,chx+6,cy); else arrow(chx+6,cy,chx,cy);                              // flèche substrat→canal
+    [D,G,S].forEach(dot);
+  } else if(c.type==='O'){ const [P,M,O]=T; const lx=Math.min(P[0],M[0])+12;
+    lead(P,lx,P[1]); lead(M,lx,M[1]); lead(O,O[0],O[1]);
+    x.beginPath();x.moveTo(lx,P[1]-4);x.lineTo(lx,M[1]+4);x.lineTo(O[0]-2,cy);x.closePath();x.stroke();   // triangle
+    x.font='700 11px sans-serif';x.textAlign='center';x.fillText('+',lx+9,P[1]+4);x.fillText('–',lx+9,M[1]+4);
+    [P,M,O].forEach(dot);
+  } else if(c.type==='T'){ const [Pp,Pm,Sp,Sm]=T; const px1=Pp[0], px2=Sp[0], y0=Math.min(Pp[1],Pm[1]), y1=Math.max(Pp[1],Pm[1]);
+    const coil=(cxx,ya,yb,side)=>{const n=3,seg=(yb-ya)/n;x.beginPath();for(let i=0;i<n;i++){const yc=ya+seg*(i+0.5);x.arc(cxx,yc,seg/2,-Math.PI/2,Math.PI/2,side<0);}x.stroke();};
+    lead(Pp,px1,Pp[1]);lead(Pm,px1,Pm[1]);lead(Sp,px2,Sp[1]);lead(Sm,px2,Sm[1]);
+    coil(px1,y0,y1,1); coil(px2,y0,y1,-1);                                                      // bobines primaire / secondaire
+    const mxc=(px1+px2)/2; x.beginPath();x.moveTo(mxc-2,y0);x.lineTo(mxc-2,y1);x.moveTo(mxc+2,y0);x.lineTo(mxc+2,y1);x.stroke();  // noyau
+    [Pp,Pm,Sp,Sm].forEach(dot);
+  }
+  // étiquette
+  x.fillStyle=sel?'#0d9488':'#475569';x.font='600 11px sans-serif';x.textAlign='center';
+  const sub=c.type==='Q'?(c.npn?'NPN':'PNP'):c.type==='M'?(c.nmos?'NMOS':'PMOS'):c.type==='T'?('k='+c.k):'';
+  x.fillText(c.name,cx,cy-16); if(sub){x.font='10px sans-serif';x.fillStyle='#64748b';x.fillText(sub,cx,cy-5);}
 }
 // ── point de repos DC + animation des courants ──
 function toggleDC(){
@@ -788,7 +891,7 @@ function drawDCOverlay(){
     x.fillText(fmtSI(I,'A'),mxp+(c.dir==='h'?0:24),myp+(c.dir==='h'?18:2));});
 }
 function buildDefaultSch(){   // diviseur RC passe-bas par défaut
-  SCH={comps:[],wires:[]};CNT={R:0,L:0,C:0,V:0,I:0,G:0,D:0};
+  SCH={comps:[],wires:[]};CNT={R:0,L:0,C:0,V:0,I:0,G:0,D:0,Q:0,M:0,O:0,T:0};
   const v=newComp('V',2,7);v.dir='v';v.y=5; SCH.comps.push(v);              // V1 entre (2,5)+ et (2,7)−
   const r=newComp('R',2,5);r.dir='h'; SCH.comps.push(r);                    // R1 (2,5)-(4,5)
   const c=newComp('C',4,5);c.dir='v'; SCH.comps.push(c);                    // C1 (4,5)-(4,7)
@@ -855,9 +958,11 @@ const I18N={
  'pre.rect':{fr:'Redresseur à diode (+ lissage)',en:'Diode rectifier (+ smoothing)'},'pre.clip':{fr:'Écrêteur à diode',en:'Diode clipper'},
  'pre.oamp':{fr:'Ampli non-inverseur (AOP)',en:'Non-inverting amp (op-amp)'},'pre.aflt':{fr:'Filtre actif passe-bas (AOP)',en:'Active low-pass filter (op-amp)'},
  'pre.piezo':{fr:'Récupération piézo (pont + stockage)',en:'Piezo harvesting (bridge + storage)'},
+ 'pre.ce':{fr:'Ampli émetteur commun (BJT)',en:'Common-emitter amp (BJT)'},'pre.cs':{fr:'Ampli source commune (MOS)',en:'Common-source amp (MOS)'},'pre.mosinv':{fr:'Inverseur NMOS (commutation)',en:'NMOS inverter (switching)'},
+ 'tool.trf':{fr:'Transfo',en:'Xformer'},
  'help.sum':{fr:'Aide-mémoire syntaxe',en:'Syntax cheat-sheet'},
- 'help.body':{fr:"<code>R1 a b 1k</code> · <code>C1 a b 100n</code> · <code>L1 a b 10m</code> — résistance / condensateur / bobine entre nœuds <code>a</code> et <code>b</code>.<br><code>V1 in 0 AC 1</code> — source de tension (entrée fréquentielle, amplitude 1, phase optionnelle <code>AC 1 90</code>).<br><code>V1 in 0 DC 1</code> — échelon ; <code>V1 in 0 SIN(0 1 1k)</code> — sinus (offset, amplitude, fréquence) pour le transitoire.<br><code>I1 a b AC 1</code> — source de courant. <code>K1 L1 L2 0.5</code> — couplage mutuel entre deux bobines (transfo / WPT ; M = k·√(L1·L2)). <code>D1 a k</code> — diode (anode <code>a</code> → cathode <code>k</code> ; Shockley, options <code>Is n</code>). <code>O1 e+ e- s</code> — AOP idéal (entrées <code>e+</code>/<code>e-</code>, sortie <code>s</code>). Masse = nœud <code>0</code>. Suffixes : f p n u m k meg g.",
-            en:"<code>R1 a b 1k</code> · <code>C1 a b 100n</code> · <code>L1 a b 10m</code> — resistor / capacitor / inductor between nodes <code>a</code> and <code>b</code>.<br><code>V1 in 0 AC 1</code> — voltage source (frequency-domain input, magnitude 1, optional phase <code>AC 1 90</code>).<br><code>V1 in 0 DC 1</code> — step ; <code>V1 in 0 SIN(0 1 1k)</code> — sine (offset, amplitude, frequency) for transient.<br><code>I1 a b AC 1</code> — current source. <code>K1 L1 L2 0.5</code> — mutual coupling between two inductors (transformer / WPT ; M = k·√(L1·L2)). <code>D1 a k</code> — diode (anode <code>a</code> → cathode <code>k</code> ; Shockley, options <code>Is n</code>). <code>O1 e+ e- s</code> — ideal op-amp (inputs <code>e+</code>/<code>e-</code>, output <code>s</code>). Ground = node <code>0</code>. Suffixes: f p n u m k meg g."},
+ 'help.body':{fr:"<code>R1 a b 1k</code> · <code>C1 a b 100n</code> · <code>L1 a b 10m</code> — résistance / condensateur / bobine entre nœuds <code>a</code> et <code>b</code>.<br><code>V1 in 0 AC 1</code> — source de tension (entrée fréquentielle, amplitude 1, phase optionnelle <code>AC 1 90</code>).<br><code>V1 in 0 DC 1</code> — échelon ; <code>V1 in 0 SIN(0 1 1k)</code> — sinus (offset, amplitude, fréquence) pour le transitoire.<br><code>I1 a b AC 1</code> — source de courant. <code>K1 L1 L2 0.5</code> — couplage mutuel entre deux bobines (transfo / WPT ; M = k·√(L1·L2)). <code>D1 a k</code> — diode (anode <code>a</code> → cathode <code>k</code> ; Shockley, options <code>Is n</code>). <code>O1 e+ e- s</code> — AOP idéal (entrées <code>e+</code>/<code>e-</code>, sortie <code>s</code>).<br><code>Q1 c b e NPN</code> — transistor bipolaire (collecteur, base, émetteur ; <code>NPN</code>/<code>PNP</code>, options <code>Is βF βR</code>). <code>M1 d g s NMOS</code> — MOSFET (drain, grille, source ; <code>NMOS</code>/<code>PMOS</code>, options <code>Kp Vth λ</code>). Masse = nœud <code>0</code>. Suffixes : f p n u m k meg g.",
+            en:"<code>R1 a b 1k</code> · <code>C1 a b 100n</code> · <code>L1 a b 10m</code> — resistor / capacitor / inductor between nodes <code>a</code> and <code>b</code>.<br><code>V1 in 0 AC 1</code> — voltage source (frequency-domain input, magnitude 1, optional phase <code>AC 1 90</code>).<br><code>V1 in 0 DC 1</code> — step ; <code>V1 in 0 SIN(0 1 1k)</code> — sine (offset, amplitude, frequency) for transient.<br><code>I1 a b AC 1</code> — current source. <code>K1 L1 L2 0.5</code> — mutual coupling between two inductors (transformer / WPT ; M = k·√(L1·L2)). <code>D1 a k</code> — diode (anode <code>a</code> → cathode <code>k</code> ; Shockley, options <code>Is n</code>). <code>O1 e+ e- s</code> — ideal op-amp (inputs <code>e+</code>/<code>e-</code>, output <code>s</code>).<br><code>Q1 c b e NPN</code> — bipolar transistor (collector, base, emitter ; <code>NPN</code>/<code>PNP</code>, options <code>Is βF βR</code>). <code>M1 d g s NMOS</code> — MOSFET (drain, gate, source ; <code>NMOS</code>/<code>PMOS</code>, options <code>Kp Vth λ</code>). Ground = node <code>0</code>. Suffixes: f p n u m k meg g."},
  'p.analysis':{fr:'Analyse',en:'Analysis'},
  'mode.ac':{fr:'Fréquentiel (Bode)',en:'Frequency (Bode)'},'mode.tran':{fr:'Transitoire',en:'Transient'},
  'lbl.fmin':{fr:'Fréquence min (Hz)',en:'Min frequency (Hz)'},'lbl.fmax':{fr:'Fréquence max (Hz)',en:'Max frequency (Hz)'},'lbl.ppd':{fr:'Points / décade',en:'Points / decade'},
@@ -878,8 +983,8 @@ const I18N={
  'err.freq':{fr:'Plage de fréquence invalide (0 < fmin < fmax).',en:'Invalid frequency range (0 < fmin < fmax).'},
  'err.tstop':{fr:'Durée invalide.',en:'Invalid duration.'},
  'err.dc':{fr:'Point de repos DC impossible (circuit incomplet ?).',en:'DC operating point failed (incomplete circuit?).'},
- 'disclaimer':{fr:"<b>Outil pédagogique —</b> circuits <b>linéaires</b> R, L, C et sources indépendantes (V, I), résolus par <b>analyse nodale modifiée</b> : exact en régime établi (AC) et par Euler implicite en transitoire ; <b>couplage mutuel K</b> (transformateur / WPT) , <b>diode</b> (Shockley, Newton-Raphson) et <b>AOP idéal</b> supportés. Pas encore de transistor ni de modèles d'AOP réels (gain/bande finis). Donne les ordres de grandeur et la physique, pas un signoff industriel.",
-              en:"<b>Educational tool —</b> <b>linear</b> R, L, C circuits with independent sources (V, I), solved by <b>modified nodal analysis</b>: exact in steady state (AC), backward-Euler in transient; <b>mutual coupling K</b> (transformer / WPT) , <b>diode</b> (Shockley, Newton-Raphson) and <b>ideal op-amp</b> supported. No transistor or real op-amp models (finite gain/bandwidth) yet. Gives orders of magnitude and the physics, not an industrial sign-off."},
+ 'disclaimer':{fr:"<b>Outil pédagogique —</b> R, L, C, sources (V, I), <b>couplage mutuel K</b> / <b>transformateur</b>, <b>diode</b> (Shockley), <b>AOP idéal</b>, <b>transistor bipolaire</b> (Ebers-Moll) et <b>MOSFET</b> (loi quadratique, niveau 1), résolus par <b>analyse nodale modifiée</b> + Newton-Raphson : DC, AC petit-signal (linéarisé au point de repos) et transitoire (Euler implicite). Modèles simplifiés (pas de capacités de jonction ni d'effets de canal court ; AOP idéal). Donne les ordres de grandeur et la physique, pas un signoff industriel.",
+              en:"<b>Educational tool —</b> R, L, C, sources (V, I), <b>mutual coupling K</b> / <b>transformer</b>, <b>diode</b> (Shockley), <b>ideal op-amp</b>, <b>bipolar transistor</b> (Ebers-Moll) and <b>MOSFET</b> (level-1 square law), solved by <b>modified nodal analysis</b> + Newton-Raphson: DC, small-signal AC (linearised at the operating point) and transient (backward Euler). Simplified models (no junction capacitances or short-channel effects; ideal op-amp). Gives orders of magnitude and the physics, not an industrial sign-off."},
  'footer.lic':{fr:'© 2026 Hakeim Talleb · EMtools · Code sous licence <a href="LICENSE">MIT</a>',en:'© 2026 Hakeim Talleb · EMtools · Code under <a href="LICENSE">MIT</a> licence'},
  'footer.home':{fr:'← Tous les outils EMtools',en:'← All EMtools'}
 };
