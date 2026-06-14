@@ -52,6 +52,7 @@ b.mag{color:var(--mag)}
     <button id="tab-profils" onclick="showTab('profils')" data-i18n="t.profils">2 · Profils ε, μ</button>
     <button id="tab-rayons" onclick="showTab('rayons')" data-i18n="t.rayons">3 · Cartographie (rayons)</button>
     <button id="tab-realise" onclick="showTab('realise')" data-i18n="t.realise">4 · Réalisation (anneaux + varactor)</button>
+    <button id="tab-champ" onclick="showTab('champ')" data-i18n="t.champ">5 · Carte de champ</button>
   </div>
 
   <!-- ════ 1 · PRINCIPE ════ -->
@@ -159,6 +160,35 @@ b.mag{color:var(--mag)}
           <div class="cap" data-i18n="re.capmu">μ_eff(ω) de l'anneau démo ; ● = μ obtenu à f ; le varactor déplace la résonance ω₀</div>
           <canvas id="cv-rings" width="440" height="240" style="margin-top:12px"></canvas>
           <div class="cap" data-i18n="re.caprings">La cape : anneaux gradués, colorés par la résonance ω₀ requise (du rouge au bleu selon le rayon)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ 5 · CARTE DE CHAMP ════ -->
+  <div id="pane-champ" style="display:none">
+    <div class="card">
+      <h2 data-i18n="ch.h">Carte de champ : quelle méthode analytique ?</h2>
+      <p class="lead" data-i18n="ch.lead">Une onde plane arrive par la gauche. <b>Objet nu</b> : la solution exacte est la <b>série de Mie</b> (harmoniques cylindriques, fonctions de Bessel/Hankel) → ombre derrière + franges devant : l'objet est visible. <b>Cape idéale</b> : par <b>optique de transformation</b>, le champ est l'onde plane exprimée dans les coordonnées comprimées → les fronts d'onde contournent le trou et se reforment intacts : invisible. (La cape <i>à anneaux discrets</i>, elle, n'a pas de solution analytique simple → full-wave FDTD/FEM ; les anneaux idéaux sont superposés.)</p>
+      <div class="grid2">
+        <div>
+          <label data-i18n="ch.mode">Scénario</label>
+          <select id="ch-mode" onchange="champ()">
+            <option value="bare" data-i18n="ch.bare">Objet nu (série de Mie)</option>
+            <option value="cloak" selected data-i18n="ch.cloak">Cape idéale (transformation)</option>
+            <option value="free" data-i18n="ch.free">Onde libre (référence)</option>
+          </select>
+          <label><span data-i18n="ch.r2">Rayon cape R₂ (en λ)</span> <b class="muted" id="ch-r2-v"></b></label>
+          <div class="rng"><input type="range" id="ch-r2" min="0.6" max="2" value="1.3" step="0.1" oninput="champ()"><b id="ch-r2-b"></b></div>
+          <label><span data-i18n="ch.r1">Rayon caché R₁ / R₂</span> <b class="muted" id="ch-r1-v"></b></label>
+          <div class="rng"><input type="range" id="ch-r1" min="0.25" max="0.7" value="0.5" step="0.02" oninput="champ()"><b id="ch-r1-b"></b></div>
+          <label class="chk"><input type="checkbox" id="ch-rings" checked onchange="champ()"> <span data-i18n="ch.rings">Superposer les anneaux</span></label>
+          <div class="metrics" id="ch-metrics"></div>
+          <p class="note" data-i18n="ch.note">Rouge/bleu = crête/creux du champ (Re E_z). Hors de R₂, comparez « objet nu » (champ déformé, ombre) et « cape idéale » (identique à l'onde libre → indétectable).</p>
+        </div>
+        <div>
+          <canvas id="cv-champ" width="380" height="380"></canvas>
+          <div class="cap" data-i18n="ch.cap">Champ Re(E_z) ; onde plane → ; cape = couronne, objet caché = disque central</div>
         </div>
       </div>
     </div>
@@ -341,15 +371,81 @@ function realise(){
   y.fillText("f₀ "+f0max.toFixed(1)+" GHz",cx,cy-R1*sc*0.5); y.fillText(f0min.toFixed(1)+" GHz →",cx+ (R1+R2)/2*sc, cy);
 }
 
+// ════ 5 · CARTE DE CHAMP ════
+// fonctions de Bessel (approx. Abramowitz & Stegun 9.4) puis récurrences
+function besJ0(x){x=Math.abs(x);if(x<3){const t=(x/3)**2;return 1-2.2499997*t+1.2656208*t*t-0.3163866*t**3+0.0444479*t**4-0.0039444*t**5+0.0002100*t**6;}
+  const t=3/x,f=0.79788456-0.00000077*t-0.00552740*t*t-0.00009512*t**3+0.00137237*t**4-0.00072805*t**5+0.00014476*t**6,
+  th=x-0.78539816-0.04166397*t-0.00003954*t*t+0.00262573*t**3-0.00054125*t**4-0.00029333*t**5+0.00013558*t**6;return f/Math.sqrt(x)*Math.cos(th);}
+function besJ1(x){const s=x<0?-1:1;x=Math.abs(x);let r;if(x<3){const t=(x/3)**2;r=x*(0.5-0.56249985*t+0.21093573*t*t-0.03954289*t**3+0.00443319*t**4-0.00031761*t**5+0.00001109*t**6);}
+  else{const t=3/x,f=0.79788456+0.00000156*t+0.01659667*t*t+0.00017105*t**3-0.00249511*t**4+0.00113653*t**5-0.00020033*t**6,
+  th=x-2.35619449+0.12499612*t+0.00005650*t*t-0.00637879*t**3+0.00074348*t**4+0.00079824*t**5-0.00029166*t**6;r=f/Math.sqrt(x)*Math.cos(th);}return s*r;}
+function besY0(x){if(x<3){const t=(x/3)**2;return (2/Math.PI)*Math.log(x/2)*besJ0(x)+0.36746691+0.60559366*t-0.74350384*t*t+0.25300117*t**3-0.04261214*t**4+0.00427916*t**5-0.00024846*t**6;}
+  const t=3/x,f=0.79788456-0.00000077*t-0.00552740*t*t-0.00009512*t**3+0.00137237*t**4-0.00072805*t**5+0.00014476*t**6,
+  th=x-0.78539816-0.04166397*t-0.00003954*t*t+0.00262573*t**3-0.00054125*t**4-0.00029333*t**5+0.00013558*t**6;return f/Math.sqrt(x)*Math.sin(th);}
+function besY1(x){if(x<3){const t=(x/3)**2;return (2/Math.PI)*Math.log(x/2)*besJ1(x)+(1/x)*(-0.6366198+0.2212091*t+2.1682709*t*t-1.3164827*t**3+0.3123951*t**4-0.0400976*t**5+0.0027873*t**6);}
+  const t=3/x,f=0.79788456+0.00000156*t+0.01659667*t*t+0.00017105*t**3-0.00249511*t**4+0.00113653*t**5-0.00020033*t**6,
+  th=x-2.35619449+0.12499612*t+0.00005650*t*t-0.00637879*t**3+0.00074348*t**4+0.00079824*t**5-0.00029166*t**6;return f/Math.sqrt(x)*Math.sin(th);}
+function Jarr(x,N){const M=N+16;const a=new Array(M+2).fill(0);a[M]=1e-30;
+  for(let n=M;n>=1;n--){a[n-1]=(2*n/x)*a[n]-a[n+1]; if(Math.abs(a[n-1])>1e30)for(let m=n-1;m<=M;m++)a[m]*=1e-30;}
+  const sc=besJ0(x)/a[0],o=[];for(let n=0;n<=N;n++)o.push(a[n]*sc);return o;}
+function Yarr(x,N){const o=[besY0(x),besY1(x)];for(let n=1;n<N;n++)o.push((2*n/x)*o[n]-o[n-1]);return o;}
+const cmulC=(a,b)=>[a[0]*b[0]-a[1]*b[1],a[0]*b[1]+a[1]*b[0]], cdivC=(a,b)=>{const d=b[0]*b[0]+b[1]*b[1];return[(a[0]*b[0]+a[1]*b[1])/d,(a[1]*b[0]-a[0]*b[1])/d];};
+function champ(){
+  const mode=document.getElementById('ch-mode').value, R2=parseFloat(document.getElementById('ch-r2').value), ratio=parseFloat(document.getElementById('ch-r1').value), R1=R2*ratio, showR=document.getElementById('ch-rings').checked;
+  document.getElementById('ch-r2-b').textContent=R2.toFixed(1)+" λ"; document.getElementById('ch-r1-b').textContent="×"+ratio.toFixed(2)+" = "+R1.toFixed(2)+" λ";
+  const k=2*Math.PI, L=R2+1.9, Np=150; // domaine [-L,L]², onde plane e^{-jkx}
+  // coefficients de Mie (objet nu, rayon R1) — précalculés
+  let aMie=null, Nh=0;
+  if(mode==='bare'){const ka=k*R1; Nh=Math.ceil(ka)+14; const Jka=Jarr(ka,Nh),Yka=Yarr(ka,Nh); aMie=[];
+    for(let n=0;n<=Nh;n++){const H2=[Jka[n],-Yka[n]]; aMie[n]=cdivC([-Jka[n],0],H2);}}
+  const cv=document.getElementById('cv-champ'),x=cv.getContext('2d');
+  const im=x.createImageData(Np,Np);
+  const Efield=(X,Y)=>{
+    const r=Math.hypot(X,Y), th=Math.atan2(Y,X);
+    if(mode==='free')return Math.cos(k*X);
+    if(mode==='cloak'){ if(r<R1)return NaN; const rv=r>=R2?r:(r-R1)*R2/(R2-R1); return Math.cos(k*rv*Math.cos(th)); }
+    // bare : Mie
+    if(r<R1)return NaN; const kr=k*r, Jkr=Jarr(kr,Nh),Ykr=Yarr(kr,Nh); let re=0;
+    for(let n=-Nh;n<=Nh;n++){const an2=Math.abs(n), s=(n<0&&an2%2)?-1:1;
+      const Jn=s*Jkr[an2], Yn=s*Ykr[an2], am=aMie[an2]; // a_{-n}=a_n
+      const H2r=[Jn,-Yn], br=[Jn+ (am[0]*H2r[0]-am[1]*H2r[1]), (am[0]*H2r[1]+am[1]*H2r[0])];
+      const ph=n*th - n*Math.PI/2; re+=Math.cos(ph)*br[0]-Math.sin(ph)*br[1]; }
+    return re;
+  };
+  for(let j=0;j<Np;j++)for(let i=0;i<Np;i++){
+    const X=-L+2*L*i/(Np-1), Y=-L+2*L*j/(Np-1), E=Efield(X,Y), p=(j*Np+i)*4;
+    if(isNaN(E)){im.data[p]=20;im.data[p+1]=14;im.data[p+2]=10;im.data[p+3]=255;continue;}
+    const t=Math.max(0,Math.min(1,(E/1.6+1)/2)); let c;
+    if(t<0.5){const u=t*2;c=[Math.round(70+175*u),Math.round(120+125*u),Math.round(220+25*u)];}
+    else{const u=(t-0.5)*2;c=[Math.round(245-25*u),Math.round(245-155*u),Math.round(245-165*u)];}
+    im.data[p]=c[0];im.data[p+1]=c[1];im.data[p+2]=c[2];im.data[p+3]=255;
+  }
+  const off=document.createElement('canvas');off.width=Np;off.height=Np;off.getContext('2d').putImageData(im,0,0);
+  x.imageSmoothingEnabled=true;x.clearRect(0,0,cv.width,cv.height);x.drawImage(off,0,0,cv.width,cv.height);
+  const cx=cv.width/2,cy=cv.height/2,sc=cv.width/(2*L);
+  if(mode!=='free'){x.strokeStyle="#e0884b";x.lineWidth=1.5;x.beginPath();x.arc(cx,cy,R1*sc,0,2*Math.PI);x.stroke();}
+  if(mode==='cloak'){x.strokeStyle="rgba(154,167,201,0.6)";x.beginPath();x.arc(cx,cy,R2*sc,0,2*Math.PI);x.stroke();
+    if(showR)for(let t=0.1;t<1;t+=0.13){const rr=R1+(R2-R1)*t;x.strokeStyle="rgba(180,138,216,0.55)";x.lineWidth=2;x.beginPath();x.arc(cx,cy,rr*sc,0,2*Math.PI);x.stroke();}}
+  x.fillStyle="#9aa7c9";x.font="11px sans-serif";x.textAlign="left";x.fillText("→",6,16);
+  document.getElementById('ch-metrics').innerHTML=met("λ",1,"(unité)")+met("k·R₂",(k*R2).toFixed(1),"")+(mode==='bare'?met(T('ch.harm'),Nh,""):met(T('ch.method'),mode==='cloak'?T('ch.mtransf'):"—",""));
+}
+
 // ════ ONGLETS ════
-function showTab(t){['principe','profils','rayons','realise'].forEach(p=>{document.getElementById('pane-'+p).style.display=p===t?'block':'none';document.getElementById('tab-'+p).classList.toggle('on',p===t);});
-  if(t==='principe')drawGrid(); if(t==='profils')profils(); if(t==='rayons')rayons(); if(t==='realise')realise();}
+function showTab(t){['principe','profils','rayons','realise','champ'].forEach(p=>{document.getElementById('pane-'+p).style.display=p===t?'block':'none';document.getElementById('tab-'+p).classList.toggle('on',p===t);});
+  if(t==='principe')drawGrid(); if(t==='profils')profils(); if(t==='rayons')rayons(); if(t==='realise')realise(); if(t==='champ')champ();}
 
 // ════ I18N ════
 const I18N={
  title:{fr:"Cape d'invisibilité de Pendry",en:"Pendry's invisibility cloak"},
  sub:{fr:"optique de transformation : courber la lumière autour d'un objet",en:"transformation optics: bending light around an object"},
- 't.principe':{fr:"1 · Principe",en:"1 · Principle"},'t.profils':{fr:"2 · Profils ε, μ",en:"2 · ε, μ profiles"},'t.rayons':{fr:"3 · Cartographie (rayons)",en:"3 · Ray map"},'t.realise':{fr:"4 · Réalisation (anneaux + varactor)",en:"4 · Realisation (rings + varactor)"},
+ 't.principe':{fr:"1 · Principe",en:"1 · Principle"},'t.profils':{fr:"2 · Profils ε, μ",en:"2 · ε, μ profiles"},'t.rayons':{fr:"3 · Cartographie (rayons)",en:"3 · Ray map"},'t.realise':{fr:"4 · Réalisation (anneaux + varactor)",en:"4 · Realisation (rings + varactor)"},'t.champ':{fr:"5 · Carte de champ",en:"5 · Field map"},
+ 'ch.h':{fr:"Carte de champ : quelle méthode analytique ?",en:"Field map: which analytical method?"},
+ 'ch.lead':{fr:"Une onde plane arrive par la gauche. <b>Objet nu</b> : la solution exacte est la <b>série de Mie</b> (harmoniques cylindriques, fonctions de Bessel/Hankel) → ombre derrière + franges devant : l'objet est visible. <b>Cape idéale</b> : par <b>optique de transformation</b>, le champ est l'onde plane exprimée dans les coordonnées comprimées → les fronts d'onde contournent le trou et se reforment intacts : invisible. (La cape <i>à anneaux discrets</i>, elle, n'a pas de solution analytique simple → full-wave FDTD/FEM ; les anneaux idéaux sont superposés.)",en:"A plane wave arrives from the left. <b>Bare object</b>: the exact solution is the <b>Mie series</b> (cylindrical harmonics, Bessel/Hankel functions) → shadow behind + fringes in front: the object is visible. <b>Ideal cloak</b>: by <b>transformation optics</b>, the field is the plane wave expressed in the compressed coordinates → wavefronts flow around the hole and re-form intact: invisible. (The <i>discrete-ring</i> cloak has no simple analytical solution → full-wave FDTD/FEM; the ideal rings are overlaid.)"},
+ 'ch.mode':{fr:"Scénario",en:"Scenario"},'ch.bare':{fr:"Objet nu (série de Mie)",en:"Bare object (Mie series)"},'ch.cloak':{fr:"Cape idéale (transformation)",en:"Ideal cloak (transformation)"},'ch.free':{fr:"Onde libre (référence)",en:"Free wave (reference)"},
+ 'ch.r2':{fr:"Rayon cape R₂ (en λ)",en:"Cloak radius R₂ (in λ)"},'ch.r1':{fr:"Rayon caché R₁ / R₂",en:"Hidden radius R₁ / R₂"},'ch.rings':{fr:"Superposer les anneaux",en:"Overlay the rings"},
+ 'ch.cap':{fr:"Champ Re(E_z) ; onde plane → ; cape = couronne, objet caché = disque central",en:"Field Re(E_z); plane wave →; cloak = annulus, hidden object = central disk"},
+ 'ch.note':{fr:"Rouge/bleu = crête/creux du champ (Re E_z). Hors de R₂, comparez « objet nu » (champ déformé, ombre) et « cape idéale » (identique à l'onde libre → indétectable).",en:"Red/blue = field crest/trough (Re E_z). Outside R₂, compare \"bare object\" (distorted field, shadow) and \"ideal cloak\" (identical to the free wave → undetectable)."},
+ 'ch.harm':{fr:"Harmoniques",en:"Harmonics"},'ch.method':{fr:"Méthode",en:"Method"},'ch.mtransf':{fr:"transformation",en:"transformation"},
  're.h':{fr:"Réaliser ε et μ : les anneaux fendus (SRR) et la fréquence",en:"Building ε and μ: split-ring resonators (SRR) and frequency"},
  're.lead':{fr:"Un <b>anneau fendu (SRR)</b> est un petit circuit résonant L-C : son champ magnétique propre lui donne une <b>perméabilité résonante</b> μ(ω). Juste au-dessus de la résonance ω₀, μ devient <b>inférieur à 1</b> (voire négatif) — c'est ce qu'il faut pour la cape. Pour obtenir le μ_r(r) voulu <b>à la fréquence de travail</b>, chaque anneau est <b>accordé</b> : par sa taille (anneaux gradués de Schurig) ou, mieux, par un <b>varactor</b> dans la fente qui ajuste sa capacité.",en:"A <b>split-ring resonator (SRR)</b> is a tiny L-C resonant circuit: its own magnetic field gives it a <b>resonant permeability</b> μ(ω). Just above the resonance ω₀, μ drops <b>below 1</b> (even negative) — exactly what the cloak needs. To get the desired μ_r(r) <b>at the operating frequency</b>, each ring is <b>tuned</b>: by its size (Schurig's graded rings) or, better, by a <b>varactor</b> in the gap that adjusts its capacitance."},
  're.f':{fr:"Fréquence de travail f (GHz)",en:"Operating frequency f (GHz)"},'re.r1':{fr:"Rayon caché R₁ (mm)",en:"Hidden radius R₁ (mm)"},'re.r2':{fr:"Rayon cape R₂ (mm)",en:"Cloak radius R₂ (mm)"},'re.ff':{fr:"Taux de remplissage F",en:"Filling fraction F"},'re.var':{fr:"Varactor de l'anneau démo : C/C₀",en:"Demo ring varactor: C/C₀"},
