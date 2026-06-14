@@ -113,6 +113,7 @@ th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}th:fi
       <h2 data-i18n="ds.h">Distance de sécurité dans l'axe d'une antenne</h2>
       <p class="lead" data-i18n="ds.lead">En champ lointain, S = P_in·G/(4π·d²) et E = √(η₀·S). La distance de sécurité est celle où E atteint le niveau de référence. Pour plusieurs bandes, on somme les contributions : Σ(E_i/E_lim,i)² ≤ 1.</p>
       <div class="eq">E(d) = √(30·P_in·G) / d &nbsp;→&nbsp; d_sécurité = √(30·P_in·G) / E_limite</div>
+      <div class="eq" data-i18n="ds.pire"><b>PIRE = P_in · G</b> (Puissance Isotrope Rayonnée Équivalente) : la puissance qu'aurait à émettre une antenne <i>isotrope</i> pour produire le même champ dans l'axe. Le gain G est saisi en <b>dBi</b> et converti en linéaire (G = 10<sup>G[dBi]/10</sup>). En dBm : PIRE(dBm) = 10·log₁₀(P_in[mW]) + G[dBi].</div>
       <div class="grid2">
         <div>
           <label data-i18n="ds.pop">Population</label>
@@ -194,19 +195,18 @@ th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}th:fi
   <div id="pane-plan" style="display:none">
     <div class="card">
       <h2 data-i18n="pl.h">Volumes / périmètres de sécurité (vue de dessus)</h2>
-      <p class="lead" data-i18n="pl.lead">Vue du dessus du site : on place une ou plusieurs antennes (avec leur azimut) et on trace le <b>périmètre de sécurité</b> = la frontière où l'exposition cumulée atteint la limite, Σ(E_i/E_lim,i)² = 1. C'est le « pire cas » sur la hauteur (point dans l'axe du faisceau). La bande, la puissance, le gain, le diagramme et le down-tilt sont ceux de l'onglet <b>Cartographie</b>.</p>
+      <p class="lead" data-i18n="pl.lead">Vue du dessus du site : on place une ou plusieurs antennes (position, azimut, Pin et gain <b>propres à chacune</b>) et on trace le <b>périmètre de sécurité</b> = la frontière où l'exposition cumulée atteint la limite, Σ(E_i/E_lim,i)² = 1. C'est le « pire cas » sur la hauteur (point dans l'axe du faisceau). La bande, le diagramme et le down-tilt sont ceux de l'onglet <b>Cartographie</b> ; le gain est saisi en dBi (converti en linéaire).</p>
       <div class="grid2">
         <div>
           <label data-i18n="pl.cfg">Configuration des antennes</label>
-          <select id="pl-cfg" onchange="plan()">
-            <option value="one" data-i18n="pl.one">1 antenne (azimut réglable)</option>
+          <select id="pl-cfg" onchange="setPlanCfg()">
+            <option value="one" data-i18n="pl.one">1 antenne</option>
             <option value="tri" selected data-i18n="pl.tri">Site 3 secteurs (0/120/240°)</option>
             <option value="two" data-i18n="pl.two">2 sites voisins</option>
           </select>
-          <label><span data-i18n="pl.az">Azimut (°)</span> <b class="muted" id="pl-az-v"></b></label>
-          <div class="rng"><input type="range" id="pl-az" min="0" max="350" value="0" step="10" oninput="plan()"><b id="pl-az-b"></b></div>
+          <div id="pl-editor" style="margin-top:10px"></div>
           <div class="metrics" id="pl-metrics"></div>
-          <p class="note" data-i18n="pl.note">Zone rouge = au-dessus de la limite (Σ ≥ 1) → accès à restreindre. Modifie la bande/puissance/diagramme dans l'onglet Cartographie : le périmètre se met à jour ici. Avec un diagramme sectoriel, le périmètre est un « pétale » dans l'axe ; un site 3 secteurs donne 3 pétales.</p>
+          <p class="note" data-i18n="pl.note">Zone rouge = au-dessus de la limite (Σ ≥ 1) → accès à restreindre. Chaque antenne a sa position (x, y), son azimut, sa puissance et son gain. Avec un diagramme sectoriel, le périmètre est un « pétale » dans l'axe ; un site 3 secteurs donne 3 pétales.</p>
         </div>
         <div>
           <canvas id="cv-plan" width="440" height="440"></canvas>
@@ -291,7 +291,8 @@ function distCalc(){
   let dcomb=0; if(sel.length){let k=0; for(const b of sel){const el=Elim(b.f,w); k+=K30*Pi*G/(el*el);} dcomb=Math.sqrt(k);}
   document.getElementById('ds-table').innerHTML=html;
   document.getElementById('ds-metrics').innerHTML=
-    met(T('ds.eirp'),(10*Math.log10(Pin*G*1000)).toFixed(1),"dBm")+
+    met(T('ds.eirp'),(Pin*G).toFixed(0),"W")+
+    met("PIRE",(10*Math.log10(Pin*G*1000)).toFixed(1),"dBm")+
     met(T('ds.nb'),sel.length,"")+
     met(T('ds.dcomb'),dcomb.toFixed(2),"m",'good');
 }
@@ -396,17 +397,31 @@ function carto(){
 function jet(t){t=Math.max(0,Math.min(1,t));const r=Math.max(0,Math.min(1,1.5-Math.abs(4*t-3))),g=Math.max(0,Math.min(1,1.5-Math.abs(4*t-2))),b=Math.max(0,Math.min(1,1.5-Math.abs(4*t-1)));return[Math.round(255*r),Math.round(255*g),Math.round(255*b)];}
 
 // ════ 5 · PÉRIMÈTRES (vue de dessus) ════
+let ANTS=[];
+function setPlanCfg(){
+  const cfg=document.getElementById('pl-cfg').value;
+  const Pin=parseFloat(document.getElementById('ca-pin').value)||20, Gdb=parseFloat(document.getElementById('ca-gain').value)||16;
+  if(cfg==='one')ANTS=[{x:0,y:0,az:0,Pin,Gdb}];
+  else if(cfg==='tri')ANTS=[{x:0,y:0,az:0,Pin,Gdb},{x:0,y:0,az:120,Pin,Gdb},{x:0,y:0,az:240,Pin,Gdb}];
+  else ANTS=[{x:-15,y:0,az:90,Pin,Gdb},{x:15,y:0,az:270,Pin,Gdb}];
+  renderPlanEditor(); plan();
+}
+function renderPlanEditor(){
+  let h='<table style="font-size:12px"><tr><th>#</th><th>x (m)</th><th>y (m)</th><th data-i18n="pl.azc">az (°)</th><th>Pin (W)</th><th>G (dBi)</th></tr>';
+  const inp=(i,k,v,st)=>`<input type="number" value="${v}" step="${st}" style="width:56px;padding:5px 6px" oninput="updAnt(${i},'${k}',this.value)">`;
+  ANTS.forEach((a,i)=>{h+=`<tr><td>${i+1}</td><td>${inp(i,'x',a.x,1)}</td><td>${inp(i,'y',a.y,1)}</td><td>${inp(i,'az',a.az,5)}</td><td>${inp(i,'Pin',a.Pin,1)}</td><td>${inp(i,'Gdb',a.Gdb,0.5)}</td></tr>`;});
+  h+='</table>'; document.getElementById('pl-editor').innerHTML=h;
+}
+function updAnt(i,k,v){ANTS[i][k]=parseFloat(v)||0;plan();}
 function plan(){
+  if(!ANTS.length)setPlanCfg();
   const b=BANDS.find(x=>x.id===document.getElementById('ca-gen').value), f=b.f;
-  const Pin=parseFloat(document.getElementById('ca-pin').value)||20, Gdb=parseFloat(document.getElementById('ca-gain').value)||16, G=Math.pow(10,Gdb/10);
   const tilt=parseFloat(document.getElementById('ca-tilt').value), w=+document.getElementById('ca-pop').value, El=Elim(f,w);
-  const cfg=document.getElementById('pl-cfg').value, az0=parseFloat(document.getElementById('pl-az').value);
-  document.getElementById('pl-az-b').textContent=az0+'°';
-  let ants; if(cfg==='one')ants=[{x:0,y:0,az:az0}]; else if(cfg==='tri')ants=[{x:0,y:0,az:0},{x:0,y:0,az:120},{x:0,y:0,az:240}]; else ants=[{x:-12,y:0,az:az0},{x:12,y:0,az:az0}];
-  const A=Math.sqrt(K30*Pin*G), ct=Math.cos(tilt*Math.PI/180);
+  const ct=Math.cos(tilt*Math.PI/180);
+  const ants=ANTS.map(a=>({...a, A:Math.sqrt(K30*a.Pin*Math.pow(10,a.Gdb/10))}));
   const R=(X,Y)=>{let s=0;for(const a of ants){const dx=X-a.x,dy=Y-a.y,rho=Math.max(0.5,Math.hypot(dx,dy));
-    const azRel=Math.atan2(dy,dx)*180/Math.PI-a.az, E=A*Math.sqrt(azPow(azRel,Gdb))*ct/rho; s+=(E/El)*(E/El);}return s;};
-  const dsec=A*ct/El, D=Math.max(15,dsec*1.7);
+    const azRel=Math.atan2(dy,dx)*180/Math.PI-a.az, E=a.A*Math.sqrt(azPow(azRel,a.Gdb))*ct/rho; s+=(E/El)*(E/El);}return s;};
+  const dsec=Math.max(...ants.map(a=>a.A))*ct/El, span=Math.max(...ANTS.map(a=>Math.hypot(a.x,a.y))), D=Math.max(15,dsec*1.7+span);
   const cv=document.getElementById('cv-plan'),x=cv.getContext('2d');x.clearRect(0,0,cv.width,cv.height);
   const W=cv.width,H=cv.height,Np=170,im=x.createImageData(Np,Np);
   for(let j=0;j<Np;j++)for(let i=0;i<Np;i++){const X=-D+2*D*i/(Np-1),Y=D-2*D*j/(Np-1),r=R(X,Y),t=Math.max(0,Math.min(1,Math.sqrt(r)/1.25)),c=jet(t),p=(j*Np+i)*4;im.data[p]=c[0];im.data[p+1]=c[1];im.data[p+2]=c[2];im.data[p+3]=255;}
