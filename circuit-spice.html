@@ -125,6 +125,7 @@ details.help code{background:var(--bg);padding:1px 4px;border-radius:4px;font-si
             <option value="clip" data-i18n="pre.clip">Écrêteur à diode</option>
             <option value="oamp" data-i18n="pre.oamp">Ampli non-inverseur (AOP)</option>
             <option value="aflt" data-i18n="pre.aflt">Filtre actif passe-bas (AOP)</option>
+            <option value="piezo" data-i18n="pre.piezo">Récupération piézo (pont + stockage)</option>
           </select>
         </div>
         <div class="ctrl" style="justify-content:flex-end"><label data-i18n="lbl.importasc">Importer LTspice</label>
@@ -354,7 +355,8 @@ const PRESETS={
   rect:{m:'tran',tr:[8e-3,1200],txt:`* Redresseur demi-onde + lissage (détecteur de crête)\n* la diode laisse passer l'alternance positive, C tient la tension\nV1 in 0 SIN(0 5 1k)\nD1 in out\nR1 out 0 10k\nC1 out 0 10u`},
   clip:{m:'tran',tr:[3e-3,900],txt:`* Écrêteur à diode — la sortie est limitée à ~+0,6 V\nV1 in 0 SIN(0 5 1k)\nR1 in out 1k\nD1 out 0\nR2 out 0 1meg`},
   oamp:{m:'ac',ac:[10,1e6],txt:`* Ampli non-inverseur (AOP idéal) — gain = 1 + R2/R1 = 10\n* O1 in+ in- out\nV1 in 0 AC 1\nO1 in nm out\nR2 out nm 9k\nR1 nm 0 1k`},
-  aflt:{m:'ac',ac:[10,1e6],txt:`* Filtre actif passe-bas (AOP) — gain DC -10, coupure 1 kHz\n* inverseur avec C en réaction : fc = 1/(2*pi*R2*C)\nV1 in 0 AC 1\nR1 in nm 1k\nR2 out nm 10k\nC1 out nm 15.915n\nO1 0 nm out`}
+  aflt:{m:'ac',ac:[10,1e6],txt:`* Filtre actif passe-bas (AOP) — gain DC -10, coupure 1 kHz\n* inverseur avec C en réaction : fc = 1/(2*pi*R2*C)\nV1 in 0 AC 1\nR1 in nm 1k\nR2 out nm 10k\nC1 out nm 15.915n\nO1 0 nm out`},
+  piezo:{m:'tran',tr:[40e-3,1600],txt:`* Récupération d'énergie piézo — pont redresseur (4 diodes) + stockage\n* le piézo (~5 V, 100 Hz) est redressé en double alternance puis lissé sur Cs\nV1 a b SIN(0 5 100)\nCp a b 10n\nD1 a out\nD2 b out\nD3 0 a\nD4 0 b\nCs out 0 100u\nRL out 0 10k`}
 };
 let MODE='ac', LASTNODES=[], CHECKED={};
 const COLORS=['#0d9488','#d97706','#6366f1','#db2777','#16a34a','#0891b2','#9333ea','#dc2626'];
@@ -707,6 +709,7 @@ const I18N={
  'pre.transfo':{fr:'Transformateur (couplage K)',en:'Transformer (mutual coupling K)'},'pre.wpt':{fr:'Recharge sans fil — scission de fréquence',en:'Wireless power — frequency splitting'},
  'pre.rect':{fr:'Redresseur à diode (+ lissage)',en:'Diode rectifier (+ smoothing)'},'pre.clip':{fr:'Écrêteur à diode',en:'Diode clipper'},
  'pre.oamp':{fr:'Ampli non-inverseur (AOP)',en:'Non-inverting amp (op-amp)'},'pre.aflt':{fr:'Filtre actif passe-bas (AOP)',en:'Active low-pass filter (op-amp)'},
+ 'pre.piezo':{fr:'Récupération piézo (pont + stockage)',en:'Piezo harvesting (bridge + storage)'},
  'help.sum':{fr:'Aide-mémoire syntaxe',en:'Syntax cheat-sheet'},
  'help.body':{fr:"<code>R1 a b 1k</code> · <code>C1 a b 100n</code> · <code>L1 a b 10m</code> — résistance / condensateur / bobine entre nœuds <code>a</code> et <code>b</code>.<br><code>V1 in 0 AC 1</code> — source de tension (entrée fréquentielle, amplitude 1, phase optionnelle <code>AC 1 90</code>).<br><code>V1 in 0 DC 1</code> — échelon ; <code>V1 in 0 SIN(0 1 1k)</code> — sinus (offset, amplitude, fréquence) pour le transitoire.<br><code>I1 a b AC 1</code> — source de courant. <code>K1 L1 L2 0.5</code> — couplage mutuel entre deux bobines (transfo / WPT ; M = k·√(L1·L2)). <code>D1 a k</code> — diode (anode <code>a</code> → cathode <code>k</code> ; Shockley, options <code>Is n</code>). <code>O1 e+ e- s</code> — AOP idéal (entrées <code>e+</code>/<code>e-</code>, sortie <code>s</code>). Masse = nœud <code>0</code>. Suffixes : f p n u m k meg g.",
             en:"<code>R1 a b 1k</code> · <code>C1 a b 100n</code> · <code>L1 a b 10m</code> — resistor / capacitor / inductor between nodes <code>a</code> and <code>b</code>.<br><code>V1 in 0 AC 1</code> — voltage source (frequency-domain input, magnitude 1, optional phase <code>AC 1 90</code>).<br><code>V1 in 0 DC 1</code> — step ; <code>V1 in 0 SIN(0 1 1k)</code> — sine (offset, amplitude, frequency) for transient.<br><code>I1 a b AC 1</code> — current source. <code>K1 L1 L2 0.5</code> — mutual coupling between two inductors (transformer / WPT ; M = k·√(L1·L2)). <code>D1 a k</code> — diode (anode <code>a</code> → cathode <code>k</code> ; Shockley, options <code>Is n</code>). <code>O1 e+ e- s</code> — ideal op-amp (inputs <code>e+</code>/<code>e-</code>, output <code>s</code>). Ground = node <code>0</code>. Suffixes: f p n u m k meg g."},
