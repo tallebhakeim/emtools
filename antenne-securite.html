@@ -54,6 +54,7 @@ th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}th:fi
     <button id="tab-ref" onclick="showTab('ref')" data-i18n="t.ref">2 · Niveaux de référence</button>
     <button id="tab-dist" onclick="showTab('dist')" data-i18n="t.dist">3 · Distance de sécurité</button>
     <button id="tab-carto" onclick="showTab('carto')" data-i18n="t.carto">4 · Cartographie station de base</button>
+    <button id="tab-plan" onclick="showTab('plan')" data-i18n="t.plan">5 · Périmètres (vue de dessus)</button>
   </div>
 
   <!-- ════ 1 · GÉNÉRATIONS ════ -->
@@ -146,6 +147,25 @@ th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}th:fi
             <div><label data-i18n="ca.pin">P_in (W)</label><input type="number" id="ca-pin" value="20" step="1" oninput="carto()"></div>
             <div><label data-i18n="ca.gain">Gain (dBi)</label><input type="number" id="ca-gain" value="16" step="0.5" oninput="carto()"></div>
           </div>
+          <label data-i18n="ca.pat">Diagramme de rayonnement</label>
+          <select id="ca-pat" onchange="onPat()">
+            <option value="omni" data-i18n="ca.pomni">Omnidirectionnel (réseau collinéaire)</option>
+            <option value="sector" selected data-i18n="ca.psector">Sectoriel (modèle 3GPP)</option>
+            <option value="import" data-i18n="ca.pimport">Importé (.msi constructeur)</option>
+          </select>
+          <div id="ca-sector">
+            <div class="row">
+              <div><label data-i18n="ca.hb">Ouverture azimut −3 dB (°)</label><input type="number" id="ca-hb" value="65" step="1" oninput="carto()"></div>
+              <div><label data-i18n="ca.vb">Ouverture site −3 dB (°)</label><input type="number" id="ca-vb" value="7" step="0.5" oninput="carto()"></div>
+            </div>
+            <label data-i18n="ca.fb">Avant/arrière (dB)</label><input type="number" id="ca-fb" value="28" step="1" oninput="carto()">
+          </div>
+          <div id="ca-import" style="display:none">
+            <label data-i18n="ca.msi">Fichier MSI-Planet (.msi / .pln / .txt)</label>
+            <input type="file" id="ca-msi" accept=".msi,.pln,.txt,.ant,.prn" onchange="loadMSI(event)">
+            <button class="metric" style="cursor:pointer;width:100%;margin-top:8px;text-align:center" onclick="downloadExampleMSI()" data-i18n="ca.msigen">⤓ Générer un exemple .msi (65° sectoriel)</button>
+            <div id="ca-msi-info" class="note"></div>
+          </div>
           <label><span data-i18n="ca.h2">Hauteur antenne (m)</span> <b class="muted" id="ca-h-v"></b></label>
           <div class="rng"><input type="range" id="ca-h" min="6" max="40" value="20" oninput="carto()"><b id="ca-h-b"></b></div>
           <label><span data-i18n="ca.tilt">Down-tilt (°)</span> <b class="muted" id="ca-tilt-v"></b></label>
@@ -165,6 +185,32 @@ th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}th:fi
           <div class="cap" data-i18n="ca.cap">Plan vertical : champ E (couleur), contour de sécurité (blanc, champ libre), antenne ▶, personne au sol (1,7 m)</div>
           <canvas id="cv-ground" width="460" height="120" style="margin-top:10px"></canvas>
           <div class="cap" data-i18n="ca.capg">E au niveau du sol (1,7 m) vs distance — comparé au niveau de référence</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ 5 · PÉRIMÈTRES VUE DE DESSUS ════ -->
+  <div id="pane-plan" style="display:none">
+    <div class="card">
+      <h2 data-i18n="pl.h">Volumes / périmètres de sécurité (vue de dessus)</h2>
+      <p class="lead" data-i18n="pl.lead">Vue du dessus du site : on place une ou plusieurs antennes (avec leur azimut) et on trace le <b>périmètre de sécurité</b> = la frontière où l'exposition cumulée atteint la limite, Σ(E_i/E_lim,i)² = 1. C'est le « pire cas » sur la hauteur (point dans l'axe du faisceau). La bande, la puissance, le gain, le diagramme et le down-tilt sont ceux de l'onglet <b>Cartographie</b>.</p>
+      <div class="grid2">
+        <div>
+          <label data-i18n="pl.cfg">Configuration des antennes</label>
+          <select id="pl-cfg" onchange="plan()">
+            <option value="one" data-i18n="pl.one">1 antenne (azimut réglable)</option>
+            <option value="tri" selected data-i18n="pl.tri">Site 3 secteurs (0/120/240°)</option>
+            <option value="two" data-i18n="pl.two">2 sites voisins</option>
+          </select>
+          <label><span data-i18n="pl.az">Azimut (°)</span> <b class="muted" id="pl-az-v"></b></label>
+          <div class="rng"><input type="range" id="pl-az" min="0" max="350" value="0" step="10" oninput="plan()"><b id="pl-az-b"></b></div>
+          <div class="metrics" id="pl-metrics"></div>
+          <p class="note" data-i18n="pl.note">Zone rouge = au-dessus de la limite (Σ ≥ 1) → accès à restreindre. Modifie la bande/puissance/diagramme dans l'onglet Cartographie : le périmètre se met à jour ici. Avec un diagramme sectoriel, le périmètre est un « pétale » dans l'axe ; un site 3 secteurs donne 3 pétales.</p>
+        </div>
+        <div>
+          <canvas id="cv-plan" width="440" height="440"></canvas>
+          <div class="cap" data-i18n="pl.cap">Plan horizontal (m) ; antennes ▲ + azimut ; contour blanc = périmètre de sécurité (Σ=1)</div>
         </div>
       </div>
     </div>
@@ -255,13 +301,45 @@ function cartoBands(){let h='';for(const b of BANDS)h+=`<option value="${b.id}">
 function cartoPreset(){const b=BANDS.find(x=>x.id===document.getElementById('ca-gen').value);document.getElementById('ca-pin').value=b.pin;carto();}
 function Ndip(G){return Math.max(2,Math.round(Math.pow(10,G/10)/1.64));}
 function AF(alpha,N,tilt){const psi=Math.PI*(Math.sin(alpha)+Math.sin(tilt*Math.PI/180));const s=Math.sin(psi/2);if(Math.abs(s)<1e-9)return 1;return Math.abs(Math.sin(N*psi/2)/(N*s));}
+// ── diagramme de rayonnement unifié ──
+let MSI=null; // {H:[360],V:[360],gain,fb}
+const wrap180=a=>((a+180)%360+360)%360-180;
+function patInterp(tab,deg){deg=((deg%360)+360)%360;const i=Math.floor(deg),fr=deg-i;return tab[i]+(tab[(i+1)%360]-tab[i])*fr;}
+function onPat(){const t=document.getElementById('ca-pat').value;document.getElementById('ca-sector').style.display=t==='sector'?'block':'none';document.getElementById('ca-import').style.display=t==='import'?'block':'none';carto();}
+// facteur de puissance (relatif au pic) selon azimut relatif et élévation du point
+function dirPow(azRelDeg,elPointDeg,Gdb,tilt){
+  const type=document.getElementById('ca-pat').value;
+  if(type==='omni'){const af=AF(elPointDeg*Math.PI/180,Ndip(Gdb),tilt);return af*af;}
+  const elRel=elPointDeg+tilt, az=wrap180(azRelDeg);
+  if(type==='sector'){const hb=parseFloat(document.getElementById('ca-hb').value)||65,vb=parseFloat(document.getElementById('ca-vb').value)||7,fb=parseFloat(document.getElementById('ca-fb').value)||28;
+    const a=Math.min(Math.min(12*(az/hb)**2,fb)+Math.min(12*(elRel/vb)**2,fb),fb);return Math.pow(10,-a/10);}
+  if(type==='import'&&MSI){const a=Math.min(patInterp(MSI.H,azRelDeg)+patInterp(MSI.V,elRel),MSI.fb);return Math.pow(10,-a/10);}
+  return 1;
+}
+// facteur azimut seul (élévation au pic) — pour la vue de dessus
+function azPow(azRelDeg,Gdb){const type=document.getElementById('ca-pat').value;if(type==='omni')return 1;const az=wrap180(azRelDeg);
+  if(type==='sector'){const hb=parseFloat(document.getElementById('ca-hb').value)||65,fb=parseFloat(document.getElementById('ca-fb').value)||28;return Math.pow(10,-Math.min(12*(az/hb)**2,fb)/10);}
+  if(type==='import'&&MSI)return Math.pow(10,-Math.min(patInterp(MSI.H,azRelDeg),MSI.fb)/10);return 1;}
+function parseMSI(text){const lines=text.split(/\r?\n/);let H=new Array(360).fill(30),V=new Array(360).fill(30),gain=15,mode=null;
+  for(const ln of lines){const t=ln.trim();if(!t)continue;const p=t.split(/[\s,;]+/);
+    if(/^GAIN/i.test(t)){const m=t.match(/(-?[\d.]+)/);if(m)gain=parseFloat(m[1]);}
+    else if(/^HORIZONTAL/i.test(t))mode='H'; else if(/^VERTICAL/i.test(t))mode='V';
+    else if(mode&&p.length>=2&&!isNaN(parseFloat(p[0]))&&!isNaN(parseFloat(p[1]))){const a=((Math.round(parseFloat(p[0]))%360)+360)%360;(mode==='H'?H:V)[a]=Math.abs(parseFloat(p[1]));}}
+  return {H,V,gain,fb:Math.max(15,Math.max(...H),Math.max(...V))};}
+function loadMSI(ev){const f=ev.target.files[0];if(!f)return;const rd=new FileReader();
+  rd.onload=()=>{try{MSI=parseMSI(rd.result);document.getElementById('ca-gain').value=MSI.gain.toFixed(1);
+    document.getElementById('ca-msi-info').innerHTML='✓ '+f.name+' — gain '+MSI.gain.toFixed(1)+' dBi · av/ar '+MSI.fb.toFixed(0)+' dB';carto();}catch(e){alert('MSI : '+e.message);}};rd.readAsText(f);}
+function downloadExampleMSI(){let s='NAME Exemple secteur 65 deg\nFREQUENCY 900\nGAIN 17.0 dBi\nTILT 0\nHORIZONTAL 360\n';
+  for(let a=0;a<360;a++)s+=a+' '+Math.min(12*(wrap180(a)/65)**2,28).toFixed(2)+'\n';
+  s+='VERTICAL 360\n'; for(let a=0;a<360;a++)s+=a+' '+Math.min(12*(wrap180(a)/7)**2,28).toFixed(2)+'\n';
+  const u=URL.createObjectURL(new Blob([s],{type:'text/plain'}));const l=document.createElement('a');l.href=u;l.download='exemple_secteur_65.msi';l.click();}
 function carto(){
   const b=BANDS.find(x=>x.id===document.getElementById('ca-gen').value), f=b.f;
   const Pin=parseFloat(document.getElementById('ca-pin').value)||20, Gdb=parseFloat(document.getElementById('ca-gain').value)||16, G=Math.pow(10,Gdb/10);
   const h=parseFloat(document.getElementById('ca-h').value), tilt=parseFloat(document.getElementById('ca-tilt').value), n=parseFloat(document.getElementById('ca-env').value), w=+document.getElementById('ca-pop').value;
   document.getElementById('ca-h-b').textContent=h+" m"; document.getElementById('ca-tilt-b').textContent=tilt+"°";
-  const N=Ndip(Gdb), El=Elim(f,w), A=Math.sqrt(K30*Pin*G);
-  const Efs=(x,z)=>{const dx=x,dz=z-h,r=Math.hypot(dx,dz);if(r<0.5)return 1e3;const al=Math.atan2(dz,dx);return A*AF(al,N,tilt)/r;};
+  const El=Elim(f,w), A=Math.sqrt(K30*Pin*G);
+  const Efs=(x,z)=>{const dz=z-h,r=Math.hypot(x,dz);if(r<0.5)return 1e3;const al=Math.atan2(dz,x)*180/Math.PI;return A*Math.sqrt(dirPow(0,al,Gdb,tilt))/r;};
   const Eenv=(x,z)=>{const dx=x,dz=z-h,r=Math.hypot(dx,dz);return Efs(x,z)*Math.pow(10/Math.max(10,r),(n-2)/2);};
   // carte plan vertical
   const Xmax=80, Zmax=Math.max(50,h+10);
@@ -317,9 +395,43 @@ function carto(){
 }
 function jet(t){t=Math.max(0,Math.min(1,t));const r=Math.max(0,Math.min(1,1.5-Math.abs(4*t-3))),g=Math.max(0,Math.min(1,1.5-Math.abs(4*t-2))),b=Math.max(0,Math.min(1,1.5-Math.abs(4*t-1)));return[Math.round(255*r),Math.round(255*g),Math.round(255*b)];}
 
+// ════ 5 · PÉRIMÈTRES (vue de dessus) ════
+function plan(){
+  const b=BANDS.find(x=>x.id===document.getElementById('ca-gen').value), f=b.f;
+  const Pin=parseFloat(document.getElementById('ca-pin').value)||20, Gdb=parseFloat(document.getElementById('ca-gain').value)||16, G=Math.pow(10,Gdb/10);
+  const tilt=parseFloat(document.getElementById('ca-tilt').value), w=+document.getElementById('ca-pop').value, El=Elim(f,w);
+  const cfg=document.getElementById('pl-cfg').value, az0=parseFloat(document.getElementById('pl-az').value);
+  document.getElementById('pl-az-b').textContent=az0+'°';
+  let ants; if(cfg==='one')ants=[{x:0,y:0,az:az0}]; else if(cfg==='tri')ants=[{x:0,y:0,az:0},{x:0,y:0,az:120},{x:0,y:0,az:240}]; else ants=[{x:-12,y:0,az:az0},{x:12,y:0,az:az0}];
+  const A=Math.sqrt(K30*Pin*G), ct=Math.cos(tilt*Math.PI/180);
+  const R=(X,Y)=>{let s=0;for(const a of ants){const dx=X-a.x,dy=Y-a.y,rho=Math.max(0.5,Math.hypot(dx,dy));
+    const azRel=Math.atan2(dy,dx)*180/Math.PI-a.az, E=A*Math.sqrt(azPow(azRel,Gdb))*ct/rho; s+=(E/El)*(E/El);}return s;};
+  const dsec=A*ct/El, D=Math.max(15,dsec*1.7);
+  const cv=document.getElementById('cv-plan'),x=cv.getContext('2d');x.clearRect(0,0,cv.width,cv.height);
+  const W=cv.width,H=cv.height,Np=170,im=x.createImageData(Np,Np);
+  for(let j=0;j<Np;j++)for(let i=0;i<Np;i++){const X=-D+2*D*i/(Np-1),Y=D-2*D*j/(Np-1),r=R(X,Y),t=Math.max(0,Math.min(1,Math.sqrt(r)/1.25)),c=jet(t),p=(j*Np+i)*4;im.data[p]=c[0];im.data[p+1]=c[1];im.data[p+2]=c[2];im.data[p+3]=255;}
+  const off=document.createElement('canvas');off.width=Np;off.height=Np;off.getContext('2d').putImageData(im,0,0);
+  x.imageSmoothingEnabled=true;x.drawImage(off,0,0,W,H);
+  const PX=v=>(v+D)/(2*D)*W, PY=v=>(D-v)/(2*D)*H;
+  // contour Σ=1
+  x.fillStyle="#fff";const st=2*D/130;
+  for(let X=-D;X<D;X+=st)for(let Y=-D;Y<D;Y+=st){const r0=R(X,Y);
+    if((r0-1)*(R(X+st,Y)-1)<0)x.fillRect(PX(X+st*(1-r0)/(R(X+st,Y)-r0)),PY(Y),1.6,1.6);
+    if((r0-1)*(R(X,Y+st)-1)<0)x.fillRect(PX(X),PY(Y+st*(1-r0)/(R(X,Y+st)-r0)),1.6,1.6);}
+  x.strokeStyle="#3a4754";x.strokeRect(0,0,W,H);
+  x.strokeStyle="#1c242d";x.beginPath();x.moveTo(PX(0),0);x.lineTo(PX(0),H);x.moveTo(0,PY(0));x.lineTo(W,PY(0));x.stroke();
+  x.fillStyle="#8b97a3";x.font="10px sans-serif";x.textAlign="right";x.fillText(D.toFixed(0)+" m",W-4,PY(0)-4);
+  for(const a of ants){const px=PX(a.x),py=PY(a.y),ar=a.az*Math.PI/180;
+    x.strokeStyle="#e0884b";x.lineWidth=2;x.beginPath();x.moveTo(px,py);x.lineTo(px+Math.cos(ar)*W*0.11,py-Math.sin(ar)*H*0.11);x.stroke();
+    x.fillStyle="#e0884b";x.beginPath();x.moveTo(px,py-6);x.lineTo(px-5,py+5);x.lineTo(px+5,py+5);x.closePath();x.fill();}
+  // périmètre max
+  let rmax=0; for(let th=0;th<360;th+=3){const ar=th*Math.PI/180;for(let rr=D*1.6;rr>0.5;rr-=0.4){if(R(Math.cos(ar)*rr,Math.sin(ar)*rr)>1){if(rr>rmax)rmax=rr;break;}}}
+  document.getElementById('pl-metrics').innerHTML=
+    met("E_lim",El.toFixed(1),"V/m")+met(T('pl.dsec'),dsec.toFixed(1),"m")+met(T('pl.pmax'),rmax.toFixed(1),"m")+met(T('pl.nant'),ants.length,"");
+}
 // ════ ONGLETS ════
-function showTab(t){['gen','ref','dist','carto'].forEach(p=>{document.getElementById('pane-'+p).style.display=p===t?'block':'none';document.getElementById('tab-'+p).classList.toggle('on',p===t);});
-  if(t==='gen')genTable(); if(t==='ref')refLvl(); if(t==='dist')distCalc(); if(t==='carto')carto();}
+function showTab(t){['gen','ref','dist','carto','plan'].forEach(p=>{document.getElementById('pane-'+p).style.display=p===t?'block':'none';document.getElementById('tab-'+p).classList.toggle('on',p===t);});
+  if(t==='gen')genTable(); if(t==='ref')refLvl(); if(t==='dist')distCalc(); if(t==='carto')carto(); if(t==='plan')plan();}
 
 // ════ I18N ════
 const I18N={
@@ -354,7 +466,18 @@ const I18N={
  'ca.cap':{fr:"Plan vertical : champ E (couleur), contour de sécurité (blanc, champ libre), antenne ▶, personne au sol (1,7 m)",en:"Vertical plane: E field (colour), safety contour (white, free space), antenna ▶, person at ground (1.7 m)"},
  'ca.capg':{fr:"E au niveau du sol (1,7 m) vs distance — comparé au niveau de référence",en:"E at ground level (1.7 m) vs distance — compared to the reference level"},
  'ca.xax':{fr:"distance horizontale (m)",en:"horizontal distance (m)"},'ca.zax':{fr:"hauteur (m)",en:"height (m)"},
- 'ca.dsec':{fr:"d sécurité (axe)",en:"safety dist. (axis)"},'ca.eground':{fr:"E max au sol",en:"max E at ground"},'ca.verdict':{fr:"Au sol",en:"At ground"},'ca.ok':{fr:"✓ conforme",en:"✓ compliant"},'ca.exceed':{fr:"✗ dépassement",en:"✗ exceeded"}
+ 'ca.dsec':{fr:"d sécurité (axe)",en:"safety dist. (axis)"},'ca.eground':{fr:"E max au sol",en:"max E at ground"},'ca.verdict':{fr:"Au sol",en:"At ground"},'ca.ok':{fr:"✓ conforme",en:"✓ compliant"},'ca.exceed':{fr:"✗ dépassement",en:"✗ exceeded"},
+ 'ca.pat':{fr:"Diagramme de rayonnement",en:"Radiation pattern"},'ca.pomni':{fr:"Omnidirectionnel (réseau collinéaire)",en:"Omnidirectional (collinear array)"},'ca.psector':{fr:"Sectoriel (modèle 3GPP)",en:"Sectoral (3GPP model)"},'ca.pimport':{fr:"Importé (.msi constructeur)",en:"Imported (manufacturer .msi)"},
+ 'ca.hb':{fr:"Ouverture azimut −3 dB (°)",en:"Azimuth −3 dB beamwidth (°)"},'ca.vb':{fr:"Ouverture site −3 dB (°)",en:"Elevation −3 dB beamwidth (°)"},'ca.fb':{fr:"Avant/arrière (dB)",en:"Front/back (dB)"},
+ 'ca.msi':{fr:"Fichier MSI-Planet (.msi / .pln / .txt)",en:"MSI-Planet file (.msi / .pln / .txt)"},'ca.msigen':{fr:"⤓ Générer un exemple .msi (65° sectoriel)",en:"⤓ Generate an example .msi (65° sector)"},
+ 't.plan':{fr:"5 · Périmètres (vue de dessus)",en:"5 · Perimeters (top view)"},
+ 'pl.h':{fr:"Volumes / périmètres de sécurité (vue de dessus)",en:"Safety volumes / perimeters (top view)"},
+ 'pl.lead':{fr:"Vue du dessus du site : on place une ou plusieurs antennes (avec leur azimut) et on trace le <b>périmètre de sécurité</b> = la frontière où l'exposition cumulée atteint la limite, Σ(E_i/E_lim,i)² = 1. C'est le « pire cas » sur la hauteur (point dans l'axe du faisceau). La bande, la puissance, le gain, le diagramme et le down-tilt sont ceux de l'onglet <b>Cartographie</b>.",en:"Top view of the site: place one or several antennas (with their azimuth) and draw the <b>safety perimeter</b> = the boundary where the cumulative exposure reaches the limit, Σ(E_i/E_lim,i)² = 1. This is the \"worst case\" over height (point in the beam axis). Band, power, gain, pattern and down-tilt come from the <b>Mapping</b> tab."},
+ 'pl.cfg':{fr:"Configuration des antennes",en:"Antenna configuration"},'pl.one':{fr:"1 antenne (azimut réglable)",en:"1 antenna (adjustable azimuth)"},'pl.tri':{fr:"Site 3 secteurs (0/120/240°)",en:"3-sector site (0/120/240°)"},'pl.two':{fr:"2 sites voisins",en:"2 neighbouring sites"},
+ 'pl.az':{fr:"Azimut (°)",en:"Azimuth (°)"},
+ 'pl.note':{fr:"Zone rouge = au-dessus de la limite (Σ ≥ 1) → accès à restreindre. Modifie la bande/puissance/diagramme dans l'onglet Cartographie : le périmètre se met à jour ici. Avec un diagramme sectoriel, le périmètre est un « pétale » dans l'axe ; un site 3 secteurs donne 3 pétales.",en:"Red zone = above the limit (Σ ≥ 1) → restrict access. Change band/power/pattern in the Mapping tab: the perimeter updates here. With a sectoral pattern, the perimeter is a \"petal\" in the axis; a 3-sector site gives 3 petals."},
+ 'pl.cap':{fr:"Plan horizontal (m) ; antennes ▲ + azimut ; contour blanc = périmètre de sécurité (Σ=1)",en:"Horizontal plane (m); antennas ▲ + azimuth; white contour = safety perimeter (Σ=1)"},
+ 'pl.dsec':{fr:"d sécurité (axe)",en:"safety dist. (axis)"},'pl.pmax':{fr:"Périmètre max",en:"Max perimeter"},'pl.nant':{fr:"Antennes",en:"Antennas"}
 };
 let LANG='fr';
 function T(k){return I18N[k]?I18N[k][LANG]:'';}
