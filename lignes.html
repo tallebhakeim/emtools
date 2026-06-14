@@ -70,6 +70,9 @@ th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}th:fi
           <label><span data-i18n="li.len">Longueur de ligne d (λ)</span> <b class="muted" id="ld-v"></b></label>
           <div class="rng"><input type="range" id="ld" min="0" max="1" value="0.25" step="0.01" oninput="lineCalc()"><b id="ld-b"></b></div>
           <div class="metrics" id="li-metrics"></div>
+          <label style="margin-top:14px;display:flex;align-items:center;gap:8px"><input type="checkbox" id="stub-on" onchange="lineCalc()" style="width:auto"> <span data-i18n="li.stubon">Concevoir l'adaptation par stub parallèle (circuit ouvert)</span></label>
+          <div class="metrics" id="stub-res"></div>
+          <div id="stub-note" class="note"></div>
         </div>
         <div>
           <canvas id="cv-line" width="460" height="220"></canvas>
@@ -233,10 +236,32 @@ function lineCalc(){
   x.stroke();
   // ligne d sélectionnée
   x.strokeStyle="#e0884b";x.setLineDash([3,3]);x.beginPath();x.moveTo(X2(d),mT);x.lineTo(X2(d),mT+ph);x.stroke();x.setLineDash([]);
-  drawSmith(g,gm,d);
+  // adaptation par stub
+  let match=null;
+  if(document.getElementById('stub-on').checked){
+    const sols=stubMatch(g[0],g[1]);
+    if(sols.length){const s0=sols[0];
+      document.getElementById('stub-res').innerHTML=
+        met(T('li.dstub'),s0.d.toFixed(3),"λ")+met(T('li.lstub'),s0.lstub.toFixed(3),"λ")+met("b",s0.b.toFixed(2),"");
+      document.getElementById('stub-note').innerHTML=T('li.stub2')+(sols[1]?(" : d="+sols[1].d.toFixed(3)+"λ, l="+sols[1].lstub.toFixed(3)+"λ"):" —");
+      match=s0;
+    } else {document.getElementById('stub-res').innerHTML='';document.getElementById('stub-note').textContent=T('li.stubadapt');}
+  } else {document.getElementById('stub-res').innerHTML='';document.getElementById('stub-note').textContent='';}
+  drawSmith(g,gm,d,match);
+}
+function stubMatch(gr,gi){
+  const gm=Math.hypot(gr,gi), thL=Math.atan2(gi,gr);
+  const yAt=dd=>{const ph=thL-4*Math.PI*dd, cr=gm*Math.cos(ph),ci=gm*Math.sin(ph);
+    const dr=1+cr,di=ci,nr=1-cr,ni=-ci,den=dr*dr+di*di; return [(nr*dr+ni*di)/den,(ni*dr-nr*di)/den];};
+  const sols=[]; let prev=yAt(0)[0]-1,pd=0;
+  for(let i=1;i<=4000;i++){const dd=0.5*i/4000, cur=yAt(dd)[0]-1;
+    if(prev*cur<0){const dc=pd+(dd-pd)*(0-prev)/(cur-prev); const y=yAt(dc), b=y[1];
+      let bl=Math.atan2(-b,1); if(bl<0)bl+=Math.PI; sols.push({d:dc,b,lstub:bl/(2*Math.PI)});}
+    prev=cur; pd=dd; if(sols.length>=2)break;}
+  return sols;
 }
 function ellipK(k){let a=1,b=Math.sqrt(Math.max(0,1-k*k));for(let i=0;i<25;i++){const an=(a+b)/2;b=Math.sqrt(a*b);a=an;}return Math.PI/(2*a);}
-function drawSmith(gL,gm,d){
+function drawSmith(gL,gm,d,match){
   const cv=document.getElementById('cv-smith'),x=cv.getContext('2d');x.clearRect(0,0,cv.width,cv.height);
   const cx=cv.width/2, cy=cv.height/2, rad=cv.width/2-16, P=(gr,gi)=>[cx+gr*rad,cy-gi*rad];
   x.save();x.beginPath();x.arc(cx,cy,rad,0,2*Math.PI);x.clip();
@@ -247,6 +272,17 @@ function drawSmith(gL,gm,d){
   x.strokeStyle="#3a4754";x.lineWidth=1.4;x.beginPath();x.arc(cx,cy,rad,0,2*Math.PI);x.stroke();
   x.strokeStyle="#243039";x.beginPath();x.moveTo(cx-rad,cy);x.lineTo(cx+rad,cy);x.stroke();
   x.strokeStyle="#4db6a4";x.setLineDash([4,3]);x.beginPath();x.arc(cx,cy,gm*rad,0,2*Math.PI);x.stroke();x.setLineDash([]);
+  // chemin d'adaptation par stub
+  if(match){
+    const thL=Math.atan2(gL[1],gL[0]);
+    x.strokeStyle="#e0884b";x.lineWidth=2.2;x.beginPath();
+    for(let i=0;i<=60;i++){const ph=thL-4*Math.PI*match.d*(i/60),p=P(gm*Math.cos(ph),gm*Math.sin(ph));i?x.lineTo(p[0],p[1]):x.moveTo(p[0],p[1]);}x.stroke();
+    const phs=thL-4*Math.PI*match.d, grs=gm*Math.cos(phs), gis=gm*Math.sin(phs), as=Math.atan2(gis,grs+0.5);
+    x.strokeStyle="#4db6a4";x.lineWidth=2.2;x.beginPath();
+    for(let i=0;i<=40;i++){const a=as*(1-i/40),p=P(-0.5+0.5*Math.cos(a),0.5*Math.sin(a));i?x.lineTo(p[0],p[1]):x.moveTo(p[0],p[1]);}x.stroke();
+    const ps=P(grs,gis);x.fillStyle="#4db6a4";x.beginPath();x.arc(ps[0],ps[1],4,0,2*Math.PI);x.fill();
+    x.fillStyle="#4db6a4";x.font="10px sans-serif";x.textAlign="left";x.fillText("stub",ps[0]+6,ps[1]+3);
+  }
   x.fillStyle="#6b7682";x.beginPath();x.arc(cx,cy,2,0,2*Math.PI);x.fill();
   x.font="11px sans-serif";x.textAlign="left";
   const pL=P(gL[0],gL[1]);x.fillStyle="#e0884b";x.beginPath();x.arc(pL[0],pL[1],5,0,2*Math.PI);x.fill();x.fillText("z_L",pL[0]+7,pL[1]-4);
@@ -366,6 +402,9 @@ const I18N={
  'li.rl':{fr:"Pertes par réflexion",en:"Return loss"},'li.zin':{fr:"Z_in(d)",en:"Z_in(d)"},'li.pos':{fr:"position (longueurs d'onde)",en:"position (wavelengths)"},
  'li.cap':{fr:"Onde stationnaire |V(z)| le long de la ligne (z=0 à la charge, vers le générateur)",en:"Standing wave |V(z)| along the line (z=0 at load, toward the generator)"},
  'li.smith':{fr:"Abaque de Smith — ● charge z_L, ● impédance vue à la distance d, cercle de TOS",en:"Smith chart — ● load z_L, ● impedance seen at distance d, VSWR circle"},
+ 'li.stubon':{fr:"Concevoir l'adaptation par stub parallèle (circuit ouvert)",en:"Design shunt-stub matching (open circuit)"},
+ 'li.dstub':{fr:"d (charge → stub)",en:"d (load → stub)"},'li.lstub':{fr:"l du stub",en:"stub length l"},
+ 'li.stub2':{fr:"2ᵉ solution",en:"2nd solution"},'li.stubadapt':{fr:"Charge déjà adaptée (Γ≈0).",en:"Load already matched (Γ≈0)."},
  'mi.g':{fr:"Largeur des fentes g (mm)",en:"Slot width g (mm)"},'mi.dwire':{fr:"Diamètre des fils d (mm)",en:"Wire diameter d (mm)"},'mi.dsp':{fr:"Entraxe des fils D (mm)",en:"Wire spacing D (mm)"},
  'mi.sect':{fr:"Vue en coupe de la ligne (conducteurs en cuivre, diélectrique en bleu)",en:"Line cross-section (copper conductors, dielectric in blue)"},
  'mi.h':{fr:"Impédance caractéristique d'une ligne planaire / coaxiale",en:"Characteristic impedance of a planar / coaxial line"},
