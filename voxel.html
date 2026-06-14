@@ -389,41 +389,42 @@ function loadVoxFile(ev){
 }
 // XCAT mesh50 (BenAuer2021, licence MIT) : index matériau → notre tissu
 const XCAT_MAP={0:"Air",1:"Muscle",2:"Air",3:"Brain",4:"Air",5:"Liver",6:"Lung (Inflated)",7:"Bone (Cortical)"};
-function loadInterfile(ev){
+let LOADING=false;
+async function loadInterfile(ev){
   const files=[...ev.target.files];
   const fh=files.find(f=>/\.(h33|hdr)$/i.test(f.name)), fi=files.find(f=>/\.(i33|img)$/i.test(f.name));
-  if(!fh||!fi){alert("Sélectionne les DEUX fichiers : l'entête (.h33) ET les données (.i33).");return;}
-  const info=document.getElementById('grid-info'); info.textContent="Lecture "+fi.name+"…";
-  const rh=new FileReader();
-  rh.onload=()=>{
-    const hdr=rh.result; const get=re=>{const m=hdr.match(re);return m?m[1].trim():null;};
+  const info=document.getElementById('grid-info');
+  if(!fh||!fi){alert("Il faut sélectionner les DEUX fichiers ENSEMBLE : l'entête (.h33) ET les données (.i33).\n\nReçu : "+(files.map(f=>f.name).join(", ")||"aucun fichier")+"\n\nAstuce : dans la fenêtre d'ouverture, clique sur le .h33 puis ⌘-clic sur le .i33 avant « Ouvrir ».");return;}
+  try{
+    LOADING=true; info.textContent="Lecture de l'entête…";
+    const hdr=await fh.text();
+    const get=re=>{const m=hdr.match(re);return m?m[1].trim():null;};
     const pf=v=>{if(!v)return null; const n=parseFloat(v); return isFinite(n)&&n>0?n:null;}; // tolère "+1.000000+00"
     const nx=+get(/matrix size\s*\[1\]\s*:=\s*(\d+)/i), ny=+get(/matrix size\s*\[2\]\s*:=\s*(\d+)/i);
-    // 3e dimension : soit "matrix size [3]", soit "number of slices"
-    const nz=+(get(/matrix size\s*\[3\]\s*:=\s*(\d+)/i)||get(/number of slices\s*:=\s*(\d+)/i));
-    if(!nx||!ny||!nz){alert("Entête Interfile illisible (dimensions manquantes).");info.textContent="";return;}
+    const nz=+(get(/matrix size\s*\[3\]\s*:=\s*(\d+)/i)||get(/number of slices\s*:=\s*(\d+)/i)); // [3] ou "number of slices"
+    if(!nx||!ny||!nz){throw new Error("entête illisible (dimensions manquantes)");}
     const dx=pf(get(/scaling factor[^\[\n]*\[1\][^:\n]*:=\s*([+\-\d.eE]+)/i))||1, dy=pf(get(/scaling factor[^\[\n]*\[2\][^:\n]*:=\s*([+\-\d.eE]+)/i))||1;
     const dz=pf(get(/scaling factor[^\[\n]*\[3\][^:\n]*:=\s*([+\-\d.eE]+)/i))||pf(get(/slice thickness[^:\n]*:=\s*([+\-\d.eE]+)/i))||1;
     const bpp=+(get(/bytes per pixel\s*:=\s*(\d+)/i)||2);
     const off=+(get(/data offset in bytes\s*:=\s*(\d+)/i)||0);
     const big=/BIGENDIAN/i.test(get(/byte order\s*:=\s*(\w+)/i)||"");
-    if((nx*ny*nz*bpp)>3e8){ if(!confirm("Volume lourd ("+Math.round(nx*ny*nz*bpp/1e6)+" Mo) — le navigateur peut ralentir. Charger quand même ?")){info.textContent="";return;} }
-    info.textContent="Chargement "+fi.name+" ("+Math.round(nx*ny*nz*bpp/1e6)+" Mo)…";
-    const ri=new FileReader();
-    ri.onload=()=>{
-      const buf=ri.result; let data; const cnt=nx*ny*nz;
-      if(bpp===2){ if(big){const dv=new DataView(buf,off);data=new Uint16Array(cnt);for(let p=0;p<cnt;p++)data[p]=dv.getUint16(p*2,false);}
-        else data=new Uint16Array(buf,off,Math.min(cnt,Math.floor((buf.byteLength-off)/2))); }
-      else data=new Uint8Array(buf,off,Math.min(cnt,buf.byteLength-off));
-      VOL={nx,ny,nz,dx,dy,dz,labels:XCAT_MAP,data};
-      document.getElementById('slice-row').style.display='flex';
-      const ax=+document.getElementById('slice-axis').value, dim=[nx,ny,nz][ax];
-      const sl=document.getElementById('slice-pos'); sl.max=dim-1; sl.value=Math.floor(dim/2);
-      reslice();
-    };
-    ri.readAsArrayBuffer(fi);
-  };
-  rh.readAsText(fh);
+    const Mo=Math.round(nx*ny*nz*bpp/1e6);
+    if(nx*ny*nz*bpp>3e8 && !confirm("Volume lourd ("+Mo+" Mo) — le navigateur peut ralentir quelques secondes. Charger quand même ?")){LOADING=false;info.textContent="";return;}
+    info.textContent="⏳ Chargement de "+fi.name+" ("+Mo+" Mo)… patiente, ne clique pas encore sur Calculer.";
+    const buf=await fi.arrayBuffer();
+    const cnt=nx*ny*nz; let data;
+    if(bpp===2){ if(big){const dv=new DataView(buf,off);data=new Uint16Array(cnt);for(let p=0;p<cnt;p++)data[p]=dv.getUint16(p*2,false);}
+      else { const avail=Math.floor((buf.byteLength-off)/2); if(avail<cnt){data=new Uint16Array(cnt);data.set(new Uint16Array(buf,off,avail));} else data=new Uint16Array(buf,off,cnt); } }
+    else data=new Uint8Array(buf,off,Math.min(cnt,buf.byteLength-off));
+    VOL={nx,ny,nz,dx,dy,dz,labels:XCAT_MAP,data};
+    document.getElementById('slice-row').style.display='flex';
+    const ax=+document.getElementById('slice-axis').value, dim=[nx,ny,nz][ax];
+    const sl=document.getElementById('slice-pos'); sl.max=dim-1; sl.value=Math.floor(dim/2);
+    LOADING=false;
+    reslice();                 // construit G + afterBuild (dessine la coupe)
+    showTab('tissue');         // montre l'anatomie chargée
+    info.innerHTML='✓ <b>Modèle chargé</b> : '+nx+'×'+ny+'×'+nz+' @ '+dx+' mm ('+Mo+' Mo). '+lastMeta.label+'. Clique « Calculer ».';
+  }catch(e){ LOADING=false; info.textContent=""; alert("Échec du chargement Interfile : "+e.message); }
 }
 function reslice(){
   if(!VOL)return;
@@ -715,6 +716,7 @@ function afterBuild(){
   document.getElementById('sar-metrics').innerHTML=''; document.getElementById('dt-metrics').innerHTML='';
 }
 function computeAll(){
+  if(LOADING){alert("Le modèle est encore en cours de chargement — patiente quelques secondes puis réessaie.");return;}
   if(!G){buildTorso();}
   computeSAR(); drawSARmap();
   computeThermal(); drawDTmap(); drawProfile();
