@@ -75,11 +75,16 @@ th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}th:fi
   <!-- ════ 2 · NIVEAUX DE RÉFÉRENCE ════ -->
   <div id="pane-ref" style="display:none">
     <div class="card">
-      <h2 data-i18n="rf.h">Niveaux de référence (ICNIRP 1998)</h2>
+      <h2 data-i18n="rf.h">Niveaux de référence (ICNIRP)</h2>
       <p class="lead" data-i18n="rf.lead">Les niveaux de référence bornent le champ E (V/m), le champ H (A/m) et la densité de puissance S (W/m²) qu'on peut mesurer simplement, pour rester sous les restrictions de base (DAS). Reliés en champ lointain par <b>S = E²/377</b> et H = E/377.</p>
       <div class="eq">400 MHz–2 GHz : E_public = 1,375·√f &nbsp;·&nbsp; E_travailleurs = 3·√f &nbsp; (f en MHz) ; S = f/200 (public), f/40 (trav.)</div>
       <div class="grid2">
         <div>
+          <label data-i18n="rf.ver">Édition ICNIRP</label>
+          <select id="rf-ver" onchange="refLvl()">
+            <option value="1998" selected>ICNIRP 1998</option>
+            <option value="2020">ICNIRP 2020</option>
+          </select>
           <label data-i18n="rf.freq">Fréquence (MHz)</label>
           <select id="rf-f" onchange="refLvl()">
             <option value="100">100 MHz — FM/VHF</option>
@@ -93,9 +98,10 @@ th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}th:fi
             <option value="26000">26 GHz — 5G mmWave</option>
           </select>
           <div class="metrics" id="rf-metrics"></div>
+          <div id="rf-info" class="eq" style="font-size:12.5px;margin-top:14px"></div>
         </div>
         <div>
-          <h3 data-i18n="rf.tab">Tableau ICNIRP 98</h3>
+          <h3 id="rf-tabh" data-i18n="rf.tab">Tableau ICNIRP</h3>
           <table id="rf-table"></table>
           <h3 data-i18n="rf.das">Restrictions de base — DAS</h3>
           <table><tr><th></th><th>Public</th><th>Trav.</th></tr>
@@ -124,11 +130,21 @@ th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}th:fi
           <input type="number" id="ds-pin" value="20" step="1" oninput="distCalc()">
           <label data-i18n="ds.gain">Gain antenne (dBi)</label>
           <input type="number" id="ds-gain" value="15.5" step="0.5" oninput="distCalc()">
+          <label data-i18n="ds.dim">Dimension max de l'antenne D (m)</label>
+          <select id="ds-dim" onchange="distCalc()">
+            <option value="2.6" data-i18n="ds.d26">2,6 m — panneau bi-bande 700–900 MHz</option>
+            <option value="1.3" selected data-i18n="ds.d13">1,3 m — panneau 1800–2600 MHz</option>
+            <option value="0.7" data-i18n="ds.d07">0,7 m — 5G massive MIMO 3,5 GHz</option>
+            <option value="custom" data-i18n="ds.dcust">Personnalisée…</option>
+          </select>
+          <input type="number" id="ds-dimv" value="1.3" step="0.1" oninput="distCalc()" style="display:none">
           <label class="chk" style="margin-top:10px"><input type="checkbox" id="ds-split" checked onchange="distCalc()"> <span data-i18n="ds.split">Répartir P_in également entre les bandes cochées</span></label>
         </div>
         <div>
           <div class="metrics" id="ds-metrics"></div>
+          <div id="ds-nf" class="note" style="margin-top:10px"></div>
           <table id="ds-table"></table>
+          <div class="eq" data-i18n="ds.nf" style="font-size:13px"><b>Champ proche / champ lointain</b> : la formule E = √(30·P_in·G)/d n'est valable qu'en <b>champ lointain</b>, au-delà de la distance de Fraunhofer <b>d_FF = 2D²/λ</b> (D = plus grande dimension de l'antenne). Un panneau de station de base fait ~1,3 à 2,6 m → d_FF de l'ordre de 10–40 m : les distances de sécurité (quelques mètres) tombent souvent <b>dans le champ proche</b>, où la formule sur-estime le champ (résultat conservatif, donc sûr).</div>
           <p class="note" data-i18n="ds.note">La distance combinée (toutes bandes) est telle que Σ(E_i/E_lim,i)² = 1. C'est la distance en avant de l'antenne, dans l'axe du faisceau, à partir de laquelle on est conforme.</p>
         </div>
       </div>
@@ -263,16 +279,23 @@ function drawAnt(){
 
 // ════ 2 · NIVEAUX DE RÉFÉRENCE ════
 function refLvl(){
-  const f=parseFloat(document.getElementById('rf-f').value);
+  const f=parseFloat(document.getElementById('rf-f').value), ver=document.getElementById('rf-ver').value;
   const ep=Elim(f,0),et=Elim(f,1),sp=Slim(f,0),st=Slim(f,1);
-  document.getElementById('rf-metrics').innerHTML=
-    met(T('rf.ep'),ep.toFixed(1),"V/m")+met(T('rf.hp'),(ep/ETA0*1000).toFixed(1),"mA/m")+met(T('rf.sp'),(sp*0.1).toFixed(3),"mW/cm²")+met(T('rf.dbu'),(20*Math.log10(ep*1e6)).toFixed(1),"dBµV/m");
+  // ICNIRP 2020 : corps entier identique à 1998 (>30 MHz) ; ajoute l'exposition LOCALE (plus haute, ×2 en E / ×4 en S, 2–6 GHz)
+  const local2020 = ver==='2020' && f>=2000 && f<6000;
+  let metrics=met(T('rf.ep'),ep.toFixed(1),"V/m")+met(T('rf.hp'),(ep/ETA0*1000).toFixed(1),"mA/m")+met(T('rf.sp'),(sp*0.1).toFixed(3),"mW/cm²");
+  if(local2020) metrics+=met(T('rf.eloc'),(ep*2).toFixed(0),"V/m");
+  document.getElementById('rf-metrics').innerHTML=metrics;
+  document.getElementById('rf-tabh').textContent="ICNIRP "+ver+(ver==='1998'?'':' — corps entier');
   document.getElementById('rf-table').innerHTML=
-    '<tr><th data-i18n="rf.range">Gamme</th><th>E pub.</th><th>E trav.</th><th>S pub.</th><th>S trav.</th></tr>'+
+    '<tr><th>'+T('rf.range')+'</th><th>E pub.</th><th>E trav.</th><th>S pub.</th><th>S trav.</th></tr>'+
     '<tr><td>10–400 MHz</td><td>28</td><td>61</td><td>2</td><td>10</td></tr>'+
     '<tr><td>400 MHz–2 GHz</td><td>1,375√f</td><td>3√f</td><td>f/200</td><td>f/40</td></tr>'+
-    '<tr><td>2–300 GHz</td><td>61</td><td>137</td><td>10</td><td>50</td></tr>'+
+    '<tr><td>2–'+(ver==='2020'?'6':'300')+' GHz</td><td>61</td><td>137</td><td>10</td><td>50</td></tr>'+
     `<tr style="color:var(--acc)"><td>${f>=1000?(f/1000)+' GHz':f+' MHz'}</td><td>${ep.toFixed(1)}</td><td>${et.toFixed(1)}</td><td>${sp.toFixed(2)}</td><td>${st.toFixed(2)}</td></tr>`;
+  document.getElementById('rf-info').innerHTML = ver==='1998'
+    ? '<b>'+T('rf.i98t')+'</b> '+T('rf.i98')
+    : '<b style="color:var(--acc2)">'+T('rf.i20t')+'</b> '+T('rf.i20');
 }
 
 // ════ 3 · DISTANCE DE SÉCURITÉ ════
@@ -284,17 +307,24 @@ function distCalc(){
   const w=+document.getElementById('ds-pop').value, Pin=parseFloat(document.getElementById('ds-pin').value)||20, G=Math.pow(10,(parseFloat(document.getElementById('ds-gain').value)||15)/10);
   const sel=[...document.querySelectorAll('.ds-b:checked')].map(e=>BANDS.find(b=>b.id===e.value));
   const split=document.getElementById('ds-split').checked, Pi=sel.length?(split?Pin/sel.length:Pin):Pin;
-  let html='<tr><th data-i18n="ds.band">Bande</th><th>E_lim</th><th>d_séc (m)</th></tr>', sumSq=0;
-  for(const b of sel){const el=Elim(b.f,w), d=Math.sqrt(K30*Pi*G)/el; sumSq+=1; // chaque bande seule à sa d
-    html+=`<tr><td>${b.name}</td><td>${el.toFixed(1)}</td><td>${d.toFixed(2)}</td></tr>`;}
-  // distance combinée : Σ(E_i/E_lim)²=1 avec E_i=√(30 Pi G)/d
+  const dimSel=document.getElementById('ds-dim').value; document.getElementById('ds-dimv').style.display=dimSel==='custom'?'block':'none';
+  const D=dimSel==='custom'?(parseFloat(document.getElementById('ds-dimv').value)||1):parseFloat(dimSel);
+  let html='<tr><th data-i18n="ds.band">Bande</th><th>E_lim</th><th>d_séc</th><th>2D²/λ</th></tr>';
+  let dFFmax=0;
+  for(const b of sel){const el=Elim(b.f,w), d=Math.sqrt(K30*Pi*G)/el, lam=3e8/(b.f*1e6), dFF=2*D*D/lam; if(dFF>dFFmax)dFFmax=dFF;
+    const near=d<dFF;
+    html+=`<tr><td>${b.name}</td><td>${el.toFixed(1)}</td><td>${d.toFixed(2)} m</td><td style="color:${near?'var(--bad)':'var(--mut)'}">${dFF.toFixed(1)} m${near?' ⚠':''}</td></tr>`;}
   let dcomb=0; if(sel.length){let k=0; for(const b of sel){const el=Elim(b.f,w); k+=K30*Pi*G/(el*el);} dcomb=Math.sqrt(k);}
   document.getElementById('ds-table').innerHTML=html;
+  const nearWarn=dcomb<dFFmax;
   document.getElementById('ds-metrics').innerHTML=
     met(T('ds.eirp'),(Pin*G).toFixed(0),"W")+
     met("PIRE",(10*Math.log10(Pin*G*1000)).toFixed(1),"dBm")+
-    met(T('ds.nb'),sel.length,"")+
-    met(T('ds.dcomb'),dcomb.toFixed(2),"m",'good');
+    met(T('ds.dcomb'),dcomb.toFixed(2),"m",'good')+
+    met(T('ds.dff'),dFFmax.toFixed(1),"m",nearWarn?'bad':'');
+  document.getElementById('ds-nf').innerHTML = nearWarn
+    ? '<b style="color:var(--acc2)">⚠ '+T('ds.nfwarn')+'</b>'
+    : '<b style="color:var(--acc)">✓ '+T('ds.ffok')+'</b>';
 }
 
 // ════ 4 · CARTOGRAPHIE ════
@@ -471,10 +501,18 @@ const I18N={
  'rf.freq':{fr:"Fréquence (MHz)",en:"Frequency (MHz)"},'rf.tab':{fr:"Tableau ICNIRP 98",en:"ICNIRP 98 table"},'rf.das':{fr:"Restrictions de base — DAS",en:"Basic restrictions — SAR"},
  'rf.range':{fr:"Gamme",en:"Range"},'rf.wb':{fr:"Corps entier (W/kg)",en:"Whole body (W/kg)"},'rf.head':{fr:"Tête/tronc, local (W/kg)",en:"Head/trunk, local (W/kg)"},'rf.limb':{fr:"Membres, local (W/kg)",en:"Limbs, local (W/kg)"},
  'rf.ep':{fr:"E public",en:"E public"},'rf.hp':{fr:"H public",en:"H public"},'rf.sp':{fr:"S public",en:"S public"},'rf.dbu':{fr:"E public",en:"E public"},
+ 'rf.ver':{fr:"Édition ICNIRP",en:"ICNIRP edition"},'rf.eloc':{fr:"E local (2020)",en:"E local (2020)"},
+ 'rf.i98t':{fr:"ICNIRP 1998.",en:"ICNIRP 1998."},'rf.i98':{fr:"Les recommandations historiques (toujours en vigueur dans beaucoup de réglementations, dont la France). Travailleurs = public ×√5 en E (×5 en S).",en:"The historical guidelines (still in force in many regulations, including France). Workers = public ×√5 in E (×5 in S)."},
+ 'rf.i20t':{fr:"ICNIRP 2020.",en:"ICNIRP 2020."},'rf.i20':{fr:"Au-dessus de 30 MHz, les niveaux <b>corps entier</b> sont <b>identiques à 1998</b> → mêmes distances de sécurité pour une station de base. Nouveautés : (1) des niveaux d'<b>exposition locale</b> (6 min), plus élevés — ≈ ×2 en E (×4 en S) entre 2 et 6 GHz — pertinents pour une source <b>près du corps</b> (téléphone), pas pour une station de base lointaine ; (2) au-dessus de <b>6 GHz</b> (5G mmWave) : moyennage sur <b>4 cm²</b> (1 cm² > 30 GHz) et passage à la <b>densité de puissance absorbée</b> ; (3) restrictions pour expositions brèves (&lt; 6 min).",en:"Above 30 MHz, the <b>whole-body</b> levels are <b>identical to 1998</b> → same base-station safety distances. New: (1) <b>local exposure</b> levels (6 min), higher — ≈ ×2 in E (×4 in S) between 2 and 6 GHz — relevant for a source <b>near the body</b> (handset), not a distant base station; (2) above <b>6 GHz</b> (5G mmWave): averaging over <b>4 cm²</b> (1 cm² > 30 GHz) and a shift to <b>absorbed power density</b>; (3) restrictions for brief exposures (&lt; 6 min)."},
  'ds.h':{fr:"Distance de sécurité dans l'axe d'une antenne",en:"Safety distance in an antenna's axis"},
  'ds.lead':{fr:"En champ lointain, S = P_in·G/(4π·d²) et E = √(η₀·S). La distance de sécurité est celle où E atteint le niveau de référence. Pour plusieurs bandes, on somme : Σ(E_i/E_lim,i)² ≤ 1.",en:"In the far field, S = P_in·G/(4π·d²) and E = √(η₀·S). The safety distance is where E reaches the reference level. For several bands, we sum: Σ(E_i/E_lim,i)² ≤ 1."},
  'ds.pop':{fr:"Population",en:"Population"},'ds.public':{fr:"Public",en:"Public"},'ds.worker':{fr:"Travailleurs",en:"Workers"},'ds.gen':{fr:"Bandes (cocher les actives)",en:"Bands (check active)"},'ds.pin':{fr:"Puissance injectée totale P_in (W)",en:"Total input power P_in (W)"},'ds.gain':{fr:"Gain antenne (dBi)",en:"Antenna gain (dBi)"},'ds.split':{fr:"Répartir P_in également entre les bandes cochées",en:"Split P_in equally between checked bands"},
  'ds.band':{fr:"Bande",en:"Band"},'ds.eirp':{fr:"PIRE",en:"EIRP"},'ds.nb':{fr:"Bandes actives",en:"Active bands"},'ds.dcomb':{fr:"Distance combinée",en:"Combined distance"},
+ 'ds.dim':{fr:"Dimension max de l'antenne D (m)",en:"Max antenna dimension D (m)"},'ds.d26':{fr:"2,6 m — panneau bi-bande 700–900 MHz",en:"2.6 m — dual-band panel 700–900 MHz"},'ds.d13':{fr:"1,3 m — panneau 1800–2600 MHz",en:"1.3 m — 1800–2600 MHz panel"},'ds.d07':{fr:"0,7 m — 5G massive MIMO 3,5 GHz",en:"0.7 m — 5G massive MIMO 3.5 GHz"},'ds.dcust':{fr:"Personnalisée…",en:"Custom…"},
+ 'ds.dff':{fr:"Champ lointain (2D²/λ)",en:"Far field (2D²/λ)"},
+ 'ds.nfwarn':{fr:"La distance de sécurité est dans le champ proche (< 2D²/λ) → la formule sur-estime le champ (conservatif).",en:"The safety distance is in the near field (< 2D²/λ) → the formula over-estimates the field (conservative)."},
+ 'ds.ffok':{fr:"Distance de sécurité en champ lointain (formule rigoureuse).",en:"Safety distance in the far field (formula rigorous)."},
+ 'ds.nf':{fr:"<b>Champ proche / champ lointain</b> : la formule E = √(30·P_in·G)/d n'est valable qu'en <b>champ lointain</b>, au-delà de la distance de Fraunhofer <b>d_FF = 2D²/λ</b> (D = plus grande dimension de l'antenne). Un panneau de station de base fait ~1,3 à 2,6 m → d_FF de l'ordre de 10–40 m : les distances de sécurité (quelques mètres) tombent souvent <b>dans le champ proche</b>, où la formule sur-estime le champ (résultat conservatif, donc sûr).",en:"<b>Near field / far field</b>: the formula E = √(30·P_in·G)/d is only valid in the <b>far field</b>, beyond the Fraunhofer distance <b>d_FF = 2D²/λ</b> (D = largest antenna dimension). A base-station panel is ~1.3 to 2.6 m → d_FF of order 10–40 m: safety distances (a few metres) often fall <b>in the near field</b>, where the formula over-estimates the field (conservative, hence safe)."},
  'ds.note':{fr:"La distance combinée (toutes bandes) est telle que Σ(E_i/E_lim,i)² = 1. C'est la distance en avant de l'antenne, dans l'axe du faisceau, à partir de laquelle on est conforme.",en:"The combined distance (all bands) satisfies Σ(E_i/E_lim,i)² = 1. It is the distance in front of the antenna, in the beam axis, beyond which one is compliant."},
  'ca.h':{fr:"Cartographie autour d'une station de base",en:"Mapping around a base station"},
  'ca.lead':{fr:"Une station de base typique = un <b>réseau vertical de dipôles</b> (collinéaire) → faisceau étroit en site, omnidirectionnel en azimut, souvent <b>incliné vers le bas</b> (down-tilt). On trace le champ E dans le plan vertical et le <b>volume de sécurité</b> (où E &gt; niveau de référence). Au sol, on vérifie qu'une personne est bien <b>sous</b> la limite.",en:"A typical base station = a <b>vertical dipole array</b> (collinear) → narrow elevation beam, omnidirectional in azimuth, often <b>down-tilted</b>. We map the E field in the vertical plane and the <b>safety volume</b> (where E &gt; reference level). At ground level we check a person is well <b>below</b> the limit."},
