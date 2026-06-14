@@ -253,6 +253,16 @@ footer a{color:var(--text2)}
       </div>
     </a>
 
+    <a class="card live" href="optique.html">
+      <div class="ico"><svg viewBox="0 0 32 32" width="28" height="28" fill="none" stroke-width="2" stroke-linecap="round" style="vertical-align:middle"><path d="M14 5 22 25 6 25Z" stroke="#0d9488"/><path d="M3 15 12.5 16.5" stroke="#64748b"/><path d="M18 19 30 13" stroke="#e11d48"/><path d="M18.4 20.5 30 19" stroke="#16a34a"/><path d="M18.6 22 30 25" stroke="#2563eb"/></svg></div>
+      <h3 data-i18n="opt.title">Capteurs optiques & imagerie spectrale</h3>
+      <p data-i18n="opt.desc">Du photon à l'image : le photodétecteur (responsivité R(λ), coupure du gap), le spectromètre à réseau (reconstruire un spectre, résolution R=mN), le passage spectre → couleur (CIE x̄ȳz̄, métamérisme), l'imagerie multispectrale (signatures, NDVI, fausses couleurs IR), et la reconstruction d'image par démosaïquage de la matrice de Bayer.</p>
+      <div class="tags">
+        <span class="badge ok" data-i18n="opt.badge">spectre · multispectral · démosaïquage</span>
+        <span class="badge free" data-i18n="badge.free">accès libre</span>
+      </div>
+    </a>
+
     <div class="card soon">
       <div>
         <div class="ico" style="opacity:.5">＋</div>
@@ -353,6 +363,10 @@ const I18N={
   'cem.desc':{fr:"Les piliers de la CEM, interactifs : diaphonie NEXT/FEXT entre liaisons (couplage capacitif + inductif), modes commun/différentiel et filtrage (self de mode commun, condensateurs X/Y), émission conduite d'une horloge vs gabarits CISPR, efficacité de blindage (Schelkunoff : réflexion + absorption), et la décharge électrostatique ESD (IEC 61000-4-2). Fédère lignes, antennes et circuit-spice.",
               en:"The pillars of EMC, interactive: NEXT/FEXT crosstalk between links (capacitive + inductive coupling), common/differential modes and filtering (common-mode choke, X/Y capacitors), conducted emission of a clock vs CISPR limits, shielding effectiveness (Schelkunoff: reflection + absorption), and electrostatic discharge ESD (IEC 61000-4-2). Ties together the lines, antenna and circuit-spice tools."},
   'cem.badge':{fr:"diaphonie · CISPR · blindage · ESD", en:"crosstalk · CISPR · shielding · ESD"},
+  'opt.title':{fr:"Capteurs optiques & imagerie spectrale", en:"Optical sensors & spectral imaging"},
+  'opt.desc':{fr:"Du photon à l'image : le photodétecteur (responsivité R(λ), coupure du gap), le spectromètre à réseau (reconstruire un spectre, résolution R=mN), le passage spectre → couleur (CIE x̄ȳz̄, métamérisme), l'imagerie multispectrale (signatures, NDVI, fausses couleurs IR), et la reconstruction d'image par démosaïquage de la matrice de Bayer.",
+              en:"From photon to image: the photodetector (responsivity R(λ), band-gap cutoff), the grating spectrometer (reconstructing a spectrum, resolution R=mN), spectrum → colour (CIE x̄ȳz̄, metamerism), multispectral imaging (signatures, NDVI, false-colour IR), and image reconstruction by Bayer-filter demosaicing."},
+  'opt.badge':{fr:"spectre · multispectral · démosaïquage", en:"spectrum · multispectral · demosaicing"},
   'ant.title':{fr:"Antennes", en:"Antennas"},
   'ant.desc':{fr:"Outils sur les antennes : antennes filaires (méthode des moments — dipôle, Yagi, environnements de fils, champ proche) et réseaux d'antennes (dépointage du faisceau). Cornet et patch à venir.",
               en:"Antenna tools: wire antennas (Method of Moments — dipole, Yagi, wire environments, near field) and antenna arrays (beam steering). Horn and patch coming soon."},

@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Capteurs optiques & imagerie spectrale — EMtools</title>
+<style>
+:root{--bg:#0f1419;--panel:#1a2129;--panel2:#222b35;--ink:#e6edf3;--mut:#8b97a3;--acc:#4db6a4;--acc2:#e0884b;--line:#2d3742;--bad:#e05a5a;--blu:#6fb6d6;--mag:#b48ad8;--grn:#7fc77f}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+header{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+header h1{font-size:19px;margin:0;font-weight:650}header .sub{color:var(--mut);font-size:13px}
+.lang{margin-left:auto;display:flex;gap:6px}
+.lang button{background:var(--panel2);color:var(--mut);border:1px solid var(--line);border-radius:7px;padding:5px 11px;cursor:pointer;font-size:13px}
+.lang button.on{background:var(--acc);color:#06231d;border-color:var(--acc);font-weight:650}
+.wrap{max-width:1040px;margin:0 auto;padding:20px 22px 90px}
+a.back{color:var(--acc);text-decoration:none;font-size:13px}
+.tabs{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap}
+.tabs button{background:var(--panel2);color:var(--mut);border:1px solid var(--line);border-radius:9px;padding:8px 13px;cursor:pointer;font-size:13px}
+.tabs button.on{background:var(--acc);color:#06231d;border-color:var(--acc);font-weight:650}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:18px}
+.card h2{font-size:16px;margin:0 0 6px}
+.lead{color:var(--mut);font-size:14px;margin:0 0 14px}
+.grid2{display:grid;grid-template-columns:320px 1fr;gap:18px;align-items:start}
+@media(max-width:780px){.grid2{grid-template-columns:1fr}}
+label{display:block;font-size:12.5px;color:var(--mut);margin:10px 0 4px}
+input[type=number],select{width:100%;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px}
+input[type=range]{width:100%}.rng{display:flex;align-items:center;gap:10px}.rng input[type=range]{flex:1}.rng b{min-width:80px;text-align:right;font-variant-numeric:tabular-nums}
+.row{display:flex;gap:10px}.row>*{flex:1}
+canvas{max-width:100%;background:#0b0f14;border-radius:8px;display:block}
+.cap{font-size:12px;color:var(--mut);text-align:center;margin-top:6px}
+.eq{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:8px;padding:10px 13px;margin:12px 0;font-size:13.5px;overflow-x:auto}
+.metrics{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.metric{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 13px;min-width:108px}
+.metric .k{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+.metric .v{font-size:17px;font-weight:680;margin-top:2px}.metric .v small{font-size:11px;color:var(--mut)}
+.metric.good{border-color:var(--acc)}.metric.bad{border-color:var(--bad)}
+.note{font-size:13px;color:var(--mut);margin-top:12px}
+.lg{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;margin-top:6px}.lg span{display:inline-flex;align-items:center;gap:5px}.lg i{width:14px;height:3px;border-radius:2px;display:inline-block}
+.imgs{display:flex;gap:12px;flex-wrap:wrap}.imgs figure{margin:0;text-align:center}.imgs figcaption{font-size:11.5px;color:var(--mut);margin-top:4px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-top:4px}
+.seg button{background:var(--panel2);color:var(--mut);border:none;padding:6px 11px;cursor:pointer;font-size:12.5px}
+.seg button.on{background:var(--acc);color:#06231d;font-weight:650}
+.sw{width:84px;height:84px;border-radius:10px;border:1px solid var(--line)}
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="index.html">← EMtools</a>
+  <h1 data-i18n="title">Capteurs optiques & imagerie spectrale</h1>
+  <span class="sub" data-i18n="sub">photodétecteur · spectromètre · couleur · multispectral · démosaïquage</span>
+  <div class="lang"><button id="lf" class="on" onclick="setLang('fr')">FR</button><button id="le" onclick="setLang('en')">EN</button></div>
+</header>
+<div class="wrap">
+  <div class="tabs">
+    <button id="tab-det" class="on" onclick="showTab('det')" data-i18n="t.det">1 · Photodétecteur</button>
+    <button id="tab-spec" onclick="showTab('spec')" data-i18n="t.spec">2 · Spectromètre</button>
+    <button id="tab-col" onclick="showTab('col')" data-i18n="t.col">3 · Spectre → couleur</button>
+    <button id="tab-msi" onclick="showTab('msi')" data-i18n="t.msi">4 · Imagerie multispectrale</button>
+    <button id="tab-bay" onclick="showTab('bay')" data-i18n="t.bay">5 · Reconstruction (Bayer)</button>
+  </div>
+
+  <!-- ═══ 1 · PHOTODÉTECTEUR ═══ -->
+  <div id="pane-det">
+    <div class="card">
+      <h2 data-i18n="dt.h">Le photodétecteur : du photon au courant</h2>
+      <p class="lead" data-i18n="dt.lead">Un photon d'énergie hc/λ supérieure au gap E_g crée une paire électron-trou → un courant. La <b>sensibilité</b> (responsivité) R(λ) = η·q·λ/(hc) croît avec λ (chaque photon porte moins d'énergie, donc plus de photons par watt), jusqu'à la <b>coupure</b> λ_c = hc/E_g au-delà de laquelle le matériau devient transparent. Le choix du semi-conducteur fixe la bande spectrale.</p>
+      <div class="eq">R(λ) = η·q·λ / (h·c) &nbsp;(A/W) &nbsp;·&nbsp; λ_coupure = h·c/E_g = 1240/E_g[eV] (nm) &nbsp;·&nbsp; I_photo = R(λ)·P_opt</div>
+      <div class="grid2">
+        <div>
+          <label data-i18n="dt.mat">Matériau (semi-conducteur)</label>
+          <select id="dt-mat" onchange="det()">
+            <option value="si" selected>Silicium — E_g 1,12 eV</option>
+            <option value="gaas">GaAs — E_g 1,42 eV</option>
+            <option value="ge">Germanium — E_g 0,66 eV</option>
+            <option value="ingaas">InGaAs — E_g 0,74 eV</option>
+          </select>
+          <label><span data-i18n="dt.qe">Rendement quantique η (%)</span> <b class="muted" id="dt-qe-v"></b></label>
+          <div class="rng"><input type="range" id="dt-qe" min="10" max="95" value="80" step="1" oninput="det()"><b id="dt-qe-b"></b></div>
+          <label data-i18n="dt.lp">Longueur d'onde de travail λ (nm) · puissance P (µW)</label>
+          <div class="row"><input type="number" id="dt-l" value="900" step="10" oninput="det()"><input type="number" id="dt-p" value="10" step="1" oninput="det()"></div>
+          <div class="metrics" id="dt-metrics"></div>
+        </div>
+        <div>
+          <canvas id="cv-det" width="440" height="280"></canvas>
+          <div class="cap" data-i18n="dt.cap">Responsivité R(λ) en A/W. La droite idéale ∝ λ (pointillé) est tronquée à la coupure du gap.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 2 · SPECTROMÈTRE ═══ -->
+  <div id="pane-spec" style="display:none">
+    <div class="card">
+      <h2 data-i18n="sp.h">Le spectromètre à réseau : reconstruire un spectre</h2>
+      <p class="lead" data-i18n="sp.lead">Un <b>réseau de diffraction</b> renvoie chaque longueur d'onde dans une direction différente : d·sinθ = m·λ. Projetées sur un capteur linéaire (barrette de pixels), les couleurs se séparent → on lit l'intensité en fonction de la position, puis on <b>reconstruit le spectre</b> en convertissant position → λ. La <b>résolution</b> R = m·N (N traits éclairés) lisse les détails plus fins que Δλ = λ/R : c'est elle qui limite la reconstruction.</p>
+      <div class="eq">d·sinθ = m·λ &nbsp;·&nbsp; dispersion dθ/dλ = m/(d·cosθ) &nbsp;·&nbsp; pouvoir de résolution R = λ/Δλ = m·N</div>
+      <div class="grid2">
+        <div>
+          <label><span data-i18n="sp.g">Densité de traits (traits/mm)</span> <b class="muted" id="sp-g-v"></b></label>
+          <div class="rng"><input type="range" id="sp-g" min="150" max="1800" value="600" step="50" oninput="spec()"><b id="sp-g-b"></b></div>
+          <label data-i18n="sp.m">Ordre m · largeur de faisceau (mm)</label>
+          <div class="row"><input type="number" id="sp-m" value="1" step="1" min="1" oninput="spec()"><input type="number" id="sp-w" value="5" step="1" oninput="spec()"></div>
+          <label data-i18n="sp.src">Source</label>
+          <select id="sp-src" onchange="spec()"><option value="hg" data-i18n="sp.hg">Lampe à mercure (raies)</option><option value="duo" data-i18n="sp.duo">Doublet rapproché (test de résolution)</option><option value="led" data-i18n="sp.led">LED blanche (continu)</option></select>
+          <div class="metrics" id="sp-metrics"></div>
+        </div>
+        <div>
+          <canvas id="cv-spec" width="440" height="300"></canvas>
+          <div class="lg" id="sp-lg"></div>
+          <div class="cap" data-i18n="sp.cap">Haut : où chaque λ tombe sur le capteur. Bas : spectre vrai (fin) vs reconstruit (élargi par la résolution finie).</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 3 · SPECTRE → COULEUR ═══ -->
+  <div id="pane-col" style="display:none">
+    <div class="card">
+      <h2 data-i18n="cl.h">Du spectre à la couleur : trois capteurs suffisent</h2>
+      <p class="lead" data-i18n="cl.lead">L'œil (et un capteur RVB) ne mesure pas le spectre complet : il l'échantillonne par <b>trois</b> sensibilités x̄, ȳ, z̄ (fonctions colorimétriques CIE). Tout spectre se réduit à trois nombres X, Y, Z → une couleur. Conséquence : des spectres <b>différents</b> peuvent donner la <b>même</b> couleur (<b>métamérisme</b>) — la couleur est une reconstruction à 3 dimensions, pas le spectre.</p>
+      <div class="eq">X = ∫ S(λ)·x̄(λ) dλ &nbsp; (idem Y, Z) &nbsp;→&nbsp; [R,G,B]_sRGB = M·[X,Y,Z] puis correction gamma</div>
+      <div class="grid2">
+        <div>
+          <label data-i18n="cl.src">Source lumineuse</label>
+          <select id="cl-src" onchange="clUI();col()">
+            <option value="mono" selected data-i18n="cl.mono">Monochromatique (laser)</option>
+            <option value="bb" data-i18n="cl.bb">Corps noir (température)</option>
+            <option value="meta" data-i18n="cl.meta">Métamère du jaune (rouge+vert)</option>
+          </select>
+          <div id="cl-mono">
+            <label><span data-i18n="cl.lam">Longueur d'onde λ (nm)</span> <b class="muted" id="cl-lam-v"></b></label>
+            <div class="rng"><input type="range" id="cl-lam" min="400" max="700" value="530" step="1" oninput="col()"><b id="cl-lam-b"></b></div>
+          </div>
+          <div id="cl-bb" style="display:none">
+            <label><span data-i18n="cl.temp">Température (K)</span> <b class="muted" id="cl-temp-v"></b></label>
+            <div class="rng"><input type="range" id="cl-temp" min="1500" max="12000" value="5500" step="100" oninput="col()"><b id="cl-temp-b"></b></div>
+          </div>
+          <div style="display:flex;gap:14px;align-items:center;margin-top:14px">
+            <div style="text-align:center"><div class="sw" id="cl-sw"></div><div class="cap" data-i18n="cl.percu">couleur perçue</div></div>
+            <div class="metrics" id="cl-metrics" style="margin-top:0"></div>
+          </div>
+        </div>
+        <div>
+          <canvas id="cv-col" width="440" height="280"></canvas>
+          <div class="lg" id="cl-lg"></div>
+          <div class="cap" data-i18n="cl.cap">Spectre de la source (blanc) et fonctions colorimétriques x̄, ȳ, z̄ qui l'échantillonnent.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 4 · MULTISPECTRAL ═══ -->
+  <div id="pane-msi" style="display:none">
+    <div class="card">
+      <h2 data-i18n="ms.h">Imagerie multispectrale : voir au-delà du visible</h2>
+      <p class="lead" data-i18n="ms.lead">Une caméra multispectrale image la scène à travers plusieurs <b>bandes</b> (bleu, vert, rouge, proche-infrarouge…). Chaque matériau a une <b>signature spectrale</b> propre : la végétation absorbe le rouge mais réfléchit fortement le NIR. En combinant les bandes on <b>reconstruit</b> une information invisible à l'œil — par ex. le <b>NDVI</b> = (NIR−Rouge)/(NIR+Rouge) cartographie la végétation.</p>
+      <div class="eq">bande_k = ∫ réflectance(λ)·éclairement(λ)·filtre_k(λ) dλ &nbsp;·&nbsp; NDVI = (NIR − R)/(NIR + R)</div>
+      <div class="grid2">
+        <div>
+          <p class="lead" style="margin-bottom:6px" data-i18n="ms.expl">Même scène, trois reconstructions :</p>
+          <ul class="note" style="margin-top:0;padding-left:18px">
+            <li data-i18n="ms.l1"><b>Couleur vraie</b> (bandes B,V,R) — ce que voit l'œil.</li>
+            <li data-i18n="ms.l2"><b>Fausses couleurs IR</b> (NIR→rouge) — la végétation vive ressort en rouge.</li>
+            <li data-i18n="ms.l3"><b>NDVI</b> — indice de végétation (vert = dense, brun = sol, bleu = eau).</li>
+          </ul>
+          <div class="metrics" id="ms-metrics"></div>
+          <p class="note" data-i18n="ms.note">Signatures (réflectance B/V/R/NIR) : végétation [.04/.08/.04/.50] → NDVI≈0,85 ; sol [.10/.14/.20/.28] → 0,17 ; eau [.06/.05/.03/.01] → −0,5.</p>
+        </div>
+        <div>
+          <div class="imgs">
+            <figure><canvas id="cv-true" width="150" height="150"></canvas><figcaption data-i18n="ms.fc1">Couleur vraie</figcaption></figure>
+            <figure><canvas id="cv-cir" width="150" height="150"></canvas><figcaption data-i18n="ms.fc2">Fausses couleurs IR</figcaption></figure>
+            <figure><canvas id="cv-ndvi" width="150" height="150"></canvas><figcaption data-i18n="ms.fc3">NDVI</figcaption></figure>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 5 · BAYER ═══ -->
+  <div id="pane-bay" style="display:none">
+    <div class="card">
+      <h2 data-i18n="by.h">Reconstruire une image couleur : la matrice de Bayer</h2>
+      <p class="lead" data-i18n="by.lead">Un capteur d'image est intrinsèquement <b>monochrome</b> (il compte des photons). Pour la couleur, on dépose une mosaïque de filtres — la <b>matrice de Bayer</b> (motif RVVB, deux fois plus de vert, comme l'œil). Chaque pixel ne mesure donc <b>qu'une</b> couleur ; les deux autres sont <b>reconstruites</b> par interpolation à partir des voisins (<b>démosaïquage</b>). C'est la reconstruction d'image la plus universelle.</p>
+      <div class="eq">brut(x,y) = scène(x,y, canal Bayer) &nbsp;→&nbsp; démosaïquage (interpolation bilinéaire) &nbsp;→&nbsp; image RVB complète</div>
+      <div class="grid2">
+        <div>
+          <label data-i18n="by.scene">Scène de test</label>
+          <select id="by-scene" onchange="bayer()"><option value="patches" data-i18n="by.patches">Mire de couleurs + bords</option><option value="grad" data-i18n="by.grad">Dégradés & cercles</option></select>
+          <label><span data-i18n="by.zoom">Zoom (×)</span> <b class="muted" id="by-zoom-v"></b></label>
+          <div class="rng"><input type="range" id="by-zoom" min="1" max="6" value="1" step="1" oninput="bayer()"><b id="by-zoom-b"></b></div>
+          <div class="metrics" id="by-metrics"></div>
+          <p class="note" data-i18n="by.note">Aux contours fins, l'interpolation produit des artefacts : « fermeture éclair » (zipper) et fausses couleurs — d'où les algorithmes de démosaïquage avancés des appareils réels.</p>
+        </div>
+        <div>
+          <div class="imgs">
+            <figure><canvas id="cv-orig" width="150" height="150"></canvas><figcaption data-i18n="by.orig">Scène d'origine</figcaption></figure>
+            <figure><canvas id="cv-mosaic" width="150" height="150"></canvas><figcaption data-i18n="by.mosaic">Brut Bayer (1 canal/pixel)</figcaption></figure>
+            <figure><canvas id="cv-recon" width="150" height="150"></canvas><figcaption data-i18n="by.recon">Reconstruite (démosaïquée)</figcaption></figure>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const Q=1.602e-19, H=6.626e-34, C=2.998e8;
+function met(k,v,u,cls){return `<div class="metric ${cls||''}"><div class="k">${k}</div><div class="v">${v} <small>${u||''}</small></div></div>`;}
+function lgItem(c,t){return `<span><i style="background:${c}"></i>${t}</span>`;}
+function v(id){return document.getElementById(id).value;}
+function $(id){return document.getElementById(id);}
+// longueur d'onde visible → RGB (approx)
+function wl2rgb(l){let r=0,g=0,b=0;
+  if(l<440){r=-(l-440)/(440-380);b=1;} else if(l<490){g=(l-440)/(490-440);b=1;}
+  else if(l<510){g=1;b=-(l-510)/(510-490);} else if(l<580){r=(l-510)/(580-510);g=1;}
+  else if(l<645){r=1;g=-(l-645)/(645-580);} else {r=1;}
+  let f=1; if(l<420)f=0.3+0.7*(l-380)/40; else if(l>700)f=0.3+0.7*(780-l)/80;
+  const gm=v=>Math.round(255*Math.pow(Math.max(0,Math.min(1,v*f)),0.8));
+  return [gm(r),gm(g),gm(b)];}
+// traceur linéaire générique
+function plotXY(cv,cfg){
+  const c=cv.getContext('2d'),W=cv.width,Hh=cv.height;c.clearRect(0,0,W,Hh);
+  const mL=46,mR=12,mT=12,mB=28,pw=W-mL-mR,ph=Hh-mT-mB;
+  const {xmin,xmax,ymin,ymax}=cfg;
+  const X=x=>mL+(x-xmin)/(xmax-xmin)*pw, Y=y=>mT+ph-(Math.min(Math.max(y,ymin),ymax)-ymin)/(ymax-ymin)*ph;
+  if(cfg.specBar){for(let i=0;i<pw;i++){const l=xmin+(xmax-xmin)*i/pw;if(l>=380&&l<=700){const[r,g,b]=wl2rgb(l);c.fillStyle=`rgba(${r},${g},${b},.5)`;c.fillRect(mL+i,mT+ph-6,1,6);}}}
+  c.font='10px sans-serif';c.textAlign='center';
+  const xt=cfg.xticks||5;for(let i=0;i<=xt;i++){const x=xmin+(xmax-xmin)*i/xt,Xx=X(x);c.strokeStyle='#161e26';c.beginPath();c.moveTo(Xx,mT);c.lineTo(Xx,mT+ph);c.stroke();c.fillStyle='#8b97a3';c.fillText(cfg.xfmt?cfg.xfmt(x):x.toFixed(0),Xx,mT+ph+13);}
+  c.textAlign='right';const yt=cfg.yticks||4;for(let i=0;i<=yt;i++){const y=ymin+(ymax-ymin)*i/yt,Yy=Y(y);c.strokeStyle='#161e26';c.beginPath();c.moveTo(mL,Yy);c.lineTo(mL+pw,Yy);c.stroke();c.fillStyle='#8b97a3';c.fillText(cfg.yfmt?cfg.yfmt(y):y.toFixed(cfg.ydec??1),mL-4,Yy+3);}
+  c.strokeStyle='#3a4754';c.lineWidth=1;c.strokeRect(mL,mT,pw,ph);
+  c.fillStyle='#8b97a3';c.textAlign='center';c.fillText(cfg.xlab||'',mL+pw/2,Hh-2);
+  c.save();c.translate(11,mT+ph/2);c.rotate(-Math.PI/2);c.fillText(cfg.ylab||'',0,0);c.restore();
+  (cfg.curves||[]).forEach(cu=>{c.strokeStyle=cu.col;c.lineWidth=cu.w||2;c.setLineDash(cu.dash||[]);c.beginPath();let st=false;
+    cu.x.forEach((x,i)=>{const Xx=X(x),Yy=Y(cu.y[i]);st?c.lineTo(Xx,Yy):c.moveTo(Xx,Yy);st=true;});c.stroke();c.setLineDash([]);
+    if(cu.fill){c.lineTo(X(cu.x[cu.x.length-1]),Y(ymin));c.lineTo(X(cu.x[0]),Y(ymin));c.closePath();c.fillStyle=cu.fill;c.fill();}});
+  (cfg.vlines||[]).forEach(m=>{const Xx=X(m.x);c.strokeStyle=m.col;c.setLineDash([4,3]);c.beginPath();c.moveTo(Xx,mT);c.lineTo(Xx,mT+ph);c.stroke();c.setLineDash([]);if(m.t){c.fillStyle=m.col;c.font='10px sans-serif';c.textAlign='left';c.fillText(m.t,Xx+3,mT+10);}});
+  return {X,Y};
+}
+
+// ═══ 1 · PHOTODÉTECTEUR ═══
+const DET_MAT={si:{eg:1.12,n:'Si'},gaas:{eg:1.42,n:'GaAs'},ge:{eg:0.66,n:'Ge'},ingaas:{eg:0.74,n:'InGaAs'}};
+function qeOf(l,lc,q0){ if(l>=lc)return 0; const edge=1-Math.exp(-(lc-l)/45); const uv=1-Math.exp(-(l-200)/120); return q0*Math.max(0,Math.min(1,edge))*Math.max(0,Math.min(1,uv)); }
+function det(){
+  const m=DET_MAT[v('dt-mat')], q0=+v('dt-qe')/100, lc=1239.84/m.eg;
+  $('dt-qe-b').textContent=(+v('dt-qe'))+' %';
+  const L=[],R=[],Rideal=[];
+  for(let l=250;l<=2100;l+=10){L.push(l);const eta=qeOf(l,lc,q0);R.push(eta*Q*(l*1e-9)/(H*C));Rideal.push(q0*Q*(l*1e-9)/(H*C));}
+  const lw=+v('dt-l'), P=+v('dt-p')*1e-6, eta=qeOf(lw,lc,q0), Rw=eta*Q*(lw*1e-9)/(H*C), Iph=Rw*P;
+  plotXY($('cv-det'),{xmin:250,xmax:2100,ymin:0,ymax:1.6,ydec:1,xlab:'λ (nm)',ylab:'R (A/W)',specBar:true,xfmt:x=>x.toFixed(0),
+    curves:[{x:L,y:Rideal,col:'#6fb6d6',dash:[5,3],w:1.2},{x:L,y:R,col:'#4db6a4',w:2.4}],
+    vlines:[{x:lc,col:'#e05a5a',t:'λc'},{x:lw,col:'#e0884b'}]});
+  $('dt-metrics').innerHTML=
+    met(T('dt.cut'),lc.toFixed(0),'nm')+met('R(λ)',Rw.toFixed(2),'A/W')+met(T('dt.eff'),(eta*100).toFixed(0),'%')+met(T('dt.iph'),Iph>=1e-3?(Iph*1e3).toFixed(2)+' mA':(Iph*1e6).toFixed(2)+' µA','',true);
+}
+
+// ═══ 2 · SPECTROMÈTRE ═══
+function srcSpec(kind){ // renvoie fonction S(λ) sur 380..720
+  if(kind==='hg')return l=>g(l,436,3)*0.7+g(l,546,3)*1.0+g(l,578,3)*0.6+g(l,405,3)*0.4+0.02;
+  if(kind==='duo')return l=>g(l,589.0,2)*1+g(l,589.6,2)*1+0.01;
+  return l=>Math.exp(-Math.pow((l-455)/22,2))*0.7+0.9*Math.exp(-Math.pow((l-560)/55,2))+0.03; // LED : pic bleu + bosse phosphore
+}
+function g(l,mu,s){return Math.exp(-0.5*Math.pow((l-mu)/s,2));}
+function spec(){
+  const G=+v('sp-g'), m=+v('sp-m'), Wb=+v('sp-w'); $('sp-g-b').textContent=G+' tr/mm';
+  const d=1/(G*1000); const N=G*Wb; const Rres=m*N; const src=srcSpec(v('sp-src'));
+  const l0=380,l1=720, lam=[],Strue=[],Srec=[];
+  const dlam=l0/Rres; const sigma=dlam/2.355; // largeur instrumentale (FWHM=Δλ)
+  for(let l=l0;l<=l1;l+=0.5){lam.push(l);Strue.push(src(l));}
+  // reconstruction = convolution par la fonction d'appareil (gaussienne de largeur Δλ)
+  for(let i=0;i<lam.length;i++){let s=0,w=0;for(let j=0;j<lam.length;j++){const wj=Math.exp(-0.5*Math.pow((lam[i]-lam[j])/sigma,2));s+=Strue[j]*wj;w+=wj;}Srec.push(s/w);}
+  const mx=Math.max(...Strue);
+  // angle de diffraction pour quelques λ (haut du graphe : position capteur)
+  const thetaOf=l=>Math.asin(Math.max(-1,Math.min(1,m*l*1e-9/d)));
+  const cv=$('cv-spec'),c=cv.getContext('2d');
+  const {X}=plotXY(cv,{xmin:l0,xmax:l1,ymin:0,ymax:mx*1.15,ydec:2,xlab:'λ (nm)',ylab:T('sp.inten'),specBar:true,yticks:3,
+    curves:[{x:lam,y:Strue,col:'#8b97a3',w:1.2},{x:lam,y:Srec,col:'#4db6a4',w:2.2,fill:'rgba(77,182,164,.12)'}]});
+  $('sp-lg').innerHTML=lgItem('#8b97a3',T('sp.true'))+lgItem('#4db6a4',T('sp.rec'));
+  // dispersion (nm par mm) à 550 nm, f=100mm
+  const f=0.1; const disp=(Math.tan(thetaOf(551))-Math.tan(thetaOf(549)))*f*1000/2; // mm/nm
+  $('sp-metrics').innerHTML=
+    met('R = mN',Rres>=1e4?(Rres/1e3).toFixed(0)+'k':Rres.toFixed(0),'')+met('Δλ @380',dlam.toFixed(2),'nm')+
+    met(T('sp.disp'),(1/disp).toFixed(2),'nm/mm')+met('θ(550nm)',(thetaOf(550)*180/Math.PI).toFixed(1),'°');
+}
+
+// ═══ 3 · SPECTRE → COULEUR ═══
+function gpw(x,mu,s1,s2){const t=(x-mu)/(x<mu?s1:s2);return Math.exp(-0.5*t*t);}
+function cieX(l){return 1.056*gpw(l,599.8,37.9,31.0)+0.362*gpw(l,442.0,16.0,26.7)-0.065*gpw(l,501.1,20.4,26.2);}
+function cieY(l){return 0.821*gpw(l,568.8,46.9,40.5)+0.286*gpw(l,530.9,16.3,31.1);}
+function cieZ(l){return 1.217*gpw(l,437.0,11.8,36.0)+0.681*gpw(l,459.0,26.0,13.8);}
+function planck(l,Tk){const lm=l*1e-9;return 1/(Math.pow(lm,5)*(Math.exp((H*C)/(lm*1.381e-23*Tk))-1));}
+function clUI(){const s=v('cl-src');$('cl-mono').style.display=s==='mono'?'':'none';$('cl-bb').style.display=s==='bb'?'':'none';}
+function srcFn(){const s=v('cl-src');
+  if(s==='mono'){const l0=+v('cl-lam');return l=>g(l,l0,4);}
+  if(s==='bb'){const Tk=+v('cl-temp');const norm=planck(560,Tk);return l=>planck(l,Tk)/norm;}
+  return l=>g(l,535,12)*1.0+g(l,600,14)*0.78; // métamère jaune (vert+rouge)
+}
+function xyz2srgb(X,Y,Z){let r=3.2406*X-1.5372*Y-0.4986*Z,g2=-0.9689*X+1.8758*Y+0.0415*Z,b=0.0557*X-0.2040*Y+1.0570*Z;
+  r=Math.max(0,r);g2=Math.max(0,g2);b=Math.max(0,b);
+  const mx=Math.max(r,g2,b,1e-9);r/=mx;g2/=mx;b/=mx;          // pleine luminosité → teinte vive pour la pastille
+  const gam=c=>c<=0.0031308?12.92*c:1.055*Math.pow(c,1/2.4)-0.055;
+  return [Math.round(255*gam(r)),Math.round(255*gam(g2)),Math.round(255*gam(b))];}
+function col(){
+  clUI();const s=v('cl-src');
+  if(s==='mono')$('cl-lam-b').textContent=(+v('cl-lam'))+' nm'; if(s==='bb')$('cl-temp-b').textContent=(+v('cl-temp'))+' K';
+  const S=srcFn(); let X=0,Y=0,Z=0,Yn=0; const L=[],SS=[],XX=[],YY=[],ZZ=[];
+  for(let l=380;l<=720;l+=2){const sv=S(l);X+=sv*cieX(l);Y+=sv*cieY(l);Z+=sv*cieZ(l);Yn+=cieY(l);
+    L.push(l);SS.push(sv);XX.push(cieX(l));YY.push(cieY(l));ZZ.push(cieZ(l));}
+  X/=Yn;Y/=Yn;Z/=Yn;
+  const [r,gg,b]=xyz2srgb(X,Y,Z);
+  $('cl-sw').style.background=`rgb(${r},${gg},${b})`;
+  const sx=X+Y+Z; const cx=sx>0?X/sx:0, cy=sx>0?Y/sx:0;
+  $('cl-metrics').innerHTML=met('x,y',cx.toFixed(3)+', '+cy.toFixed(3),'')+met('RVB',r+','+gg+','+b,'')+met('Y',(Y).toFixed(2),'');
+  const smx=Math.max(...SS,1e-9);
+  plotXY($('cv-col'),{xmin:380,xmax:720,ymin:0,ymax:1.8,ydec:1,xlab:'λ (nm)',ylab:'',specBar:true,yticks:3,
+    curves:[{x:L,y:SS.map(x=>x/smx*1.6),col:'#e6edf3',w:2,fill:'rgba(230,237,243,.10)'},{x:L,y:XX,col:'#e05a5a',w:1.3},{x:L,y:YY,col:'#7fc77f',w:1.3},{x:L,y:ZZ,col:'#6fb6d6',w:1.3}]});
+  $('cl-lg').innerHTML=lgItem('#e6edf3',T('cl.spec'))+lgItem('#e05a5a','x̄')+lgItem('#7fc77f','ȳ')+lgItem('#6fb6d6','z̄');
+}
+
+// ═══ 4 · MULTISPECTRAL ═══
+const MAT={veg:[0.04,0.08,0.04,0.50],soil:[0.10,0.14,0.20,0.28],water:[0.06,0.05,0.03,0.01],dry:[0.22,0.27,0.30,0.34],road:[0.20,0.21,0.22,0.23]};
+function sceneMat(x,y,W,Hh){ // renvoie clé matériau
+  const u=x/W,t=y/Hh;
+  if(t<0.3 && (u-0.3)*(u-0.3)+(t-0.18)*(t-0.18)*4<0.045)return 'water';   // lac
+  if(Math.abs(t-0.62)<0.06)return 'road';                                  // route
+  if(t>0.7)return 'soil';                                                  // sol bas
+  if(t>0.3){const veg=((Math.sin(u*22)+Math.cos(t*30+u*8))>-0.6);return veg?'veg':'dry';} // champ végétal/sec
+  return 'dry';
+}
+function ndviCol(n){ // -1..1 -> palette
+  if(n<-0.1)return [40,90,180]; const t=Math.max(0,Math.min(1,(n+0.1)/0.95));
+  const a=[150,100,40],b=[230,220,90],cc=[30,160,40];
+  const mix=(p,q,f)=>p.map((x,i)=>Math.round(x+(q[i]-x)*f));
+  return t<0.5?mix(a,b,t*2):mix(b,cc,(t-0.5)*2);}
+function msi(){
+  const W=120,Hh=120; const cvs={true:$('cv-true'),cir:$('cv-cir'),ndvi:$('cv-ndvi')};
+  const img={true:cvs.true.getContext('2d').createImageData(W,Hh),cir:cvs.cir.getContext('2d').createImageData(W,Hh),ndvi:cvs.ndvi.getContext('2d').createImageData(W,Hh)};
+  const gm=c=>Math.round(255*Math.pow(Math.max(0,Math.min(1,c)),0.7));
+  for(let y=0;y<Hh;y++)for(let x=0;x<W;x++){const r=MAT[sceneMat(x,y,W,Hh)];const[B,Gc,R,NIR]=r;const i=(y*W+x)*4;
+    // couleur vraie (gain ×2.2 pour la luminosité)
+    img.true.data[i]=gm(R*2.4);img.true.data[i+1]=gm(Gc*2.4);img.true.data[i+2]=gm(B*2.4);img.true.data[i+3]=255;
+    // fausses couleurs IR : NIR->R, R->G, V->B
+    img.cir.data[i]=gm(NIR*1.8);img.cir.data[i+1]=gm(R*2.4);img.cir.data[i+2]=gm(Gc*2.4);img.cir.data[i+3]=255;
+    // NDVI
+    const nd=(NIR-R)/(NIR+R+1e-6);const[cr,cg,cb]=ndviCol(nd);img.ndvi.data[i]=cr;img.ndvi.data[i+1]=cg;img.ndvi.data[i+2]=cb;img.ndvi.data[i+3]=255;}
+  ['true','cir','ndvi'].forEach(k=>{const tmp=document.createElement('canvas');tmp.width=W;tmp.height=Hh;tmp.getContext('2d').putImageData(img[k],0,0);
+    const ctx=cvs[k].getContext('2d');ctx.imageSmoothingEnabled=false;ctx.clearRect(0,0,150,150);ctx.drawImage(tmp,0,0,150,150);});
+  const nd=r=>((r[3]-r[2])/(r[3]+r[2])).toFixed(2);
+  $('ms-metrics').innerHTML=met('NDVI '+T('ms.veg'),nd(MAT.veg),'',true)+met('NDVI '+T('ms.soil'),nd(MAT.soil),'')+met('NDVI '+T('ms.water'),nd(MAT.water),'');
+}
+
+// ═══ 5 · BAYER ═══
+function genScene(kind,W,Hh){
+  const cv=document.createElement('canvas');cv.width=W;cv.height=Hh;const c=cv.getContext('2d');
+  if(kind==='patches'){const cols=['#c0392b','#e67e22','#f1c40f','#27ae60','#2980b9','#8e44ad','#ecf0f1','#111'];
+    const nx=4,ny=2,pw=W/nx,phh=(Hh*0.6)/ny;for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){c.fillStyle=cols[j*nx+i];c.fillRect(i*pw,j*phh,pw,phh);}
+    // bords haute fréquence (test du zipper)
+    for(let x=0;x<W;x++){c.fillStyle=(Math.floor(x/2)%2)?'#fff':'#000';c.fillRect(x,Hh*0.6,1,Hh*0.18);}
+    const grd=c.createLinearGradient(0,0,W,0);grd.addColorStop(0,'#f00');grd.addColorStop(.5,'#0f0');grd.addColorStop(1,'#00f');c.fillStyle=grd;c.fillRect(0,Hh*0.78,W,Hh*0.22);
+  } else {
+    const grd=c.createLinearGradient(0,0,W,Hh);grd.addColorStop(0,'#e74c3c');grd.addColorStop(.5,'#f1c40f');grd.addColorStop(1,'#2980b9');c.fillStyle=grd;c.fillRect(0,0,W,Hh);
+    const cc=[['#fff',W*0.3,Hh*0.35,W*0.18],['#111',W*0.7,Hh*0.4,W*0.14],['#27ae60',W*0.5,Hh*0.7,W*0.2]];
+    cc.forEach(o=>{c.fillStyle=o[0];c.beginPath();c.arc(o[1],o[2],o[3],0,7);c.fill();});
+  }
+  return c.getImageData(0,0,W,Hh).data;
+}
+function bayer(){
+  const W=120,Hh=120,zoom=+v('by-zoom');$('by-zoom-b').textContent='×'+zoom;
+  const gt=genScene(v('by-scene'),W,Hh);
+  // matrice de Bayer RGGB : (0,0)=R (1,0)=G (0,1)=G (1,1)=B
+  const chOf=(x,y)=>{const ex=x&1,ey=y&1;if(ex===0&&ey===0)return 0;if(ex===1&&ey===1)return 2;return 1;};
+  const raw=new Float32Array(W*Hh);for(let y=0;y<Hh;y++)for(let x=0;x<W;x++)raw[y*W+x]=gt[(y*W+x)*4+chOf(x,y)];
+  // démosaïquage bilinéaire
+  const out=new Uint8ClampedArray(W*Hh*4);
+  const at=(x,y)=>raw[Math.min(Hh-1,Math.max(0,y))*W+Math.min(W-1,Math.max(0,x))];
+  const avg=(...a)=>a.reduce((s,v)=>s+v,0)/a.length;
+  for(let y=0;y<Hh;y++)for(let x=0;x<W;x++){const ch=chOf(x,y);let R,G,B;
+    const self=raw[y*W+x];
+    if(ch===0){R=self;G=avg(at(x-1,y),at(x+1,y),at(x,y-1),at(x,y+1));B=avg(at(x-1,y-1),at(x+1,y-1),at(x-1,y+1),at(x+1,y+1));}
+    else if(ch===2){B=self;G=avg(at(x-1,y),at(x+1,y),at(x,y-1),at(x,y+1));R=avg(at(x-1,y-1),at(x+1,y-1),at(x-1,y+1),at(x+1,y+1));}
+    else {G=self; if((x&1)===1){R=avg(at(x-1,y),at(x+1,y));B=avg(at(x,y-1),at(x,y+1));} else {B=avg(at(x-1,y),at(x+1,y));R=avg(at(x,y-1),at(x,y+1));}}
+    const i=(y*W+x)*4;out[i]=R;out[i+1]=G;out[i+2]=B;out[i+3]=255;}
+  // image mosaïque visualisée (chaque pixel = sa seule couleur mesurée)
+  const mos=new Uint8ClampedArray(W*Hh*4);for(let y=0;y<Hh;y++)for(let x=0;x<W;x++){const ch=chOf(x,y),i=(y*W+x)*4;mos[i+3]=255;mos[i+ch]=raw[y*W+x];}
+  // PSNR
+  let mse=0;for(let y=0;y<Hh;y++)for(let x=0;x<W;x++){const i=(y*W+x)*4;for(let k=0;k<3;k++){const d=gt[i+k]-out[i+k];mse+=d*d;}}mse/=(W*Hh*3);
+  const psnr=10*Math.log10(255*255/Math.max(mse,1e-6));
+  const draw=(cv,data)=>{const tmp=document.createElement('canvas');tmp.width=W;tmp.height=Hh;tmp.getContext('2d').putImageData(new ImageData(data,W,Hh),0,0);
+    const sw=W/zoom,sh=Hh/zoom,sx=(W-sw)/2,sy=(Hh-sh)/2;const ctx=cv.getContext('2d');ctx.imageSmoothingEnabled=false;ctx.clearRect(0,0,150,150);ctx.drawImage(tmp,sx,sy,sw,sh,0,0,150,150);};
+  draw($('cv-orig'),new Uint8ClampedArray(gt));draw($('cv-mosaic'),mos);draw($('cv-recon'),out);
+  $('by-metrics').innerHTML=met('PSNR',psnr.toFixed(1),'dB',true)+met(T('by.sampled'),'33% R · 33% B','')+met(T('by.green'),'50% V','');
+}
+
+// ═══ onglets ═══
+function showTab(t){['det','spec','col','msi','bay'].forEach(p=>{$('pane-'+p).style.display=p===t?'block':'none';$('tab-'+p).classList.toggle('on',p===t);});
+  if(t==='det')det(); if(t==='spec')spec(); if(t==='col')col(); if(t==='msi')msi(); if(t==='bay')bayer();}
+
+// ═══ i18n ═══
+const I18N={
+ title:{fr:"Capteurs optiques & imagerie spectrale",en:"Optical sensors & spectral imaging"},
+ sub:{fr:"photodétecteur · spectromètre · couleur · multispectral · démosaïquage",en:"photodetector · spectrometer · colour · multispectral · demosaicing"},
+ 't.det':{fr:"1 · Photodétecteur",en:"1 · Photodetector"},'t.spec':{fr:"2 · Spectromètre",en:"2 · Spectrometer"},'t.col':{fr:"3 · Spectre → couleur",en:"3 · Spectrum → colour"},'t.msi':{fr:"4 · Imagerie multispectrale",en:"4 · Multispectral imaging"},'t.bay':{fr:"5 · Reconstruction (Bayer)",en:"5 · Reconstruction (Bayer)"},
+ 'dt.h':{fr:"Le photodétecteur : du photon au courant",en:"The photodetector: from photon to current"},
+ 'dt.lead':{fr:"Un photon d'énergie hc/λ supérieure au gap E_g crée une paire électron-trou → un courant. La <b>sensibilité</b> (responsivité) R(λ) = η·q·λ/(hc) croît avec λ (chaque photon porte moins d'énergie, donc plus de photons par watt), jusqu'à la <b>coupure</b> λ_c = hc/E_g au-delà de laquelle le matériau devient transparent. Le choix du semi-conducteur fixe la bande spectrale.",
+   en:"A photon of energy hc/λ above the gap E_g creates an electron-hole pair → a current. The <b>responsivity</b> R(λ) = η·q·λ/(hc) grows with λ (each photon carries less energy, so more photons per watt), up to the <b>cutoff</b> λ_c = hc/E_g beyond which the material is transparent. The semiconductor choice sets the spectral band."},
+ 'dt.mat':{fr:"Matériau (semi-conducteur)",en:"Material (semiconductor)"},'dt.qe':{fr:"Rendement quantique η (%)",en:"Quantum efficiency η (%)"},'dt.lp':{fr:"Longueur d'onde de travail λ (nm) · puissance P (µW)",en:"Working wavelength λ (nm) · power P (µW)"},
+ 'dt.cut':{fr:"Coupure λ_c",en:"Cutoff λ_c"},'dt.iph':{fr:"Courant photo",en:"Photocurrent"},'dt.eff':{fr:"Rendement",en:"Efficiency"},
+ 'dt.cap':{fr:"Responsivité R(λ) en A/W. La droite idéale ∝ λ (pointillé) est tronquée à la coupure du gap.",en:"Responsivity R(λ) in A/W. The ideal ∝ λ line (dashed) is cut off at the band-gap edge."},
+ 'sp.h':{fr:"Le spectromètre à réseau : reconstruire un spectre",en:"The grating spectrometer: reconstructing a spectrum"},
+ 'sp.lead':{fr:"Un <b>réseau de diffraction</b> renvoie chaque longueur d'onde dans une direction différente : d·sinθ = m·λ. Projetées sur un capteur linéaire (barrette de pixels), les couleurs se séparent → on lit l'intensité en fonction de la position, puis on <b>reconstruit le spectre</b> en convertissant position → λ. La <b>résolution</b> R = m·N (N traits éclairés) lisse les détails plus fins que Δλ = λ/R : c'est elle qui limite la reconstruction.",
+   en:"A <b>diffraction grating</b> sends each wavelength in a different direction: d·sinθ = m·λ. Projected onto a linear sensor (pixel array), colours separate → intensity is read vs position, then the <b>spectrum is reconstructed</b> by converting position → λ. The <b>resolution</b> R = m·N (N illuminated grooves) smooths detail finer than Δλ = λ/R: it limits the reconstruction."},
+ 'sp.g':{fr:"Densité de traits (traits/mm)",en:"Groove density (lines/mm)"},'sp.m':{fr:"Ordre m · largeur de faisceau (mm)",en:"Order m · beam width (mm)"},'sp.src':{fr:"Source",en:"Source"},
+ 'sp.hg':{fr:"Lampe à mercure (raies)",en:"Mercury lamp (lines)"},'sp.duo':{fr:"Doublet rapproché (test de résolution)",en:"Close doublet (resolution test)"},'sp.led':{fr:"LED blanche (continu)",en:"White LED (continuous)"},
+ 'sp.inten':{fr:"intensité",en:"intensity"},'sp.true':{fr:"spectre vrai",en:"true spectrum"},'sp.rec':{fr:"reconstruit",en:"reconstructed"},'sp.disp':{fr:"Dispersion",en:"Dispersion"},
+ 'sp.cap':{fr:"Spectre vrai (fin, gris) vs reconstruit (vert) : la résolution finie élargit les raies. Augmente la densité de traits, l'ordre ou la largeur de faisceau pour affiner.",en:"True spectrum (thin, grey) vs reconstructed (green): finite resolution broadens lines. Increase groove density, order or beam width to sharpen."},
+ 'cl.h':{fr:"Du spectre à la couleur : trois capteurs suffisent",en:"From spectrum to colour: three sensors are enough"},
+ 'cl.lead':{fr:"L'œil (et un capteur RVB) ne mesure pas le spectre complet : il l'échantillonne par <b>trois</b> sensibilités x̄, ȳ, z̄ (fonctions colorimétriques CIE). Tout spectre se réduit à trois nombres X, Y, Z → une couleur. Conséquence : des spectres <b>différents</b> peuvent donner la <b>même</b> couleur (<b>métamérisme</b>) — la couleur est une reconstruction à 3 dimensions, pas le spectre.",
+   en:"The eye (and an RGB sensor) doesn't measure the full spectrum: it samples it with <b>three</b> sensitivities x̄, ȳ, z̄ (CIE colour-matching functions). Any spectrum collapses to three numbers X, Y, Z → a colour. Consequence: <b>different</b> spectra can give the <b>same</b> colour (<b>metamerism</b>) — colour is a 3-D reconstruction, not the spectrum."},
+ 'cl.src':{fr:"Source lumineuse",en:"Light source"},'cl.mono':{fr:"Monochromatique (laser)",en:"Monochromatic (laser)"},'cl.bb':{fr:"Corps noir (température)",en:"Black body (temperature)"},'cl.meta':{fr:"Métamère du jaune (rouge+vert)",en:"Yellow metamer (red+green)"},
+ 'cl.lam':{fr:"Longueur d'onde λ (nm)",en:"Wavelength λ (nm)"},'cl.temp':{fr:"Température (K)",en:"Temperature (K)"},'cl.percu':{fr:"couleur perçue",en:"perceived colour"},
+ 'cl.spec':{fr:"spectre source",en:"source spectrum"},'cl.cap':{fr:"Spectre de la source (blanc) et fonctions colorimétriques x̄, ȳ, z̄ qui l'échantillonnent.",en:"Source spectrum (white) and the colour-matching functions x̄, ȳ, z̄ that sample it."},
+ 'ms.h':{fr:"Imagerie multispectrale : voir au-delà du visible",en:"Multispectral imaging: seeing beyond the visible"},
+ 'ms.lead':{fr:"Une caméra multispectrale image la scène à travers plusieurs <b>bandes</b> (bleu, vert, rouge, proche-infrarouge…). Chaque matériau a une <b>signature spectrale</b> propre : la végétation absorbe le rouge mais réfléchit fortement le NIR. En combinant les bandes on <b>reconstruit</b> une information invisible à l'œil — par ex. le <b>NDVI</b> = (NIR−Rouge)/(NIR+Rouge) cartographie la végétation.",
+   en:"A multispectral camera images the scene through several <b>bands</b> (blue, green, red, near-infrared…). Each material has its own <b>spectral signature</b>: vegetation absorbs red but strongly reflects NIR. Combining bands <b>reconstructs</b> information invisible to the eye — e.g. <b>NDVI</b> = (NIR−Red)/(NIR+Red) maps vegetation."},
+ 'ms.expl':{fr:"Même scène, trois reconstructions :",en:"Same scene, three reconstructions:"},
+ 'ms.l1':{fr:"<b>Couleur vraie</b> (bandes B,V,R) — ce que voit l'œil.",en:"<b>True colour</b> (B,G,R bands) — what the eye sees."},
+ 'ms.l2':{fr:"<b>Fausses couleurs IR</b> (NIR→rouge) — la végétation vive ressort en rouge.",en:"<b>False-colour IR</b> (NIR→red) — healthy vegetation shows red."},
+ 'ms.l3':{fr:"<b>NDVI</b> — indice de végétation (vert = dense, brun = sol, bleu = eau).",en:"<b>NDVI</b> — vegetation index (green = dense, brown = soil, blue = water)."},
+ 'ms.note':{fr:"Signatures (réflectance B/V/R/NIR) : végétation [.04/.08/.04/.50] → NDVI≈0,85 ; sol [.10/.14/.20/.28] → 0,17 ; eau [.06/.05/.03/.01] → −0,5.",en:"Signatures (reflectance B/G/R/NIR): vegetation [.04/.08/.04/.50] → NDVI≈0.85; soil [.10/.14/.20/.28] → 0.17; water [.06/.05/.03/.01] → −0.5."},
+ 'ms.fc1':{fr:"Couleur vraie",en:"True colour"},'ms.fc2':{fr:"Fausses couleurs IR",en:"False-colour IR"},'ms.fc3':{fr:"NDVI",en:"NDVI"},'ms.veg':{fr:"végétation",en:"vegetation"},'ms.soil':{fr:"sol",en:"soil"},'ms.water':{fr:"eau",en:"water"},
+ 'by.h':{fr:"Reconstruire une image couleur : la matrice de Bayer",en:"Reconstructing a colour image: the Bayer filter"},
+ 'by.lead':{fr:"Un capteur d'image est intrinsèquement <b>monochrome</b> (il compte des photons). Pour la couleur, on dépose une mosaïque de filtres — la <b>matrice de Bayer</b> (motif RVVB, deux fois plus de vert, comme l'œil). Chaque pixel ne mesure donc <b>qu'une</b> couleur ; les deux autres sont <b>reconstruites</b> par interpolation à partir des voisins (<b>démosaïquage</b>). C'est la reconstruction d'image la plus universelle.",
+   en:"An image sensor is intrinsically <b>monochrome</b> (it counts photons). For colour, a mosaic of filters is deposited — the <b>Bayer filter</b> (RGGB pattern, twice as much green, like the eye). Each pixel thus measures <b>only one</b> colour; the other two are <b>reconstructed</b> by interpolating from neighbours (<b>demosaicing</b>). It is the most universal image reconstruction."},
+ 'by.scene':{fr:"Scène de test",en:"Test scene"},'by.patches':{fr:"Mire de couleurs + bords",en:"Colour chart + edges"},'by.grad':{fr:"Dégradés & cercles",en:"Gradients & circles"},'by.zoom':{fr:"Zoom (×)",en:"Zoom (×)"},
+ 'by.orig':{fr:"Scène d'origine",en:"Original scene"},'by.mosaic':{fr:"Brut Bayer (1 canal/pixel)",en:"Raw Bayer (1 channel/pixel)"},'by.recon':{fr:"Reconstruite (démosaïquée)",en:"Reconstructed (demosaiced)"},
+ 'by.sampled':{fr:"Échantillonné",en:"Sampled"},'by.green':{fr:"Vert (luminance)",en:"Green (luminance)"},
+ 'by.note':{fr:"Aux contours fins, l'interpolation produit des artefacts : « fermeture éclair » (zipper) et fausses couleurs — d'où les algorithmes de démosaïquage avancés des appareils réels.",en:"At fine edges, interpolation produces artefacts: 'zipper' and false colours — hence the advanced demosaicing algorithms in real cameras."}
+};
+let LANG='fr';
+function T(k){return I18N[k]?I18N[k][LANG]:'';}
+function setLang(l){LANG=l;$('lf').classList.toggle('on',l==='fr');$('le').classList.toggle('on',l==='en');
+  document.querySelectorAll('[data-i18n]').forEach(e=>{const k=e.getAttribute('data-i18n');if(I18N[k])e.innerHTML=I18N[k][l];});
+  document.documentElement.lang=l;const cur=['det','spec','col','msi','bay'].find(p=>$('pane-'+p).style.display!=='none');showTab(cur||'det');}
+
+showTab('det');
+</script>
+</body>
+</html>
