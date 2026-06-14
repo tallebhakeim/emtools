@@ -193,6 +193,16 @@ footer a{color:var(--text2)}
       </div>
     </a>
 
+    <a class="card live" href="puissance.html">
+      <div class="ico">📶</div>
+      <h3 data-i18n="pui.title">Puissances — mW, dBm, dB</h3>
+      <p data-i18n="pui.desc">Comprendre les puissances RF : convertisseur mW ⇄ dBm ⇄ W ⇄ dBW, le sens du dB (+3 dB = ×2…), une échelle des sources réelles pour répondre à « 1 mW, c'est beaucoup ? », et un bilan de liaison (Friis) avec marge vs sensibilité.</p>
+      <div class="tags">
+        <span class="badge ok" data-i18n="pui.badge">dBm · échelle · Friis</span>
+        <span class="badge free" data-i18n="badge.free">accès libre</span>
+      </div>
+    </a>
+
     <div class="card soon">
       <div>
         <div class="ico" style="opacity:.5">＋</div>
@@ -269,6 +279,10 @@ const I18N={
   'lig.desc':{fr:"Lignes de transmission : réflexion, TOS/VSWR, impédance d'entrée. Calcul d'impédance caractéristique (microstrip Hammerstad, coaxial, stripline) avec synthèse 50 Ω. Guide d'onde rectangulaire (modes, coupures, λg). Fibre optique (ouverture numérique, nombre V, monomode/multimode).",
               en:"Transmission lines: reflection, VSWR, input impedance. Characteristic-impedance calculator (Hammerstad microstrip, coax, stripline) with 50 Ω synthesis. Rectangular waveguide (modes, cutoffs, λg). Optical fiber (numerical aperture, V number, single/multimode)."},
   'lig.badge':{fr:"TOS · microstrip · guide · fibre", en:"VSWR · microstrip · waveguide · fiber"},
+  'pui.title':{fr:"Puissances — mW, dBm, dB", en:"Power — mW, dBm, dB"},
+  'pui.desc':{fr:"Comprendre les puissances RF : convertisseur mW ⇄ dBm ⇄ W ⇄ dBW, le sens du dB (+3 dB = ×2…), une échelle des sources réelles pour répondre à « 1 mW, c'est beaucoup ? », et un bilan de liaison (Friis) avec marge vs sensibilité.",
+              en:"Understand RF power: mW ⇄ dBm ⇄ W ⇄ dBW converter, the meaning of dB (+3 dB = ×2…), a scale of real sources answering \"is 1 mW a lot?\", and a link budget (Friis) with margin vs sensitivity."},
+  'pui.badge':{fr:"dBm · échelle · Friis", en:"dBm · scale · Friis"},
   'ant.title':{fr:"Antennes", en:"Antennas"},
   'ant.desc':{fr:"Outils sur les antennes : antennes filaires (méthode des moments — dipôle, Yagi, environnements de fils, champ proche) et réseaux d'antennes (dépointage du faisceau). Cornet et patch à venir.",
               en:"Antenna tools: wire antennas (Method of Moments — dipole, Yagi, wire environments, near field) and antenna arrays (beam steering). Horn and patch coming soon."},

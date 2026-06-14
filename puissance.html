@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Puissances — mW, dBm, dB — EMtools</title>
+<style>
+:root{--bg:#0f1419;--panel:#1a2129;--panel2:#222b35;--ink:#e6edf3;--mut:#8b97a3;--acc:#4db6a4;--acc2:#e0884b;--line:#2d3742;--bad:#e05a5a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+header{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+header h1{font-size:19px;margin:0;font-weight:650}header .sub{color:var(--mut);font-size:13px}
+.lang{margin-left:auto;display:flex;gap:6px}
+.lang button{background:var(--panel2);color:var(--mut);border:1px solid var(--line);border-radius:7px;padding:5px 11px;cursor:pointer;font-size:13px}
+.lang button.on{background:var(--acc);color:#06231d;border-color:var(--acc);font-weight:650}
+.wrap{max-width:1000px;margin:0 auto;padding:20px 22px 90px}
+a.back{color:var(--acc);text-decoration:none;font-size:13px}
+.tabs{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap}
+.tabs button{background:var(--panel2);color:var(--mut);border:1px solid var(--line);border-radius:9px;padding:8px 14px;cursor:pointer;font-size:13.5px}
+.tabs button.on{background:var(--acc);color:#06231d;border-color:var(--acc);font-weight:650}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:18px}
+.card h2{font-size:16px;margin:0 0 6px}.card h3{font-size:13px;margin:18px 0 8px;text-transform:uppercase;letter-spacing:.05em;color:var(--acc)}
+.lead{color:var(--mut);font-size:14px;margin:0 0 14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+@media(max-width:760px){.grid2{grid-template-columns:1fr}}
+label{display:block;font-size:12.5px;color:var(--mut);margin:10px 0 4px}
+input[type=number],select{width:100%;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px}
+.row{display:flex;gap:10px}.row>*{flex:1}
+canvas{max-width:100%;background:#0b0f14;border-radius:8px;display:block}
+.cap{font-size:12px;color:var(--mut);text-align:center;margin-top:6px}
+.eq{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:8px;padding:10px 13px;margin:12px 0;font-size:14px}
+.metrics{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.metric{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 13px;min-width:120px}
+.metric .k{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+.metric .v{font-size:19px;font-weight:680;margin-top:2px}.metric .v small{font-size:11.5px;color:var(--mut);font-weight:400}
+.metric.good{border-color:var(--acc)}.metric.bad{border-color:var(--bad)}
+table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}th:first-child,td:first-child{text-align:left}th{color:var(--mut);font-weight:500}
+.note{font-size:13px;color:var(--mut);margin-top:12px}
+.box{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:12px 14px;margin-top:12px;font-size:13.5px}
+b.hl{color:var(--acc2)}
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="index.html">← EMtools</a>
+  <h1 data-i18n="title">Puissances — mW, dBm, dB</h1>
+  <span class="sub" data-i18n="sub">comprendre les ordres de grandeur</span>
+  <div class="lang"><button id="lf" class="on" onclick="setLang('fr')">FR</button><button id="le" onclick="setLang('en')">EN</button></div>
+</header>
+<div class="wrap">
+  <div class="tabs">
+    <button id="tab-conv" class="on" onclick="showTab('conv')" data-i18n="t.conv">1 · Convertisseur & dB</button>
+    <button id="tab-scale" onclick="showTab('scale')" data-i18n="t.scale">2 · Échelle des puissances</button>
+    <button id="tab-link" onclick="showTab('link')" data-i18n="t.link">3 · Bilan de liaison</button>
+  </div>
+
+  <!-- ════ 1 · CONVERTISSEUR ════ -->
+  <div id="pane-conv">
+    <div class="card">
+      <h2 data-i18n="cv.h">Convertir une puissance, et comprendre le dB</h2>
+      <p class="lead" data-i18n="cv.lead">Le <b>dBm</b> est une puissance exprimée en décibels par rapport à <b>1 mW</b> : 0 dBm = 1 mW. C'est commode car les puissances RF couvrent d'énormes plages (du femtowatt reçu au kilowatt émis) et les gains/pertes <b>s'additionnent</b> en dB au lieu de se multiplier.</p>
+      <div class="eq">P(dBm) = 10·log₁₀(P / 1 mW) &nbsp;·&nbsp; P(mW) = 10<sup>P(dBm)/10</sup> &nbsp;·&nbsp; dBW = dBm − 30</div>
+      <div class="grid2">
+        <div>
+          <label data-i18n="cv.val">Valeur</label>
+          <div class="row"><input type="number" id="pv" value="0" step="1" oninput="conv()">
+            <select id="pu" onchange="conv()"><option value="dBm" selected>dBm</option><option value="mW">mW</option><option value="W">W</option><option value="dBW">dBW</option><option value="uW">µW</option></select></div>
+          <div class="metrics" id="cv-metrics"></div>
+        </div>
+        <div>
+          <h3 data-i18n="cv.ratios">Le dB en pratique (rapports de puissance)</h3>
+          <table id="cv-table"></table>
+          <p class="note" data-i18n="cv.rnote">Repères à mémoriser : <b>+3 dB = ×2</b>, <b>+10 dB = ×10</b>, <b>−3 dB = ÷2</b>. Donc +20 dB = ×100, +30 dB = ×1000.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ 2 · ÉCHELLE ════ -->
+  <div id="pane-scale" style="display:none">
+    <div class="card">
+      <h2 data-i18n="sc.h">1 mW, c'est beaucoup ?</h2>
+      <p class="lead" data-i18n="sc.lead">Ça dépend de l'usage ! Pour <b>communiquer</b>, 1 mW (0 dBm) est colossal : un récepteur sensible « entend » jusqu'à −100 dBm, soit 0,000 000 000 1 mW — il y a <b>10 milliards</b> de fois plus de signal à 1 mW. Pour <b>chauffer</b>, en revanche, 1 mW est négligeable (un four, c'est 1 000 000 mW). Le curseur déplace ton point sur l'échelle.</p>
+      <div class="row" style="max-width:420px">
+        <div><label data-i18n="cv.val">Ta puissance (dBm)</label><input type="number" id="sc-dbm" value="0" step="1" oninput="scale()"></div>
+      </div>
+      <canvas id="cv-scale" width="900" height="430" style="margin-top:14px"></canvas>
+      <div class="cap" data-i18n="sc.cap">Échelle logarithmique des puissances — ton point (●) parmi des sources réelles</div>
+    </div>
+  </div>
+
+  <!-- ════ 3 · BILAN DE LIAISON ════ -->
+  <div id="pane-link" style="display:none">
+    <div class="card">
+      <h2 data-i18n="lk.h">Bilan de liaison (formule de Friis)</h2>
+      <p class="lead" data-i18n="lk.lead">Pourquoi reçoit-on −90 dBm alors qu'on émet +20 dBm ? L'onde s'<b>étale</b> en s'éloignant : la perte en espace libre croît comme la distance² et la fréquence². Le bilan additionne tout en dB : la liaison « passe » tant que la puissance reçue dépasse la <b>sensibilité</b> du récepteur.</p>
+      <div class="eq">P_r = P_t + G_t + G_r − FSPL &nbsp;·&nbsp; FSPL(dB) = 20·log₁₀(4π·d·f / c)</div>
+      <div class="grid2">
+        <div>
+          <label data-i18n="lk.pt">Puissance émise P_t (dBm)</label><input type="number" id="lk-pt" value="20" step="1" oninput="link()">
+          <label data-i18n="lk.gt">Gain antenne émission G_t (dBi)</label><input type="number" id="lk-gt" value="2" step="1" oninput="link()">
+          <label data-i18n="lk.gr">Gain antenne réception G_r (dBi)</label><input type="number" id="lk-gr" value="2" step="1" oninput="link()">
+          <label data-i18n="lk.f">Fréquence (GHz)</label><input type="number" id="lk-f" value="2.45" step="0.1" oninput="link()">
+          <label data-i18n="lk.d">Distance</label>
+          <div class="row"><input type="number" id="lk-d" value="100" step="10" oninput="link()"><select id="lk-du" onchange="link()"><option value="1">m</option><option value="1000">km</option></select></div>
+          <label data-i18n="lk.sens">Sensibilité récepteur (dBm)</label><input type="number" id="lk-sens" value="-90" step="5" oninput="link()">
+        </div>
+        <div>
+          <div class="metrics" id="lk-metrics"></div>
+          <div id="lk-verdict"></div>
+          <p class="note" data-i18n="lk.note">Doubler la distance = +6 dB de perte (×4 en puissance) ; doubler la fréquence = +6 dB aussi. C'est pourquoi les liaisons longue distance utilisent de grandes antennes (gain) et des fréquences basses.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const C0=3e8;
+function met(k,v,u,cls){return `<div class="metric ${cls||''}"><div class="k">${k}</div><div class="v">${v} <small>${u||''}</small></div></div>`;}
+function fmtW(W){ if(W>=1e6)return (W/1e6).toFixed(2)+" MW"; if(W>=1e3)return (W/1e3).toFixed(2)+" kW"; if(W>=1)return W.toFixed(2)+" W"; if(W>=1e-3)return (W*1e3).toFixed(2)+" mW"; if(W>=1e-6)return (W*1e6).toFixed(2)+" µW"; if(W>=1e-9)return (W*1e9).toFixed(2)+" nW"; if(W>=1e-12)return (W*1e12).toFixed(2)+" pW"; return (W*1e15).toFixed(1)+" fW"; }
+
+// ════ 1 · CONVERTISSEUR ════
+function toDBm(){const v=parseFloat(document.getElementById('pv').value)||0, u=document.getElementById('pu').value;
+  if(u==='dBm')return v; if(u==='dBW')return v+30; if(u==='mW')return 10*Math.log10(Math.max(1e-300,v));
+  if(u==='uW')return 10*Math.log10(Math.max(1e-300,v/1000)); return 10*Math.log10(Math.max(1e-300,v*1000)); /*W*/}
+function conv(){
+  const dbm=toDBm(), mW=Math.pow(10,dbm/10), W=mW/1e3;
+  document.getElementById('cv-metrics').innerHTML=
+    met("dBm",dbm.toFixed(2),"")+met("dBW",(dbm-30).toFixed(2),"")+met("mW",mW>=0.01?mW.toFixed(3):mW.toExponential(2),"")+met(T('cv.lin'),fmtW(W),"");
+  let html='<tr><th>dB</th><th>'+T('cv.pratio')+'</th><th>'+T('cv.vratio')+'</th></tr>';
+  for(const db of [-10,-3,0,3,6,10,20,30,60]){const pr=Math.pow(10,db/10);
+    html+=`<tr><td>${db>0?'+':''}${db}</td><td>×${pr>=1?(pr>=100?pr.toFixed(0):pr.toFixed(pr<10?2:1)):pr.toFixed(2)}</td><td>×${Math.sqrt(pr).toFixed(2)}</td></tr>`;}
+  document.getElementById('cv-table').innerHTML=html;
+  // sync échelle
+  const sc=document.getElementById('sc-dbm'); if(sc)sc.value=dbm.toFixed(0);
+}
+
+// ════ 2 · ÉCHELLE ════
+const REF=[ [90,"ref.tv"],[60,"ref.oven"],[47,"ref.bts"],[33,"ref.gsm"],[30,"ref.phone"],[20,"ref.wifi"],[10,"ref.bt"],[0,"ref.1mw"],
+  [-30,"ref.uw"],[-90,"ref.cell"],[-100,"ref.wifirx"],[-127,"ref.gps"],[-150,"ref.noise"] ];
+function scale(){
+  const dbm=parseFloat(document.getElementById('sc-dbm').value)||0;
+  const cv=document.getElementById('cv-scale'),x=cv.getContext('2d');x.clearRect(0,0,cv.width,cv.height);
+  const W=cv.width,H=cv.height,mT=18,mB=18,ph=H-mT-mB, x0=150, top=100, bot=-170;
+  const Y=db=>mT+ph*(top-db)/(top-bot);
+  // barre dégradée
+  const grad=x.createLinearGradient(0,mT,0,mT+ph); grad.addColorStop(0,"#e05a5a");grad.addColorStop(0.4,"#e0884b");grad.addColorStop(0.7,"#4db6a4");grad.addColorStop(1,"#2b4a66");
+  x.fillStyle=grad; x.fillRect(x0-12,mT,24,ph);
+  x.strokeStyle="#3a4754";x.strokeRect(x0-12,mT,24,ph);
+  // graduations
+  x.fillStyle="#8b97a3";x.font="11px sans-serif";x.textAlign="right";
+  for(let db=top;db>=bot;db-=20){x.fillText(db+" dBm",x0-20,Y(db)+4);x.strokeStyle="#1c242d";x.beginPath();x.moveTo(x0-12,Y(db));x.lineTo(x0+12,Y(db));x.stroke();}
+  // marqueurs réels
+  x.textAlign="left";x.font="12px sans-serif";
+  for(const r of REF){const yy=Y(r[0]); x.fillStyle="#6b7682";x.beginPath();x.arc(x0+12,yy,3,0,2*Math.PI);x.fill();
+    x.strokeStyle="#2d3742";x.beginPath();x.moveTo(x0+15,yy);x.lineTo(x0+46,yy);x.stroke();
+    x.fillStyle="#c7d0d8";x.fillText(T(r[1]),x0+50,yy+4);}
+  // ton point
+  const yy=Y(Math.max(bot,Math.min(top,dbm)));
+  x.fillStyle="#4db6a4";x.beginPath();x.arc(x0,yy,7,0,2*Math.PI);x.fill();x.strokeStyle="#0b0f14";x.lineWidth=2;x.stroke();
+  x.fillStyle="#4db6a4";x.font="bold 13px sans-serif";x.textAlign="right";x.fillText("◀ "+dbm.toFixed(0)+" dBm = "+fmtW(Math.pow(10,dbm/10)/1e3),x0-44,yy-10>mT?yy+4:yy+18);
+}
+
+// ════ 3 · BILAN DE LIAISON ════
+function link(){
+  const Pt=parseFloat(document.getElementById('lk-pt').value)||0, Gt=parseFloat(document.getElementById('lk-gt').value)||0, Gr=parseFloat(document.getElementById('lk-gr').value)||0;
+  const f=parseFloat(document.getElementById('lk-f').value)*1e9, d=parseFloat(document.getElementById('lk-d').value)*parseFloat(document.getElementById('lk-du').value), sens=parseFloat(document.getElementById('lk-sens').value)||-90;
+  const fspl=20*Math.log10(4*Math.PI*d*f/C0), Pr=Pt+Gt+Gr-fspl, margin=Pr-sens;
+  document.getElementById('lk-metrics').innerHTML=
+    met("FSPL",fspl.toFixed(1),"dB")+met(T('lk.pr'),Pr.toFixed(1),"dBm")+met(T('lk.prw'),fmtW(Math.pow(10,Pr/10)/1e3),"")+met(T('lk.margin'),(margin>=0?'+':'')+margin.toFixed(1),"dB",margin>=0?'good':'bad');
+  let cls,msg; if(margin>=10){cls='good';msg='✓ '+T('lk.ok');} else if(margin>=0){cls='good';msg='≈ '+T('lk.weak');} else {cls='bad';msg='✗ '+T('lk.fail');}
+  document.getElementById('lk-verdict').innerHTML='<div class="metric '+cls+'" style="margin-top:10px"><div class="v" style="font-size:14px">'+msg+'</div></div>';
+}
+
+// ════ ONGLETS ════
+function showTab(t){['conv','scale','link'].forEach(p=>{document.getElementById('pane-'+p).style.display=p===t?'block':'none';document.getElementById('tab-'+p).classList.toggle('on',p===t);});
+  if(t==='conv')conv(); if(t==='scale')scale(); if(t==='link')link();}
+
+// ════ I18N ════
+const I18N={
+ title:{fr:"Puissances — mW, dBm, dB",en:"Power — mW, dBm, dB"},
+ sub:{fr:"comprendre les ordres de grandeur",en:"understanding the orders of magnitude"},
+ 't.conv':{fr:"1 · Convertisseur & dB",en:"1 · Converter & dB"},'t.scale':{fr:"2 · Échelle des puissances",en:"2 · Power scale"},'t.link':{fr:"3 · Bilan de liaison",en:"3 · Link budget"},
+ 'cv.h':{fr:"Convertir une puissance, et comprendre le dB",en:"Convert a power, and understand the dB"},
+ 'cv.lead':{fr:"Le <b>dBm</b> est une puissance en décibels par rapport à <b>1 mW</b> : 0 dBm = 1 mW. C'est commode car les puissances RF couvrent d'énormes plages (du femtowatt reçu au kilowatt émis) et les gains/pertes <b>s'additionnent</b> en dB au lieu de se multiplier.",en:"The <b>dBm</b> is a power in decibels relative to <b>1 mW</b>: 0 dBm = 1 mW. Handy because RF powers span huge ranges (from received femtowatts to transmitted kilowatts) and gains/losses <b>add up</b> in dB instead of multiplying."},
+ 'cv.val':{fr:"Valeur",en:"Value"},'cv.lin':{fr:"linéaire",en:"linear"},'cv.ratios':{fr:"Le dB en pratique (rapports de puissance)",en:"dB in practice (power ratios)"},'cv.pratio':{fr:"× puissance",en:"× power"},'cv.vratio':{fr:"× tension",en:"× voltage"},
+ 'cv.rnote':{fr:"Repères à mémoriser : <b>+3 dB = ×2</b>, <b>+10 dB = ×10</b>, <b>−3 dB = ÷2</b>. Donc +20 dB = ×100, +30 dB = ×1000.",en:"Rules to memorise: <b>+3 dB = ×2</b>, <b>+10 dB = ×10</b>, <b>−3 dB = ÷2</b>. So +20 dB = ×100, +30 dB = ×1000."},
+ 'sc.h':{fr:"1 mW, c'est beaucoup ?",en:"1 mW — is that a lot?"},
+ 'sc.lead':{fr:"Ça dépend de l'usage ! Pour <b>communiquer</b>, 1 mW (0 dBm) est colossal : un récepteur sensible « entend » jusqu'à −100 dBm, soit 0,000 000 000 1 mW — il y a <b>10 milliards</b> de fois plus de signal à 1 mW. Pour <b>chauffer</b>, 1 mW est négligeable (un four, c'est 1 000 000 mW). Le curseur place ton point sur l'échelle.",en:"It depends on the use! For <b>communication</b>, 1 mW (0 dBm) is huge: a sensitive receiver \"hears\" down to −100 dBm, i.e. 0.000 000 000 1 mW — there is <b>10 billion</b> times more signal at 1 mW. For <b>heating</b>, 1 mW is negligible (an oven is 1 000 000 mW). The slider places your point on the scale."},
+ 'sc.cap':{fr:"Échelle logarithmique des puissances — ton point (●) parmi des sources réelles",en:"Logarithmic power scale — your point (●) among real sources"},
+ 'ref.tv':{fr:"1 MW — émetteur TV / radar de veille",en:"1 MW — TV transmitter / surveillance radar"},'ref.oven':{fr:"1 kW — four micro-ondes",en:"1 kW — microwave oven"},'ref.bts':{fr:"50 W — station de base",en:"50 W — base station"},'ref.gsm':{fr:"2 W — téléphone GSM (max)",en:"2 W — GSM phone (max)"},'ref.phone':{fr:"1 W — talkie-walkie",en:"1 W — walkie-talkie"},'ref.wifi':{fr:"100 mW — Wi-Fi / Zigbee",en:"100 mW — Wi-Fi / Zigbee"},'ref.bt':{fr:"10 mW — Bluetooth",en:"10 mW — Bluetooth"},'ref.1mw':{fr:"1 mW — pointeur laser / BLE",en:"1 mW — laser pointer / BLE"},'ref.uw':{fr:"1 µW — RFID lointain",en:"1 µW — far RFID"},'ref.cell':{fr:"−90 dBm — téléphone reçu (cellule)",en:"−90 dBm — phone received (cell)"},'ref.wifirx':{fr:"−100 dBm — seuil Wi-Fi",en:"−100 dBm — Wi-Fi threshold"},'ref.gps':{fr:"−127 dBm — signal GPS au sol",en:"−127 dBm — GPS signal at ground"},'ref.noise':{fr:"−150 dBm — bruit / signaux faibles",en:"−150 dBm — noise / weak signals"},
+ 'lk.h':{fr:"Bilan de liaison (formule de Friis)",en:"Link budget (Friis formula)"},
+ 'lk.lead':{fr:"Pourquoi reçoit-on −90 dBm alors qu'on émet +20 dBm ? L'onde s'<b>étale</b> en s'éloignant : la perte en espace libre croît comme la distance² et la fréquence². Le bilan additionne tout en dB : la liaison « passe » tant que la puissance reçue dépasse la <b>sensibilité</b> du récepteur.",en:"Why receive −90 dBm when transmitting +20 dBm? The wave <b>spreads out</b> with distance: free-space loss grows as distance² and frequency². The budget adds everything in dB: the link \"closes\" while received power exceeds the receiver <b>sensitivity</b>."},
+ 'lk.pt':{fr:"Puissance émise P_t (dBm)",en:"Transmit power P_t (dBm)"},'lk.gt':{fr:"Gain antenne émission G_t (dBi)",en:"TX antenna gain G_t (dBi)"},'lk.gr':{fr:"Gain antenne réception G_r (dBi)",en:"RX antenna gain G_r (dBi)"},'lk.f':{fr:"Fréquence (GHz)",en:"Frequency (GHz)"},'lk.d':{fr:"Distance",en:"Distance"},'lk.sens':{fr:"Sensibilité récepteur (dBm)",en:"Receiver sensitivity (dBm)"},
+ 'lk.pr':{fr:"P reçue",en:"Rx power"},'lk.prw':{fr:"P reçue",en:"Rx power"},'lk.margin':{fr:"Marge",en:"Margin"},
+ 'lk.ok':{fr:"Liaison confortable",en:"Comfortable link"},'lk.weak':{fr:"Liaison limite",en:"Marginal link"},'lk.fail':{fr:"Liaison rompue (sous le seuil)",en:"Link broken (below threshold)"},
+ 'lk.note':{fr:"Doubler la distance = +6 dB de perte (×4 en puissance) ; doubler la fréquence = +6 dB aussi. C'est pourquoi les liaisons longue distance utilisent de grandes antennes (gain) et des fréquences basses.",en:"Doubling the distance = +6 dB loss (×4 in power); doubling the frequency = +6 dB too. That's why long-distance links use large antennas (gain) and low frequencies."}
+};
+let LANG='fr';
+function T(k){return I18N[k]?I18N[k][LANG]:'';}
+function setLang(l){LANG=l;document.getElementById('lf').classList.toggle('on',l==='fr');document.getElementById('le').classList.toggle('on',l==='en');
+  document.querySelectorAll('[data-i18n]').forEach(e=>{const k=e.getAttribute('data-i18n');if(I18N[k])e.innerHTML=I18N[k][l];});
+  document.documentElement.lang=l;const cur=['conv','scale','link'].find(p=>document.getElementById('pane-'+p).style.display!=='none');showTab(cur||'conv');}
+
+showTab('conv');
+</script>
+</body>
+</html>
