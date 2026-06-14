@@ -397,18 +397,24 @@ function loadInterfile(ev){
   const rh=new FileReader();
   rh.onload=()=>{
     const hdr=rh.result; const get=re=>{const m=hdr.match(re);return m?m[1].trim():null;};
-    const nx=+get(/matrix size\s*\[1\]\s*:=\s*(\d+)/i), ny=+get(/matrix size\s*\[2\]\s*:=\s*(\d+)/i), nz=+get(/matrix size\s*\[3\]\s*:=\s*(\d+)/i);
-    if(!nx||!ny||!nz){alert("Entête Interfile illisible (matrix size manquant).");info.textContent="";return;}
-    const dx=parseFloat(get(/scaling factor.*\[1\]\s*:=\s*([\d.]+)/i))||1, dy=parseFloat(get(/scaling factor.*\[2\]\s*:=\s*([\d.]+)/i))||1, dz=parseFloat(get(/scaling factor.*\[3\]\s*:=\s*([\d.]+)/i))||1;
+    const pf=v=>{if(!v)return null; const n=parseFloat(v); return isFinite(n)&&n>0?n:null;}; // tolère "+1.000000+00"
+    const nx=+get(/matrix size\s*\[1\]\s*:=\s*(\d+)/i), ny=+get(/matrix size\s*\[2\]\s*:=\s*(\d+)/i);
+    // 3e dimension : soit "matrix size [3]", soit "number of slices"
+    const nz=+(get(/matrix size\s*\[3\]\s*:=\s*(\d+)/i)||get(/number of slices\s*:=\s*(\d+)/i));
+    if(!nx||!ny||!nz){alert("Entête Interfile illisible (dimensions manquantes).");info.textContent="";return;}
+    const dx=pf(get(/scaling factor[^\[\n]*\[1\][^:\n]*:=\s*([+\-\d.eE]+)/i))||1, dy=pf(get(/scaling factor[^\[\n]*\[2\][^:\n]*:=\s*([+\-\d.eE]+)/i))||1;
+    const dz=pf(get(/scaling factor[^\[\n]*\[3\][^:\n]*:=\s*([+\-\d.eE]+)/i))||pf(get(/slice thickness[^:\n]*:=\s*([+\-\d.eE]+)/i))||1;
     const bpp=+(get(/bytes per pixel\s*:=\s*(\d+)/i)||2);
+    const off=+(get(/data offset in bytes\s*:=\s*(\d+)/i)||0);
     const big=/BIGENDIAN/i.test(get(/byte order\s*:=\s*(\w+)/i)||"");
-    if((nx*ny*nz*bpp)>5e8){ if(!confirm("Volume très lourd ("+Math.round(nx*ny*nz*bpp/1e6)+" Mo). Charger quand même ? (privilégie « tête seule »)")){info.textContent="";return;} }
+    if((nx*ny*nz*bpp)>3e8){ if(!confirm("Volume lourd ("+Math.round(nx*ny*nz*bpp/1e6)+" Mo) — le navigateur peut ralentir. Charger quand même ?")){info.textContent="";return;} }
+    info.textContent="Chargement "+fi.name+" ("+Math.round(nx*ny*nz*bpp/1e6)+" Mo)…";
     const ri=new FileReader();
     ri.onload=()=>{
-      const buf=ri.result; let data;
-      if(bpp===2){ if(big){const dv=new DataView(buf);data=new Uint16Array(nx*ny*nz);for(let p=0;p<data.length;p++)data[p]=dv.getUint16(p*2,false);}
-        else data=new Uint16Array(buf,0,Math.min(nx*ny*nz,Math.floor(buf.byteLength/2))); }
-      else data=new Uint8Array(buf,0,nx*ny*nz);
+      const buf=ri.result; let data; const cnt=nx*ny*nz;
+      if(bpp===2){ if(big){const dv=new DataView(buf,off);data=new Uint16Array(cnt);for(let p=0;p<cnt;p++)data[p]=dv.getUint16(p*2,false);}
+        else data=new Uint16Array(buf,off,Math.min(cnt,Math.floor((buf.byteLength-off)/2))); }
+      else data=new Uint8Array(buf,off,Math.min(cnt,buf.byteLength-off));
       VOL={nx,ny,nz,dx,dy,dz,labels:XCAT_MAP,data};
       document.getElementById('slice-row').style.display='flex';
       const ax=+document.getElementById('slice-axis').value, dim=[nx,ny,nz][ax];
