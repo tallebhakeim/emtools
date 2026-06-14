@@ -100,6 +100,7 @@ details.help code{background:var(--bg);padding:1px 4px;border-radius:4px;font-si
         <button class="tool" data-tool="GND" onclick="setTool('GND')" data-i18n="tool.gnd">Masse</button>
         <button class="tool" data-tool="del" onclick="setTool('del')" data-i18n="tool.del">Supprimer</button>
         <span style="flex:1"></span>
+        <button class="tool on" id="ar-toggle" onclick="toggleAuto()" data-i18n="tool.auto" title="Routage orthogonal automatique (A*) entre deux broches">↳ Auto-routage</button>
         <button class="tool" onclick="rotateSel()" data-i18n="tool.rot">⟳ Rotation</button>
         <button class="tool" onclick="clearSch()" data-i18n="tool.clear">Tout effacer</button>
       </div>
@@ -501,10 +502,46 @@ function buildMetrics(){
 
 // ═══════════════ Éditeur de schéma (génère la netlist → moteur MNA) ═══════════════
 const GS=30, MG=22;                       // pas de grille / marge (px CSS)
-let INPUT='sch', TOOL='sel', ORIENT='h', SEL=null, SCH={comps:[],wires:[]}, CNT={R:0,L:0,C:0,V:0,I:0,G:0,D:0}, wireStart=null, drag=null, PROBES=new Set();
+let INPUT='sch', TOOL='sel', ORIENT='h', SEL=null, SCH={comps:[],wires:[]}, CNT={R:0,L:0,C:0,V:0,I:0,G:0,D:0,Q:0,M:0,O:0,T:0}, wireStart=null, drag=null, PROBES=new Set(), AUTOROUTE=true;
 const px=g=>MG+g*GS;
 const gridOf=(mx,my)=>[Math.max(0,Math.round((mx-MG)/GS)),Math.max(0,Math.round((my-MG)/GS))];
 function termsOf(c){return c.type==='GND'?[[c.x,c.y]]:c.dir==='h'?[[c.x,c.y],[c.x+2,c.y]]:[[c.x,c.y],[c.x,c.y+2]];}
+
+// ── routage orthogonal A* (Manhattan, contourne les composants) ──
+function toggleAuto(){AUTOROUTE=!AUTOROUTE;$('ar-toggle').classList.toggle('on',AUTOROUTE);}
+function compCells(c){const out=[];const T=termsOf(c);const xs=T.map(p=>p[0]),ys=T.map(p=>p[1]);
+  const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+  for(let gx=x0;gx<=x1;gx++)for(let gy=y0;gy<=y1;gy++)out.push([gx,gy]); return out;}
+function gridBounds(){const cv=$('sch');const w=cv.clientWidth||900,h=parseFloat(cv.style.height)||430;return [Math.max(4,Math.floor((w-MG)/GS)),Math.max(4,Math.floor((h-MG)/GS))];}
+function routeWire(s,g){
+  const [GX,GY]=gridBounds();
+  const occ=new Set(); SCH.comps.forEach(c=>compCells(c).forEach(p=>occ.add(p[0]+'_'+p[1])));
+  occ.delete(s[0]+'_'+s[1]); occ.delete(g[0]+'_'+g[1]);
+  const H=(x,y)=>Math.abs(x-g[0])+Math.abs(y-g[1]);
+  const DIRS=[[1,0],[-1,0],[0,1],[0,-1]];
+  const open=[{x:s[0],y:s[1],d:-1,g:0,f:H(s[0],s[1]),p:null}], seen={};
+  let best=null,iter=0;
+  while(open.length&&iter++<30000){
+    let bi=0;for(let i=1;i<open.length;i++)if(open[i].f<open[bi].f)bi=i;
+    const cur=open.splice(bi,1)[0];
+    if(cur.x===g[0]&&cur.y===g[1]){best=cur;break;}
+    const sk=cur.x+'_'+cur.y+'_'+cur.d; if(seen[sk]!==undefined&&seen[sk]<=cur.g)continue; seen[sk]=cur.g;
+    for(let di=0;di<4;di++){const nx=cur.x+DIRS[di][0],ny=cur.y+DIRS[di][1];
+      if(nx<0||ny<0||nx>GX||ny>GY||occ.has(nx+'_'+ny))continue;
+      const turn=(cur.d>=0&&cur.d!==di)?0.7:0, ng=cur.g+1+turn;
+      open.push({x:nx,y:ny,d:di,g:ng,f:ng+H(nx,ny),p:cur});}
+  }
+  if(!best)return null;
+  const pts=[];let n=best;while(n){pts.unshift([n.x,n.y]);n=n.p;}return pts;
+}
+function pathToWires(pts){
+  if(!pts||pts.length<2){return;} let a=pts[0];
+  for(let i=1;i<pts.length;i++){
+    if(i<pts.length-1){const d1x=Math.sign(pts[i][0]-pts[i-1][0]),d1y=Math.sign(pts[i][1]-pts[i-1][1]),
+      d2x=Math.sign(pts[i+1][0]-pts[i][0]),d2y=Math.sign(pts[i+1][1]-pts[i][1]); if(d1x===d2x&&d1y===d2y)continue;}
+    SCH.wires.push({x1:a[0],y1:a[1],x2:pts[i][0],y2:pts[i][1]}); a=pts[i];
+  }
+}
 
 function setInput(m){INPUT=m;$('in-sch').classList.toggle('on',m==='sch');$('in-net').classList.toggle('on',m==='net');
   $('sch-wrap').style.display=m==='sch'?'':'none';$('net-wrap').style.display=m==='net'?'':'none';
@@ -534,14 +571,21 @@ function hitWire(mx,my){for(let i=SCH.wires.length-1;i>=0;i--){const w=SCH.wires
 function schDown(e){const r=e.currentTarget.getBoundingClientRect();const mx=e.clientX-r.left,my=e.clientY-r.top;const[gx,gy]=gridOf(mx,my);
   if(TOOL==='sel'){const c=hitComp(mx,my); SEL=c; if(c){drag={c,gx0:gx,gy0:gy,x0:c.x,y0:c.y};} editPanel(); drawSch(); return;}
   if(TOOL==='del'){const c=hitComp(mx,my); if(c){SCH.comps=SCH.comps.filter(k=>k!==c);if(SEL===c)SEL=null;} else {const w=hitWire(mx,my);if(w)SCH.wires=SCH.wires.filter(k=>k!==w);} editPanel();syncNet();drawSch(); return;}
-  if(TOOL==='wire'){ if(!wireStart){wireStart=[gx,gy];} else { if(gx!==wireStart[0]||gy!==wireStart[1])SCH.wires.push({x1:wireStart[0],y1:wireStart[1],x2:gx,y2:gy}); wireStart=null; syncNet();} drawSch(); return;}
+  if(TOOL==='wire'){ if(!wireStart){wireStart=[gx,gy];}
+    else { if(gx!==wireStart[0]||gy!==wireStart[1]){
+        if(AUTOROUTE){const path=routeWire(wireStart,[gx,gy]); if(path)pathToWires(path); else SCH.wires.push({x1:wireStart[0],y1:wireStart[1],x2:gx,y2:gy});}
+        else SCH.wires.push({x1:wireStart[0],y1:wireStart[1],x2:gx,y2:gy});
+      } wireStart=null; syncNet();} drawSch(); return;}
   if(TOOL==='probe'){ if(isNodePoint(gx,gy)){const k=gx+'_'+gy; PROBES.has(k)?PROBES.delete(k):PROBES.add(k);} drawSch(); run(); return;}
   // composant
   const c=newComp(TOOL,gx,gy); SCH.comps.push(c); SEL=c; editPanel(); syncNet(); drawSch();
 }
 function schMove(e){const r=e.currentTarget.getBoundingClientRect();const mx=e.clientX-r.left,my=e.clientY-r.top;
   if(drag){const[gx,gy]=gridOf(mx,my);drag.c.x=drag.x0+(gx-drag.gx0);drag.c.y=drag.y0+(gy-drag.gy0);drag.c.x=Math.max(0,drag.c.x);drag.c.y=Math.max(0,drag.c.y);syncNet();drawSch();}
-  else if(TOOL==='wire'&&wireStart){drawSch();const[gx,gy]=gridOf(mx,my);const x=$('sch').getContext('2d');x.strokeStyle='#94a3b8';x.setLineDash([4,3]);x.beginPath();x.moveTo(px(wireStart[0]),px(wireStart[1]));x.lineTo(px(gx),px(gy));x.stroke();x.setLineDash([]);}
+  else if(TOOL==='wire'&&wireStart){drawSch();const[gx,gy]=gridOf(mx,my);const x=$('sch').getContext('2d');x.strokeStyle='#94a3b8';x.lineWidth=1.5;x.setLineDash([4,3]);x.beginPath();
+    if(AUTOROUTE){const p=routeWire(wireStart,[gx,gy]); if(p){p.forEach((pt,i)=>{const X=px(pt[0]),Y=px(pt[1]);i?x.lineTo(X,Y):x.moveTo(X,Y);});} else {x.moveTo(px(wireStart[0]),px(wireStart[1]));x.lineTo(px(gx),px(gy));}}
+    else {x.moveTo(px(wireStart[0]),px(wireStart[1]));x.lineTo(px(gx),px(gy));}
+    x.stroke();x.setLineDash([]);}
 }
 function schUp(){drag=null;}
 function isNodePoint(gx,gy){   // un point de sonde valide = borne de composant ou extrémité/segment de fil
@@ -699,7 +743,7 @@ const I18N={
           en:"<b>How it works —</b> <b>draw</b> the circuit (components + wires, ground = node <b>0</b>) or write the <b>netlist</b>, then run. In <b>frequency</b> mode the <code>AC</code> source is the input and we plot the <b>Bode diagram</b> (gain in dB + phase) of each node. In <b>transient</b> mode we integrate the time response (<code>DC</code> step or <code>SIN</code> sources). The engine solves the circuit by <b>modified nodal analysis</b> at every frequency / time step."},
  'p.circuit':{fr:'Circuit',en:'Circuit'},
  'in.sch':{fr:'✏️ Schéma',en:'✏️ Schematic'},'in.net':{fr:'📝 Netlist',en:'📝 Netlist'},
- 'tool.sel':{fr:'Sélection',en:'Select'},'tool.wire':{fr:'Fil',en:'Wire'},'tool.v':{fr:'Source V',en:'V source'},'tool.i':{fr:'Source I',en:'I source'},'tool.gnd':{fr:'Masse',en:'Ground'},'tool.del':{fr:'Supprimer',en:'Delete'},'tool.rot':{fr:'⟳ Rotation',en:'⟳ Rotate'},'tool.clear':{fr:'Tout effacer',en:'Clear all'},'tool.probe':{fr:'🔍 Sonde',en:'🔍 Probe'},
+ 'tool.sel':{fr:'Sélection',en:'Select'},'tool.wire':{fr:'Fil',en:'Wire'},'tool.v':{fr:'Source V',en:'V source'},'tool.i':{fr:'Source I',en:'I source'},'tool.gnd':{fr:'Masse',en:'Ground'},'tool.del':{fr:'Supprimer',en:'Delete'},'tool.rot':{fr:'⟳ Rotation',en:'⟳ Rotate'},'tool.clear':{fr:'Tout effacer',en:'Clear all'},'tool.probe':{fr:'🔍 Sonde',en:'🔍 Probe'},'tool.auto':{fr:'↳ Auto-routage',en:'↳ Auto-route'},
  'sch.hint':{fr:"Clique un outil puis le quadrillage pour poser un composant (orientation via ⟳). Outil « Fil » : clic-clic entre deux points. Les bornes qui se touchent (ou reliées par un fil) forment un même nœud. Place une Masse = nœud 0. Sélectionne un composant pour éditer sa valeur. Outil « 🔍 Sonde » : clique un nœud/fil pour ne tracer que celui-là (re-clic = enlève).",
             en:"Click a tool then the grid to drop a component (orientation via ⟳). 'Wire' tool: click-click between two points. Terminals that touch (or joined by a wire) form one node. Place a Ground = node 0. Select a component to edit its value. '🔍 Probe' tool: click a node/wire to plot only that one (click again to remove)."},
  'lbl.preset':{fr:'Exemple',en:'Example'},'lbl.importasc':{fr:'Importer LTspice (.asc)',en:'Import LTspice (.asc)'},
