@@ -37,6 +37,6 @@ export default function middleware(request) {
 
   return new Response(
     'Accès restreint — un code est nécessaire pour utiliser les outils EMtools. Demandez-le via le formulaire « Se déclarer » sur https://emtools.app',
-    { status: 401, headers: { 'WWW-Authenticate': 'Basic realm="EMtools — accès sur demande", charset="UTF-8"' } }
+    { status: 401, headers: { 'WWW-Authenticate': 'Basic realm="EMtools"' } }
   );
 }
