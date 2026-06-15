@@ -1,0 +1,13 @@
+{
+  "name": "emtools-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "EMtools — application de bureau (Tauri). © NovaSens Expertise.",
+  "scripts": {
+    "build:web": "node build-web.mjs",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

@@ -1,2 +1,7 @@
 .DS_Store
 node_modules/
+
+# Build de l'app Tauri
+dist/
+src-tauri/target/
+src-tauri/gen/
