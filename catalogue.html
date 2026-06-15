@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EMtools — Catalogue des outils</title>
+<meta name="description" content="Catalogue des outils EMtools : 25 simulateurs interactifs d'électromagnétisme et de physique appliquée — antennes, lignes & circuits, dosimétrie, capteurs, CEM, RFID, GPS, MEMS… Rigoureux, autonomes, bilingues, en accès libre. Par Hakeim Talleb.">
+<style>
+:root{--navy:#1a2e4a;--teal:#0d9488;--teal2:#0f766e;--teal-light:#e6f7f5;--gold:#d97706;
+  --text:#1e293b;--text2:#64748b;--border:#e2e8f0;--bg:#f8fafc;--white:#fff;--radius:14px;--shadow:0 2px 14px rgba(26,46,74,.08)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--text);background:var(--bg);line-height:1.55}
+a{color:var(--teal2);text-decoration:none}
+.wrap{max-width:1000px;margin:0 auto;padding:0 1.4rem}
+#lang{position:fixed;top:14px;right:16px;z-index:50;background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.5);border-radius:8px;padding:5px 12px;font-size:13px;font-weight:700;cursor:pointer;backdrop-filter:blur(4px)}
+header{background:linear-gradient(135deg,#1a2e4a,#0f3a4d 55%,#0f766e);color:#fff;padding:3rem 0 2.4rem}
+header .wrap{display:flex;flex-direction:column;gap:.5rem}
+header .kicker{font-size:.8rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#5eead4}
+header h1{font-size:2.1rem;font-weight:800;letter-spacing:-.02em}
+header .tagline{font-size:1.05rem;color:#cbd5e1;max-width:680px;margin-top:.2rem}
+header .by{font-size:.86rem;color:#94a3b8;margin-top:.5rem}
+.stats{display:flex;flex-wrap:wrap;gap:1.6rem;margin-top:1.3rem}
+.stat .n{font-size:1.5rem;font-weight:800;color:#fff}.stat .l{font-size:.74rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em}
+main{padding:2.2rem 0 1rem}
+.intro{font-size:1rem;color:var(--text);background:var(--white);border:1px solid var(--border);border-left:4px solid var(--teal);border-radius:var(--radius);padding:1.2rem 1.4rem;box-shadow:var(--shadow);margin-bottom:1.8rem}
+.intro b{color:var(--navy)}
+.why{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:1rem;margin-bottom:2.2rem}
+.why .c{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:1rem 1.1rem;box-shadow:var(--shadow)}
+.why .c h4{font-size:.92rem;color:var(--navy);margin-bottom:.25rem}.why .c h4 span{margin-right:.4rem}
+.why .c p{font-size:.84rem;color:var(--text2)}
+.theme{margin-bottom:1.7rem;break-inside:avoid}
+.theme-h{display:flex;align-items:center;gap:.6rem;margin-bottom:.8rem;padding-bottom:.5rem;border-bottom:2px solid var(--th,#0d9488)}
+.theme-h .ti{font-size:1.4rem}.theme-h h2{font-size:1.18rem;color:var(--navy);font-weight:800}
+.theme-h .cnt{margin-left:auto;font-size:.78rem;color:var(--text2);font-weight:700;background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:2px 10px}
+.tools{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
+@media(max-width:680px){.tools{grid-template-columns:1fr}}
+.tool{display:flex;gap:.75rem;background:var(--white);border:1px solid var(--border);border-radius:12px;padding:.85rem 1rem;box-shadow:var(--shadow);break-inside:avoid;transition:border-color .15s}
+.tool:hover{border-color:var(--th,#0d9488)}
+.tool .ico{font-size:1.5rem;line-height:1.2;flex-shrink:0}
+.tool .b{flex:1;min-width:0}
+.tool .n{font-size:.96rem;font-weight:700;color:var(--navy)}
+.tool .n a{color:var(--navy)}.tool .n a:hover{color:var(--th,#0d9488)}
+.tool .p{font-size:.82rem;color:var(--text2);margin-top:.15rem}
+.tool .open{font-size:.74rem;font-weight:700;color:var(--th,#0d9488);white-space:nowrap}
+.tool .url{display:none;font-size:.72rem;color:var(--text2)}
+.cta{background:linear-gradient(135deg,#0f766e,#1a2e4a);color:#fff;border-radius:var(--radius);padding:1.4rem 1.6rem;margin:1.6rem 0 1rem;text-align:center}
+.cta h3{font-size:1.15rem;margin-bottom:.4rem}.cta p{font-size:.92rem;color:#cbd5e1;max-width:640px;margin:0 auto}
+.cta .links{margin-top:.9rem;display:flex;gap:1.2rem;justify-content:center;flex-wrap:wrap;font-size:.9rem}
+.cta .links a{color:#5eead4;font-weight:700}
+footer{border-top:1px solid var(--border);padding:1.4rem 0 2.4rem;font-size:.82rem;color:var(--text2)}
+footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:.6rem}
+.editable{color:var(--gold);font-weight:700}
+@media print{
+  @page{margin:14mm}
+  body{background:#fff;font-size:11px}
+  #lang{display:none}
+  header{background:none;color:var(--navy);padding:0 0 .6rem;border-bottom:3px solid var(--teal)}
+  header .kicker{color:var(--teal2)}header h1{font-size:1.7rem}header .tagline{color:var(--text)}header .by{color:var(--text2)}
+  .stat .n{color:var(--navy)}.stat .l{color:var(--text2)}
+  .intro,.why .c,.tool,.theme{box-shadow:none}
+  .cta{background:none;color:var(--navy);border:2px solid var(--teal)}.cta p,.cta .links a{color:var(--text2)}
+  .tool .open{display:none}.tool .url{display:block}
+  a{color:var(--text)}
+  .theme,.tool,.why,.cta{break-inside:avoid}
+  header,.intro{break-after:avoid}
+}
+</style>
+</head>
+<body>
+<button id="lang" onclick="setLang(LANG==='fr'?'en':'fr')">EN</button>
+
+<header><div class="wrap">
+  <div class="kicker" data-i18n="kicker">Catalogue · EMtools</div>
+  <h1 data-i18n="h1">Simulateurs interactifs d'électromagnétisme & de physique appliquée</h1>
+  <div class="tagline" data-i18n="tagline">25 outils web rigoureux, autonomes et bilingues — pour comprendre, enseigner et concevoir.</div>
+  <div class="by" data-i18n="by">par Hakeim Talleb · accès libre (code MIT) · licences & versions sur mesure disponibles</div>
+  <div class="stats">
+    <div class="stat"><div class="n">25</div><div class="l" data-i18n="s.tools">outils interactifs</div></div>
+    <div class="stat"><div class="n">6</div><div class="l" data-i18n="s.themes">domaines</div></div>
+    <div class="stat"><div class="n">FR / EN</div><div class="l" data-i18n="s.lang">bilingue</div></div>
+    <div class="stat"><div class="n">0</div><div class="l" data-i18n="s.install">installation requise</div></div>
+  </div>
+</div></header>
+
+<main><div class="wrap">
+  <div class="intro" data-i18n-html="intro"></div>
+  <div class="why" id="why"></div>
+  <div id="catalogue"></div>
+
+  <div class="cta">
+    <h3 data-i18n="cta.h">Pour les institutions & les entreprises</h3>
+    <p data-i18n="cta.p">Au-delà de l'accès libre, EMtools peut être décliné en marque blanche, enrichi de modules sur mesure, intégré à vos plateformes ou couvert par une licence d'exploitation. Parlons de votre besoin.</p>
+    <div class="links">
+      <a href="index.html" data-i18n="cta.l1">→ Explorer tous les outils</a>
+      <span class="editable">✉ [votre-contact]</span>
+    </div>
+  </div>
+</div></main>
+
+<footer><div class="wrap">
+  <span data-i18n-html="foot.l">© 2026 Hakeim Talleb · EMtools · Code sous licence <a href="LICENSE">MIT</a> · licences d'exploitation sur demande</span>
+  <span><a href="index.html" data-i18n="foot.r">← Retour aux outils</a></span>
+</div></footer>
+
+<script>
+const THEMES=[
+ {id:0, ti:'📡', col:'#2563eb', fr:'Antennes & rayonnement', en:'Antennas & radiation'},
+ {id:1, ti:'🛰️', col:'#0d9488', fr:'Radar, RF, télécoms & sécurité', en:'Radar, RF, telecom & safety'},
+ {id:2, ti:'〰️', col:'#7c3aed', fr:'Lignes, circuits & puissance', en:'Lines, circuits & power'},
+ {id:3, ti:'🧲', col:'#d97706', fr:'Magnétisme & énergie', en:'Magnetism & energy'},
+ {id:4, ti:'🩻', col:'#db2777', fr:'Dosimétrie, santé & imagerie', en:'Dosimetry, health & imaging'},
+ {id:5, ti:'⚙️', col:'#0891b2', fr:'Capteurs, systèmes & matériaux', en:'Sensors, systems & materials'}
+];
+const TOOLS=[
+ // 0 — Antennes
+ {h:'antennes-filaires.html',i:'📡',t:0,fr:['Antennes filaires (MoM)','Dipôle, monopôle, Yagi-Uda et environnements de fils par la méthode des moments : impédance, VSWR, diagramme, gain, champ proche.'],en:['Wire antennas (MoM)','Dipole, monopole, Yagi-Uda and wire environments via the Method of Moments: impedance, VSWR, pattern, gain, near field.']},
+ {h:'antennes-reseaux.html',i:'📶',t:0,fr:['Réseaux d\'antennes','Réseau linéaire de dipôles : facteur de réseau, dépointage électronique du faisceau par le déphasage, lobes de réseau, directivité.'],en:['Antenna arrays','Linear dipole array: array factor, electronic beam steering by phase, grating lobes, directivity.']},
+ {h:'antennes-reseau2d.html',i:'▦',t:0,fr:['Réseau planaire 2D','Réseau 2D : dépointage du faisceau en azimut et élévation, diagramme 3D, contrôle du lobe.'],en:['2D planar array','2D array: beam steering in azimuth and elevation, 3D pattern, lobe control.']},
+ {h:'antennes-cornet.html',i:'📣',t:0,fr:['Antennes cornet','Cornet pyramidal : gain, efficacité d\'ouverture, erreur de phase du flare, diagrammes plan E / plan H.'],en:['Horn antennas','Pyramidal horn: gain, aperture efficiency, flare phase error, E-plane / H-plane patterns.']},
+ {h:'antennes-patch.html',i:'▭',t:0,fr:['Antennes patch','Patch microruban : synthèse W/L, résonance, ε effective, directivité, bande passante et diagrammes.'],en:['Patch antennas','Microstrip patch: W/L synthesis, resonance, effective ε, directivity, bandwidth and patterns.']},
+ {h:'antennes-mimo.html',i:'🗼',t:0,fr:['Antennes MIMO','Multiple-Input Multiple-Output : matrice de canal, capacité de Shannon, multiplexage spatial, corrélation des antennes.'],en:['MIMO antennas','Multiple-Input Multiple-Output: channel matrix, Shannon capacity, spatial multiplexing, antenna correlation.']},
+ // 1 — Radar/RF/télécoms/sécurité
+ {h:'radar.html',i:'🛰️',t:1,fr:['Radar','Équation du radar (portée 1/R⁴), effet Doppler, SER/RCS, diagramme PO, FMCW range-Doppler, furtivité 3D.'],en:['Radar','Radar equation (1/R⁴ range), Doppler, RCS, PO pattern, FMCW range-Doppler, 3D stealth.']},
+ {h:'antenne-securite.html',i:'📱',t:1,fr:['Téléphonie & sécurité RF','Générations 1G→6G, niveaux ICNIRP 1998 & 2020, PIRE, distances de sécurité (2D²/λ), cartographie de station de base.'],en:['Mobile telephony & RF safety','1G→6G generations, ICNIRP 1998 & 2020 levels, EIRP, safety distances (2D²/λ), base-station mapping.']},
+ {h:'gps.html',i:'🌐',t:1,fr:['GPS — comment ça marche','Trilatération (4 satellites : x,y,z + horloge), constellation & GDOP, code C/A, temps de vol, relativité (+38 µs/jour).'],en:['GPS — how it works','Trilateration (4 satellites: x,y,z + clock), constellation & GDOP, C/A code, time of flight, relativity (+38 µs/day).']},
+ {h:'rfid1356.html',i:'📶',t:1,fr:['RFID / NFC — HF & UHF','HF 13,56 MHz (couplage inductif, distance de lecture), codage du signal, UHF ~900 MHz (rétrodiffusion, portée Friis ~10 m).'],en:['RFID / NFC — HF & UHF','HF 13.56 MHz (inductive coupling, read range), signal coding, UHF ~900 MHz (backscatter, Friis range ~10 m).']},
+ // 2 — Lignes/circuits/puissance
+ {h:'lignes.html',i:'〰️',t:2,fr:['Lignes & guides d\'onde','TOS, abaque de Smith, stubs ; microstrip / CPW / coax / stripline / paire différentielle ; guide d\'onde, fibre.'],en:['Lines & waveguides','VSWR, Smith chart, stubs; microstrip / CPW / coax / stripline / differential pair; waveguide, fibre.']},
+ {h:'circuit-spice.html',i:'⚡',t:2,fr:['Circuit — SPICE light','Schéma + netlist, analyse Bode / transitoire / point DC (MNA), transistors BJT-MOS, AOP, transfo, auto-routage A*.'],en:['Circuit — SPICE light','Schematic + netlist, Bode / transient / DC analysis (MNA), BJT-MOS transistors, op-amp, transformer, A* auto-routing.']},
+ {h:'puissance.html',i:'📊',t:2,fr:['Puissances — mW, dBm, dB','Conversions mW ↔ dBm, échelle de référence (du nW au MW), gains en dB, bilan de liaison de Friis.'],en:['Power — mW, dBm, dB','mW ↔ dBm conversions, reference scale (nW to MW), dB gains, Friis link budget.']},
+ // 3 — Magnétisme & énergie
+ {h:'helmholtz.html',i:'🧲',t:3,fr:['Bobines de Helmholtz','Champ magnétique axial d\'une ou deux bobines, condition de Helmholtz, zone d\'uniformité du champ.'],en:['Helmholtz coils','Axial magnetic field of one or two coils, Helmholtz condition, field-uniformity region.']},
+ {h:'bobines-toroide.html',i:'🍩',t:3,fr:['Solénoïde & toroïdes','Champ d\'un solénoïde, d\'une hélice toroïde et d\'un toroïde de collisionneur : lignes de champ 3D, profil et confinement.'],en:['Solenoid & toroids','Field of a solenoid, a toroidal helix and a collider toroid: 3D field lines, profile and confinement.']},
+ {h:'recharge-sans-fil.html',i:'🔋',t:3,fr:['Recharge sans fil (WPT)','Couplage inductif / résonant (k·Q) ou radiatif (rectenna, Friis), réception, redressement, stockage et charge — toute la chaîne.'],en:['Wireless power (WPT)','Inductive / resonant coupling (k·Q) or radiative (rectenna, Friis), reception, rectification, storage and charge — the whole chain.']},
+ {h:'photovoltaique.html',i:'☀️',t:3,fr:['Photovoltaïque','De la cellule au système : modèle à une diode, courbe I-V / P-V, point de puissance maximale, effets ensoleillement/température, ombrage.'],en:['Photovoltaics','From cell to system: single-diode model, I-V / P-V curve, maximum power point, irradiance/temperature effects, shading.']},
+ // 4 — Dosimétrie/santé/imagerie
+ {h:'dosimetrie.html',i:'🌡️',t:4,fr:['Dosimétrie EM','Du champ E au DAS puis à l\'échauffement (bioheat de Pennes 2D) ; import de champ CST, validation SAR.'],en:['EM dosimetry','From the E-field to SAR then heating (2D Pennes bioheat); CST field import, SAR validation.']},
+ {h:'voxel.html',i:'🧍',t:4,fr:['Dosimétrie sur fantôme voxel','Fantôme anatomique voxélisé → ε/σ/ρ et thermique par tissu → SAR par TMM → échauffement (Pennes 2D) ; import Interfile XCAT.'],en:['Voxel-phantom dosimetry','Voxelised anatomical phantom → ε/σ/ρ and thermal per tissue → SAR by TMM → heating (2D Pennes); Interfile XCAT import.']},
+ {h:'irm.html',i:'🧠',t:4,fr:['IRM — comment ça marche','Fréquence de Larmor, équations de Bloch, encodage spatial, k-space (FFT), contraste T1/T2 (FLAIR/STIR), SAR et implants.'],en:['MRI — how it works','Larmor frequency, Bloch equations, spatial encoding, k-space (FFT), T1/T2 contrast (FLAIR/STIR), SAR and implants.']},
+ // 5 — Capteurs/systèmes/matériaux
+ {h:'mems.html',i:'⚙️',t:5,fr:['MEMS électrostatiques','Pull-in des plaques parallèles, peigne interdigité, dynamique f₀/Q, exemples de design (accéléro, RF, résonateur) et écran tactile capacitif.'],en:['Electrostatic MEMS','Parallel-plate pull-in, interdigitated comb drive, f₀/Q dynamics, design examples (accelerometer, RF, resonator) and capacitive touchscreen.']},
+ {h:'optique.html',i:'🔬',t:5,fr:['Capteurs optiques & imagerie spectrale','Photodétecteur R(λ), spectromètre à réseau, spectre → couleur (CIE, métamérisme), multispectral / NDVI, démosaïquage de Bayer.'],en:['Optical sensors & spectral imaging','Photodetector R(λ), grating spectrometer, spectrum → colour (CIE, metamerism), multispectral / NDVI, Bayer demosaicing.']},
+ {h:'capteurs.html',i:'📈',t:5,fr:['Capteurs & chaîne d\'acquisition','Transducteur (caractéristique, non-linéarité), pont de Wheatstone, échantillonnage/Nyquist, quantification CAN, capteur de pression : signal → reconstruction.'],en:['Sensors & acquisition chain','Transducer (characteristic, nonlinearity), Wheatstone bridge, sampling/Nyquist, ADC quantization, pressure sensor: signal → reconstruction.']},
+ {h:'cem.html',i:'📡',t:5,fr:['CEM — compatibilité électromagnétique','Diaphonie NEXT/FEXT, modes commun/différentiel & filtrage, émission conduite vs CISPR, efficacité de blindage (Schelkunoff), ESD.'],en:['EMC — electromagnetic compatibility','NEXT/FEXT crosstalk, common/differential modes & filtering, conducted emission vs CISPR, shielding effectiveness (Schelkunoff), ESD.']},
+ {h:'cloaking.html',i:'🫥',t:5,fr:['Cloaking de Pendry','Cape d\'invisibilité par optique de transformation : gradient ε/μ, trajectoire des rayons, anneaux SRR, carte de champ.'],en:['Pendry cloaking','Invisibility cloak by transformation optics: ε/μ gradient, ray paths, SRR rings, field map.']}
+];
+
+const I18N={
+ kicker:{fr:'Catalogue · EMtools',en:'Catalogue · EMtools'},
+ h1:{fr:"Simulateurs interactifs d'électromagnétisme & de physique appliquée",en:"Interactive simulators for electromagnetics & applied physics"},
+ tagline:{fr:"25 outils web rigoureux, autonomes et bilingues — pour comprendre, enseigner et concevoir.",en:"25 rigorous, self-contained and bilingual web tools — to understand, teach and design."},
+ by:{fr:"par Hakeim Talleb · accès libre (code MIT) · licences & versions sur mesure disponibles",en:"by Hakeim Talleb · open access (MIT code) · licensing & custom versions available"},
+ 's.tools':{fr:'outils interactifs',en:'interactive tools'},'s.themes':{fr:'domaines',en:'domains'},'s.lang':{fr:'bilingue',en:'bilingual'},'s.install':{fr:'installation requise',en:'install required'},
+ intro:{fr:"<b>EMtools</b> est une collection d'outils web auto-suffisants qui rendent <b>visibles et manipulables</b> les concepts d'électromagnétisme, de télécommunications, de capteurs, de dosimétrie et de CEM. Chaque outil tient dans une seule page, tourne dans <b>n'importe quel navigateur sans installation</b>, et repose sur des <b>modèles physiques validés numériquement</b> (formules analytiques, normes, cas tests). Conçus aussi bien pour l'<b>enseignement</b> que pour l'<b>ingénierie</b>, ils sont en <b>accès libre</b> (code MIT) ; des <b>licences d'exploitation</b> et des <b>versions personnalisées</b> (marque blanche, modules sur mesure, intégration) sont proposées aux institutions et aux entreprises.",
+       en:"<b>EMtools</b> is a collection of self-contained web tools that make the concepts of electromagnetics, telecommunications, sensing, dosimetry and EMC <b>visible and tweakable</b>. Each tool is a single page, runs in <b>any browser without installation</b>, and is built on <b>numerically validated physical models</b> (analytical formulas, standards, test cases). Designed for both <b>teaching</b> and <b>engineering</b>, they are <b>openly accessible</b> (MIT code); <b>commercial licences</b> and <b>custom versions</b> (white-label, bespoke modules, integration) are available to institutions and companies."},
+ 'why0h':{fr:'<span>✓</span>Validé numériquement',en:'<span>✓</span>Numerically validated'},'why0p':{fr:"Chaque modèle est confronté à la théorie, aux normes ou à des cas tests de référence — pas une boîte noire.",en:"Every model is checked against theory, standards or reference test cases — not a black box."},
+ 'why1h':{fr:'<span>⚡</span>Sans installation',en:'<span>⚡</span>No installation'},'why1p':{fr:"100 % navigateur, une page HTML par outil, utilisable hors-ligne. Rien à installer, rien à configurer.",en:"100% browser, one HTML page per tool, usable offline. Nothing to install, nothing to configure."},
+ 'why2h':{fr:'<span>🌐</span>Bilingue FR / EN',en:'<span>🌐</span>Bilingual FR / EN'},'why2p':{fr:"Bascule instantanée des langues, pensée pour l'enseignement et la diffusion internationale.",en:"Instant language switch, made for teaching and international dissemination."},
+ 'why3h':{fr:'<span>🔓</span>Libre & extensible',en:'<span>🔓</span>Open & extensible'},'why3p':{fr:"Code ouvert (MIT). Licences professionnelles, marque blanche et développements sur mesure sur demande.",en:"Open code (MIT). Professional licences, white-label and bespoke development on request."},
+ 'cta.h':{fr:'Pour les institutions & les entreprises',en:'For institutions & companies'},
+ 'cta.p':{fr:"Au-delà de l'accès libre, EMtools peut être décliné en marque blanche, enrichi de modules sur mesure, intégré à vos plateformes ou couvert par une licence d'exploitation. Parlons de votre besoin.",en:"Beyond open access, EMtools can be white-labelled, extended with bespoke modules, integrated into your platforms or covered by a commercial licence. Let's discuss your needs."},
+ 'cta.l1':{fr:'→ Explorer tous les outils',en:'→ Explore all the tools'},
+ 'foot.l':{fr:'© 2026 Hakeim Talleb · EMtools · Code sous licence <a href="LICENSE">MIT</a> · licences d\'exploitation sur demande',en:'© 2026 Hakeim Talleb · EMtools · Code under the <a href="LICENSE">MIT</a> licence · commercial licences on request'},
+ 'foot.r':{fr:'← Retour aux outils',en:'← Back to the tools'},
+ open:{fr:'ouvrir →',en:'open →'}
+};
+let LANG='fr';
+function renderWhy(){
+  document.getElementById('why').innerHTML=[0,1,2,3].map(i=>`<div class="c"><h4>${I18N['why'+i+'h'][LANG]}</h4><p>${I18N['why'+i+'p'][LANG]}</p></div>`).join('');
+}
+function renderCatalogue(){
+  const box=document.getElementById('catalogue');box.innerHTML='';
+  THEMES.forEach(th=>{
+    const items=TOOLS.filter(t=>t.t===th.id);
+    const cards=items.map(t=>{const d=t[LANG];return `<div class="tool" style="--th:${th.col}"><div class="ico">${t.i}</div><div class="b"><div class="n"><a href="${t.h}">${d[0]}</a></div><div class="p">${d[1]}</div><div class="url">${t.h}</div></div><div class="open"><a href="${t.h}" style="color:${th.col}">${I18N.open[LANG]}</a></div></div>`;}).join('');
+    box.insertAdjacentHTML('beforeend',`<section class="theme" style="--th:${th.col}"><div class="theme-h"><span class="ti">${th.ti}</span><h2>${th[LANG]}</h2><span class="cnt">${items.length}</span></div><div class="tools">${cards}</div></section>`);
+  });
+}
+function setLang(l){LANG=l;document.documentElement.lang=l;document.getElementById('lang').textContent=l==='fr'?'EN':'FR';
+  document.querySelectorAll('[data-i18n]').forEach(e=>{const k=e.getAttribute('data-i18n');if(I18N[k])e.textContent=I18N[k][l];});
+  document.querySelectorAll('[data-i18n-html]').forEach(e=>{const k=e.getAttribute('data-i18n-html');if(I18N[k])e.innerHTML=I18N[k][l];});
+  renderWhy();renderCatalogue();
+}
+setLang('fr');
+</script>
+</body>
+</html>
