@@ -1,0 +1,51 @@
+name: Build EMtools (apps de bureau)
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            args: '--target universal-apple-darwin'
+            label: macOS
+          - os: windows-latest
+            args: ''
+            label: Windows-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Installer Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cibles macOS (universel)
+        if: matrix.os == 'macos-latest'
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
+      - name: Dépendances npm
+        run: npm install
+
+      - name: Compiler l'app (Tauri)
+        run: npx tauri build ${{ matrix.args }}
+
+      - name: Récupérer les installeurs
+        uses: actions/upload-artifact@v4
+        with:
+          name: EMtools-${{ matrix.label }}
+          if-no-files-found: error
+          path: |
+            src-tauri/target/**/release/bundle/**/*.dmg
+            src-tauri/target/**/release/bundle/**/*.exe
+            src-tauri/target/**/release/bundle/**/*.msi
