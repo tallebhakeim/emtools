@@ -74,6 +74,7 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:.6rem
   <h1 data-i18n="h1">Simulateurs interactifs d'électromagnétisme & de physique appliquée</h1>
   <div class="tagline" data-i18n="tagline">25 outils web rigoureux, autonomes et bilingues — pour comprendre, enseigner et concevoir.</div>
   <div class="by" data-i18n="by">par Hakeim Talleb · démo en accès libre · déploiement & réutilisation sous licence (gratuite ou commerciale) — NovaSens Expertise</div>
+  <div style="margin-top:.7rem;font-size:1.15rem;font-weight:800"><a href="https://emtools.app" style="color:#5eead4;text-decoration:none">🌐 emtools.app</a></div>
   <div class="stats">
     <div class="stat"><div class="n">25</div><div class="l" data-i18n="s.tools">outils interactifs</div></div>
     <div class="stat"><div class="n">6</div><div class="l" data-i18n="s.themes">domaines</div></div>
@@ -91,8 +92,8 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:.6rem
     <h3 data-i18n="cta.h">Pour les institutions & les entreprises</h3>
     <p data-i18n="cta.p">Au-delà de l'accès libre, EMtools peut être décliné en marque blanche, enrichi de modules sur mesure, intégré à vos plateformes ou couvert par une licence d'exploitation. Parlons de votre besoin.</p>
     <div class="links">
-      <a href="index.html" data-i18n="cta.l1">→ Explorer tous les outils</a>
-      <span class="editable">✉ [votre-contact]</span>
+      <a href="https://emtools.app">🌐 emtools.app</a>
+      <a href="mailto:contact@novasensexpertise.com">✉ contact@novasensexpertise.com</a>
     </div>
   </div>
 </div></main>
@@ -172,7 +173,7 @@ function renderCatalogue(){
   const box=document.getElementById('catalogue');box.innerHTML='';
   THEMES.forEach(th=>{
     const items=TOOLS.filter(t=>t.t===th.id);
-    const cards=items.map(t=>{const d=t[LANG];return `<div class="tool" style="--th:${th.col}"><div class="ico">${t.i}</div><div class="b"><div class="n"><a href="${t.h}">${d[0]}</a></div><div class="p">${d[1]}</div><div class="url">${t.h}</div></div><div class="open"><a href="${t.h}" style="color:${th.col}">${I18N.open[LANG]}</a></div></div>`;}).join('');
+    const cards=items.map(t=>{const d=t[LANG];return `<div class="tool" style="--th:${th.col}"><div class="ico">${t.i}</div><div class="b"><div class="n"><a href="${t.h}">${d[0]}</a></div><div class="p">${d[1]}</div><div class="url">emtools.app/${t.h}</div></div><div class="open"><a href="${t.h}" style="color:${th.col}">${I18N.open[LANG]}</a></div></div>`;}).join('');
     box.insertAdjacentHTML('beforeend',`<section class="theme" style="--th:${th.col}"><div class="theme-h"><span class="ti">${th.ti}</span><h2>${th[LANG]}</h2><span class="cnt">${items.length}</span></div><div class="tools">${cards}</div></section>`);
   });
 }
