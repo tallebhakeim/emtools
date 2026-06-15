@@ -1,0 +1,22 @@
+En-tête standard EMtools
+========================
+
+À placer juste après la ligne <!DOCTYPE html> en haut de chaque outil
+(commentaire HTML — invisible à l'affichage, lisible dans le source) :
+
+<!--
+  EMtools — proposé par Hakeim Talleb (Sorbonne Université)
+  © 2026 NovaSens Expertise · contact@novasensexpertise.com
+  Double licence : usage NON COMMERCIAL gratuit (PolyForm Noncommercial 1.0.0, voir LICENSE) ;
+  usage COMMERCIAL → licence auprès de NovaSens Expertise (voir COMMERCIAL.md).
+  Required Notice (PolyForm) : © 2026 NovaSens Expertise — EMtools (Hakeim Talleb).
+-->
+
+Variante commentaire JavaScript (à mettre en tête d'un bloc <script> si besoin) :
+
+/* EMtools — © 2026 NovaSens Expertise · Hakeim Talleb (Sorbonne Université)
+   Double licence : non commercial gratuit (PolyForm NC, voir LICENSE) ;
+   commercial → contact@novasensexpertise.com (voir COMMERCIAL.md). */
+
+Je peux injecter automatiquement l'en-tête HTML en haut des ~28 fichiers sur
+simple demande.
