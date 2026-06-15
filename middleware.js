@@ -50,7 +50,7 @@ export default function middleware(request) {
   if (!master && !codesRaw) return;                       // rien configuré → tout ouvert
 
   const { pathname } = new URL(request.url);
-  if (PUBLIC.has(pathname) || pathname.startsWith('/vendor/')) return;
+  if (PUBLIC.has(pathname) || pathname.startsWith('/vendor/') || pathname.startsWith('/catalogue-shots/')) return;
 
   const slug = pathname.replace(/^\//, '').replace(/\.html$/, '');
 
