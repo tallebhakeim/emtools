@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cloaking de Pendry — invisibilité — EMtools</title>
+<title>Méta-matériaux — EMtools</title>
 <style>
 :root{--bg:#0f1419;--panel:#1a2129;--panel2:#222b35;--ink:#e6edf3;--mut:#8b97a3;--acc:#4db6a4;--acc2:#e0884b;--line:#2d3742;--bad:#e05a5a;--mag:#b48ad8}
 *{box-sizing:border-box}
@@ -42,8 +42,8 @@ b.mag{color:var(--mag)}
 <body>
 <header>
   <a class="back" href="index.html">← EMtools</a>
-  <h1 data-i18n="title">Cape d'invisibilité de Pendry</h1>
-  <span class="sub" data-i18n="sub">optique de transformation : courber la lumière autour d'un objet</span>
+  <h1 data-i18n="title">Méta-matériaux</h1>
+  <span class="sub" data-i18n="sub">cape d'invisibilité de Pendry — optique de transformation : courber la lumière autour d'un objet</span>
   <div class="lang"><button id="lf" class="on" onclick="setLang('fr')">FR</button><button id="le" onclick="setLang('en')">EN</button></div>
 </header>
 <div class="wrap">
@@ -436,8 +436,8 @@ function showTab(t){['principe','profils','rayons','realise','champ'].forEach(p=
 
 // ════ I18N ════
 const I18N={
- title:{fr:"Cape d'invisibilité de Pendry",en:"Pendry's invisibility cloak"},
- sub:{fr:"optique de transformation : courber la lumière autour d'un objet",en:"transformation optics: bending light around an object"},
+ title:{fr:"Méta-matériaux",en:"Metamaterials"},
+ sub:{fr:"cape d'invisibilité de Pendry — optique de transformation : courber la lumière autour d'un objet",en:"Pendry's invisibility cloak — transformation optics: bending light around an object"},
  't.principe':{fr:"1 · Principe",en:"1 · Principle"},'t.profils':{fr:"2 · Profils ε, μ",en:"2 · ε, μ profiles"},'t.rayons':{fr:"3 · Cartographie (rayons)",en:"3 · Ray map"},'t.realise':{fr:"4 · Réalisation (anneaux + varactor)",en:"4 · Realisation (rings + varactor)"},'t.champ':{fr:"5 · Carte de champ",en:"5 · Field map"},
  'ch.h':{fr:"Carte de champ : quelle méthode analytique ?",en:"Field map: which analytical method?"},
  'ch.lead':{fr:"Une onde plane arrive par la gauche. <b>Objet nu</b> : la solution exacte est la <b>série de Mie</b> (harmoniques cylindriques, fonctions de Bessel/Hankel) → ombre derrière + franges devant : l'objet est visible. <b>Cape idéale</b> : par <b>optique de transformation</b>, le champ est l'onde plane exprimée dans les coordonnées comprimées → les fronts d'onde contournent le trou et se reforment intacts : invisible. (La cape <i>à anneaux discrets</i>, elle, n'a pas de solution analytique simple → full-wave FDTD/FEM ; les anneaux idéaux sont superposés.)",en:"A plane wave arrives from the left. <b>Bare object</b>: the exact solution is the <b>Mie series</b> (cylindrical harmonics, Bessel/Hankel functions) → shadow behind + fringes in front: the object is visible. <b>Ideal cloak</b>: by <b>transformation optics</b>, the field is the plane wave expressed in the compressed coordinates → wavefronts flow around the hole and re-form intact: invisible. (The <i>discrete-ring</i> cloak has no simple analytical solution → full-wave FDTD/FEM; the ideal rings are overlaid.)"},
