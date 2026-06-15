@@ -132,21 +132,20 @@ const T={
  kick:'Catalogue des outils',title:'Simulateurs interactifs d’électromagnétisme & de physique appliquée',
  sub:'25 outils web rigoureux, autonomes et bilingues — pour comprendre, enseigner et concevoir.',
  s_tools:'outils',s_dom:'domaines',s_lang:'bilingue',
- by:'<b>Hakeim Talleb</b>, Professeur des Universités à Sorbonne Université, spécialiste de la modélisation en physique de l’ingénierie en électronique. Édité par <b>NovaSens Expertise</b>.',
+ by:'<b>Hakeim Talleb</b>, Professeur des Universités à Sorbonne Université, spécialiste de la modélisation en physique de l’ingénierie en électronique.',
  intro_h:'Pourquoi EMtools',
  lead:'<b>EMtools</b> rend <b>visibles et manipulables</b> les concepts d’électromagnétisme, de télécommunications, de capteurs, de dosimétrie et de compatibilité électromagnétique. Chaque outil tient dans une seule page, tourne dans <b>n’importe quel navigateur sans installation</b>, et repose sur des <b>modèles physiques validés numériquement</b>. Conçus pour l’<b>enseignement</b> comme pour l’<b>ingénierie</b>. Les vignettes de ce livret sont de <b>vraies captures</b> des outils.',
  why:[['✓ Validé numériquement','Chaque modèle est confronté à la théorie, aux normes ou à des cas tests de référence — pas une boîte noire.'],
       ['⚡ Sans installation','100 % navigateur, une page par outil, utilisable hors-ligne. Rien à configurer.'],
       ['🌐 Bilingue FR / EN','Bascule instantanée des langues, pensée pour la diffusion internationale.'],
-      ['🔧 Extensible','Marque blanche, modules sur mesure et intégration via NovaSens Expertise.']],
+      ['🔧 Extensible','De nouveaux modules peuvent être développés sur mesure selon les besoins.']],
  toc:'Sommaire',hdr:'EMtools · Catalogue',
- close_h:'Pour les institutions & les entreprises',
- close_lead:'Au-delà de l’accès libre, EMtools se décline pour vos besoins.',
- close_b:[['Établissements','Accès aux modules pour vos enseignements, abonnement annuel, version maintenue.'],
-          ['Intégration produit','Modules (dosimétrie, CEM…) validés et documentés pour vos dossiers — V&V à l’appui.'],
-          ['Marque blanche','Habillage à vos couleurs, sur votre domaine, avec vos cas d’usage.'],
-          ['Sur mesure','Nouveaux modules et développements spécifiques selon votre cahier des charges.']],
- declare:'Se déclarer / demander un accès',licence:'Licence (gratuite ou commerciale) à la carte — accordée par NovaSens Expertise.'
+ close_h:'Un besoin spécifique ?',
+ close_lead:'EMtools peut être enrichi de modules sur mesure selon vos besoins.',
+ close_b:[['Enseignement','Des supports interactifs pour vos cours et travaux dirigés, accessibles sur demande.'],
+          ['Recherche','Des modèles validés numériquement pour explorer, illustrer et prototyper.'],
+          ['Modules sur mesure','De nouveaux modules peuvent être développés selon votre cahier des charges.']],
+ declare:'Se déclarer / demander un accès',licence:'© 2026 Hakeim Talleb · EMtools · Tous droits réservés.'
 };
 
 function coverPage(){
@@ -169,7 +168,7 @@ function introPage(){
    <h2 class="h2">${T.intro_h}</h2><p class="lead">${T.lead}</p>
    <div class="why">${why}</div>
    <div class="toc"><h3>${T.toc}</h3><ol>${toc}</ol></div>
-   <div class="rf"><span>par Hakeim Talleb · NovaSens Expertise</span><span>2</span></div></section>`;
+   <div class="rf"><span>par Hakeim Talleb</span><span>2</span></div></section>`;
 }
 function domainPage(d,pageno){
  const cards=d.tools.map(t=>`<figure class="mini"><div class="thumb"><img src="catalogue-shots/${t[3]}.png" style="object-position:center ${t[4]}%" alt="${t[1]}"></div><figcaption><div class="n"><span class="e">${t[0]}</span>${t[1]}</div><div class="p">${t[2]}</div></figcaption></figure>`).join('');
