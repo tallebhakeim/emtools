@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>EMtools — Simulateur d'antennes (méthode des moments)</title>
-<meta name="description" content="EMtools — simulateur d'antennes filaires par la méthode des moments (MoM, EFIE thin-wire). Impédance d'entrée, VSWR, diagramme de rayonnement, gain. Par Hakeim Talleb. Libre pour usage non commercial.">
+<meta name="description" content="EMtools — simulateur d'antennes filaires par la méthode des moments (MoM, EFIE thin-wire). Impédance d'entrée, VSWR, diagramme de rayonnement, gain. Par Hakeim Talleb. Démo en accès libre ; réutilisation sous licence.">
 <style>
 :root{
   --navy:#1a2e4a; --teal:#0d9488; --teal2:#0f766e; --teal-light:#e6f7f5;
@@ -330,7 +330,7 @@ table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
 
 <footer>
   <div class="wrap">
-    <span data-i18n-html="footer.lic">© 2026 NovaSens Expertise · EMtools — par Hakeim Talleb · <a href="LICENSE">Licence non-commerciale</a> · usage commercial : <a href="mailto:contact@novasensexpertise.com">NovaSens Expertise</a></span>
+    <span data-i18n-html="footer.lic">© 2026 NovaSens Expertise · EMtools — Hakeim Talleb · <a href="LICENSE">Tous droits réservés</a> · licence (gratuite ou commerciale) sur demande : <a href="mailto:contact@novasensexpertise.com">NovaSens Expertise</a></span>
     <span><a href="index.html" data-i18n="footer.home">← Tous les outils</a></span>
   </div>
 </footer>
@@ -339,7 +339,7 @@ table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
 /* ===================================================================
    THIN-WIRE METHOD OF MOMENTS  (EFIE, Pocklington form)
    Piecewise-sinusoidal basis = test (Galerkin), reduced/exact kernel.
-   Validated against the half-wave dipole. © 2026 NovaSens Expertise — EMtools (H. Talleb), noncommercial licence (see LICENSE).
+   Validated against the half-wave dipole. © 2026 NovaSens Expertise — EMtools (H. Talleb), all rights reserved (see LICENSE).
    =================================================================== */
 const ETA = 376.730313668, C0 = 299792458;
 const cAdd=(a,b)=>({re:a.re+b.re,im:a.im+b.im});
@@ -1250,7 +1250,7 @@ const I18N={
  'v.rr':{fr:"R à la résonance",en:"R at resonance"},
  'v.x':{fr:"Réactance (0,5 λ)",en:"Reactance (0.5 λ)"},
  'v.e':{fr:"Conservation d'énergie",en:"Energy conservation"},
- 'footer.lic':{fr:'© 2026 NovaSens Expertise · EMtools — par Hakeim Talleb · <a href="LICENSE">Licence non-commerciale</a> · usage commercial : <a href="mailto:contact@novasensexpertise.com">NovaSens Expertise</a>',en:'© 2026 NovaSens Expertise · EMtools — by Hakeim Talleb · <a href="LICENSE">Noncommercial licence</a> · commercial use: <a href="mailto:contact@novasensexpertise.com">NovaSens Expertise</a>'},
+ 'footer.lic':{fr:'© 2026 NovaSens Expertise · EMtools — Hakeim Talleb · <a href="LICENSE">Tous droits réservés</a> · licence (gratuite ou commerciale) sur demande : <a href="mailto:contact@novasensexpertise.com">NovaSens Expertise</a>',en:'© 2026 NovaSens Expertise · EMtools — Hakeim Talleb · <a href="LICENSE">All rights reserved</a> · licence (free or commercial) on request: <a href="mailto:contact@novasensexpertise.com">NovaSens Expertise</a>'},
  'footer.home':{fr:"← Tous les outils",en:"← All tools"},
  // runtime strings
  'permono':{fr:"(brin)",en:"(arm)"},

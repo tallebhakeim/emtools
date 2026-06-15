@@ -4,9 +4,11 @@
 *(Fiche d'offre — document de travail.)*
 
 EMtools est une collection de 25 outils interactifs d'électromagnétisme et de
-physique appliquée. Au-delà de l'accès libre non commercial, **NovaSens
-Expertise** propose des **licences** et des **versions sur mesure** à toute
-**entreprise**, **école d'ingénieurs** ou **université** intéressée.
+physique appliquée. La **démo** est en accès libre sur le site public ; pour
+**déployer, intégrer ou réutiliser** les outils, **NovaSens Expertise** accorde
+des **licences** (gratuites ou payantes selon les cas) et propose des **versions
+sur mesure** à toute **entreprise**, **école d'ingénieurs** ou **université**
+intéressée.
 
 ## À qui ?
 
@@ -14,7 +16,8 @@ Expertise** propose des **licences** et des **versions sur mesure** à toute
   marque blanche, version **validée et documentée** pour un dossier de
   conception / réglementaire.
 - **Écoles & universités** — déploiement enrichi, modules dédiés, support,
-  personnalisation. *(L'usage pédagogique de base reste gratuit.)*
+  personnalisation. *(Une licence pédagogique est souvent accordée
+  gratuitement, sur simple demande.)*
 
 ## Modules — à la carte
 
