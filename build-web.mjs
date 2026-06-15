@@ -26,7 +26,7 @@ for (const f of readdirSync('.')) {
 //    - vendor/ : Chart.js local (dosimetrie.html)
 //    - xcat_demo_thorax.json : cas test chargé par voxel.html (fetch)
 //    - LICENSE : pour l'« À propos »
-for (const a of ['vendor', 'xcat_demo_thorax.json', 'LICENSE', 'EMtools-Catalogue.pdf', 'license-gate.js']) {
+for (const a of ['vendor', 'catalogue-shots', 'xcat_demo_thorax.json', 'LICENSE', 'EMtools-Catalogue.pdf', 'license-gate.js']) {
   if (existsSync(a)) cpSync(a, `${OUT}/${a}`, { recursive: true });
 }
 

@@ -28,6 +28,19 @@ main{padding:2.2rem 0 1rem}
 .why .c{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:1rem 1.1rem;box-shadow:var(--shadow)}
 .why .c h4{font-size:.92rem;color:var(--navy);margin-bottom:.25rem}.why .c h4 span{margin-right:.4rem}
 .why .c p{font-size:.84rem;color:var(--text2)}
+.gallery-h{margin:2.2rem 0 1rem}
+.gallery-h h2{font-size:1.35rem;color:var(--navy);font-weight:800}
+.gallery-h p{font-size:.9rem;color:var(--text2);margin-top:.25rem;max-width:680px}
+.gal{column-count:2;column-gap:1.1rem}
+@media(max-width:680px){.gal{column-count:1}}
+.fig{break-inside:avoid;display:inline-block;width:100%;margin:0 0 1.1rem;background:var(--white);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}
+.fig .bar{display:flex;align-items:center;gap:.55rem;padding:.5rem .8rem;background:#0f1d33}
+.fig .dots{display:flex;gap:5px;flex-shrink:0}.fig .dots i{width:10px;height:10px;border-radius:50%;display:block}
+.fig .ttl{font-size:.8rem;color:#e2e8f0;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fig .ttl span{color:#5eead4;font-weight:500}
+.fig img{width:100%;display:block}
+.fig figcaption{padding:.7rem .9rem;font-size:.82rem;color:var(--text2);line-height:1.45}
+.fig figcaption b{color:var(--navy)}
 .theme{margin-bottom:1.7rem;break-inside:avoid}
 .theme-h{display:flex;align-items:center;gap:.6rem;margin-bottom:.8rem;padding-bottom:.5rem;border-bottom:2px solid var(--th,#0d9488)}
 .theme-h .ti{font-size:1.4rem}.theme-h h2{font-size:1.18rem;color:var(--navy);font-weight:800}
@@ -62,6 +75,9 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:.6rem
   .tool .open{display:none}.tool .url{display:block}
   a{color:var(--text)}
   .theme,.tool,.why,.cta{break-inside:avoid}
+  .gal{column-count:2}
+  .fig{break-inside:avoid}
+  .fig img{max-height:158mm;object-fit:cover;object-position:top}
   header,.intro{break-after:avoid}
 }
 </style>
@@ -86,6 +102,7 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:.6rem
 <main><div class="wrap">
   <div class="intro" data-i18n-html="intro"></div>
   <div class="why" id="why"></div>
+  <div id="gallery"></div>
   <div id="catalogue"></div>
 
   <div class="cta">
@@ -147,8 +164,21 @@ const TOOLS=[
  {h:'cloaking.html',i:'🫥',t:5,fr:['Méta-matériaux','Matériaux à propriétés effectives artificielles. Premier module : la cape d\'invisibilité de Pendry (optique de transformation, gradient ε/μ, anneaux SRR, trajectoire des rayons, carte de champ).'],en:['Metamaterials','Materials with engineered effective properties. First module: the Pendry invisibility cloak (transformation optics, ε/μ gradient, SRR rings, ray paths, field map).']}
 ];
 
+const GALLERY=[
+ {img:'catalogue-shots/antennes-filaires.png',h:'antennes-filaires.html',fr:['Antennes filaires (MoM)','Diagramme de rayonnement, distribution de courant, VSWR et cartographie du champ proche d\'un dipôle.'],en:['Wire antennas (MoM)','Radiation pattern, current distribution, VSWR and near-field map of a dipole.']},
+ {img:'catalogue-shots/lignes.png',h:'lignes.html',fr:['Lignes de transmission','Abaque de Smith, onde stationnaire (TOS) et adaptation d\'impédance.'],en:['Transmission lines','Smith chart, standing wave (VSWR) and impedance matching.']},
+ {img:'catalogue-shots/gps.png',h:'gps.html',fr:['GPS — trilatération','Positionnement par 4 satellites : coordonnées x, y, z et biais d\'horloge.'],en:['GPS — trilateration','Positioning from 4 satellites: x, y, z coordinates and clock bias.']},
+ {img:'catalogue-shots/bobines-toroide.png',h:'bobines-toroide.html',fr:['Magnétisme — solénoïde','Lignes de champ 3D et profil du champ axial B_z(z).'],en:['Magnetism — solenoid','3D field lines and axial field profile B_z(z).']},
+ {img:'catalogue-shots/photovoltaique.png',h:'photovoltaique.html',fr:['Photovoltaïque','Courbes I-V / P-V, point de puissance maximale, effet de l\'ensoleillement et comparaison des technologies.'],en:['Photovoltaics','I-V / P-V curves, maximum power point, irradiance effect and technology comparison.']},
+ {img:'catalogue-shots/irm.png',h:'irm.html',fr:['IRM','Fréquence de Larmor et carte d\'inhomogénéité du champ B₁ dans la tête.'],en:['MRI','Larmor frequency and B₁-field inhomogeneity map in the head.']},
+ {img:'catalogue-shots/optique.png',h:'optique.html',fr:['Capteurs optiques','Responsivité spectrale R(λ) d\'un photodétecteur et longueur d\'onde de coupure.'],en:['Optical sensors','Spectral responsivity R(λ) of a photodetector and cut-off wavelength.']},
+ {img:'catalogue-shots/cloaking.png',h:'cloaking.html',fr:['Méta-matériaux','Cape d\'invisibilité de Pendry : compression de l\'espace autour de l\'objet caché.'],en:['Metamaterials','Pendry invisibility cloak: compression of space around the hidden object.']}
+];
+
 const I18N={
  kicker:{fr:'Catalogue · EMtools',en:'Catalogue · EMtools'},
+ 'gal.h':{fr:'Galerie de résultats',en:'Result gallery'},
+ 'gal.p':{fr:'Des captures réelles des outils — rien n\'est mis en scène. Chaque figure est calculée en direct dans le navigateur, à partir des modèles physiques.',en:'Real screenshots of the tools — nothing is staged. Every figure is computed live in the browser, from the physical models.'},
  h1:{fr:"Simulateurs interactifs d'électromagnétisme & de physique appliquée",en:"Interactive simulators for electromagnetics & applied physics"},
  tagline:{fr:"25 outils web rigoureux, autonomes et bilingues — pour comprendre, enseigner et concevoir.",en:"25 rigorous, self-contained and bilingual web tools — to understand, teach and design."},
  by:{fr:"par Hakeim Talleb · outils sur code d'accès, gratuit sur demande · licence (gratuite ou commerciale) — NovaSens Expertise",en:"by Hakeim Talleb · tools by access code, free on request · licence (free or commercial) — NovaSens Expertise"},
@@ -171,6 +201,10 @@ let LANG='fr';
 function renderWhy(){
   document.getElementById('why').innerHTML=[0,1,2,3].map(i=>`<div class="c"><h4>${I18N['why'+i+'h'][LANG]}</h4><p>${I18N['why'+i+'p'][LANG]}</p></div>`).join('');
 }
+function renderGallery(){
+  const cards=GALLERY.map(g=>{const d=g[LANG];return `<figure class="fig"><div class="bar"><span class="dots"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></span><span class="ttl">${d[0]} <span>· emtools.app/${g.h}</span></span></div><a href="${g.h}"><img src="${g.img}" alt="${d[0]}" loading="lazy"></a><figcaption><b>${d[0]}</b> — ${d[1]}</figcaption></figure>`;}).join('');
+  document.getElementById('gallery').innerHTML=`<div class="gallery-h"><h2>${I18N['gal.h'][LANG]}</h2><p>${I18N['gal.p'][LANG]}</p></div><div class="gal">${cards}</div>`;
+}
 function renderCatalogue(){
   const box=document.getElementById('catalogue');box.innerHTML='';
   THEMES.forEach(th=>{
@@ -182,7 +216,7 @@ function renderCatalogue(){
 function setLang(l){LANG=l;document.documentElement.lang=l;document.getElementById('lang').textContent=l==='fr'?'EN':'FR';
   document.querySelectorAll('[data-i18n]').forEach(e=>{const k=e.getAttribute('data-i18n');if(I18N[k])e.textContent=I18N[k][l];});
   document.querySelectorAll('[data-i18n-html]').forEach(e=>{const k=e.getAttribute('data-i18n-html');if(I18N[k])e.innerHTML=I18N[k][l];});
-  renderWhy();renderCatalogue();
+  renderWhy();renderGallery();renderCatalogue();
 }
 setLang('fr');
 </script>
