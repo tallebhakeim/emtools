@@ -779,7 +779,7 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
 <div id="tab-import" class="panel">
   <div class="stitle0">Import CST → SAR → Cartographie thermique 2D</div>
   <div style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;padding:10px 14px;margin:0 0 .75rem;font-size:11.5px;color:#3730a3;line-height:1.55">
-    <strong>ℹ Module données volumiques externes</strong> — charge un export de champ E (grille 3D régulière, format CST ASCII <code>x y z ExRe ExIm EyRe EyIm EzRe EzIm</code>, ou magnitudes <code>x y z |Ex| |Ey| |Ez|</code>, ou SAR direct <code>x y z SAR</code>) et le STL du modèle. Calcule SAR = σ|E|²/(2ρ), découpe un plan, résout la bio-chaleur de Pennes 2D sur la coupe. Complémentaire de la méthode analytique TMM (1D) : ici la source vient d'une simulation 3D. <strong>Validation</strong> : charge en plus un export <em>SAR CST de référence</em> — l'outil recalcule le SAR depuis le champ E, le moyenne sur 10 g et le compare voxel à voxel à la référence (corrélation, écart RMS, σ déduit).
+    <strong>ℹ Module données volumiques externes</strong> — charge un export de champ E (grille 3D régulière, format CST ASCII <code>x y z ExRe ExIm EyRe EyIm EzRe EzIm</code>, ou magnitudes <code>x y z |Ex| |Ey| |Ez|</code>, ou SAR direct <code>x y z SAR</code>) et le STL du modèle. Calcule SAR = σ|E|²/(2ρ), découpe un plan, résout la bio-chaleur de Pennes 2D sur la coupe. Complémentaire de la méthode analytique TMM (1D) : ici la source vient d'une simulation 3D. <strong>Validation</strong> : charge en plus un export <em>SAR CST de référence</em> — l'outil recalcule le SAR depuis le champ E, le moyenne sur 10 g et le compare voxel à voxel à la référence (corrélation, écart RMS, σ déduit). <strong>Le champ E seul suffit pour afficher la carte SAR</strong> (la zone où le champ est présent sert de « tissu ») ; ajoute le STL ou un SAR de référence pour une thermique réaliste et la validation. Puis clique <strong>« Calculer »</strong>.
   </div>
 
   <div class="row">
@@ -2723,10 +2723,13 @@ function impParseField(txt){
   else if(nc===4){kind='sar';note='SAR direct';}
   else{kind='sar';note='⚠ '+nc+' colonnes : format ambigu — colonne 4 lue comme SAR (vérifie l\'export)';}
   const X=[],Y=[],Z=[],val=[];
-  for(const p of rows){X.push(p[0]);Y.push(p[1]);Z.push(p[2]);
-    val.push(kind==='efield'   ? (p[3]*p[3]+p[4]*p[4]+p[5]*p[5]+p[6]*p[6]+p[7]*p[7]+p[8]*p[8])
-           : kind==='efieldmag'? (p[3]*p[3]+p[4]*p[4]+p[5]*p[5])
-           : p[3]);}
+  for(const p of rows){
+    const vv = kind==='efield'    ? (p[3]*p[3]+p[4]*p[4]+p[5]*p[5]+p[6]*p[6]+p[7]*p[7]+p[8]*p[8])
+             : kind==='efieldmag' ? (p[3]*p[3]+p[4]*p[4]+p[5]*p[5])
+             : p[3];
+    X.push(p[0]);Y.push(p[1]);Z.push(p[2]);
+    val.push(isFinite(vv)?vv:0);   // robustesse : une valeur de champ corrompue (ex. export « 31..608 ») → 0, pas de NaN propagé
+  }
   if(kind==='efieldmag')kind='efield';                 // |E|² déjà calculé → traité comme efield en aval
   const uniq=a=>{const s=Array.from(new Set(a.map(v=>Math.round(v*1e3)/1e3)));s.sort((u,v)=>u-v);return s;};
   const xs=uniq(X),ys=uniq(Y),zs=uniq(Z);
@@ -3052,11 +3055,16 @@ function impRun(){
   // SAR de réf. sur grille E (validation + masque tissu si pas de STL)
   const refOnE = impRefSAR ? impRefOnEgrid(impEfield,impRefSAR) : null;
   // Masque tissu 3D : STL voxélisé > export SAR>0 > SAR de réf.>0
-  let tissue3d;
+  let tissue3d, noGeom=false;
   if(impSTL) tissue3d=impVoxelizeTissue(impEfield,impSTL);
   else if(kind==='sar'){tissue3d=new Uint8Array(sar3d.length);for(let i=0;i<sar3d.length;i++)tissue3d[i]=sar3d[i]>0?1:0;}
   else if(refOnE){tissue3d=new Uint8Array(refOnE.length);for(let i=0;i<refOnE.length;i++)tissue3d[i]=refOnE[i]>0?1:0;}
-  else {impStatus('⚠ Sans STL, fournis le SAR CST de référence (il définit le tissu) — ou importe directement un export SAR.');return;}
+  else { // Repli (champ E seul, sans STL ni SAR de réf.) : la zone où le champ est présent (|E|²>0) sert de « tissu » pour visualiser la carte SAR.
+    tissue3d=new Uint8Array(sar3d.length); let any=0;
+    for(let i=0;i<sar3d.length;i++){if(impEfield.g[i]>0){tissue3d[i]=1;any++;}}
+    if(!any){impStatus('⚠ Aucune donnée de champ exploitable (|E|²=0 partout).');return;}
+    noGeom=true;
+  }
 
   // Grille de coupe 2D + contour : via STL si dispo, sinon depuis le masque tissu
   let G,segs,ia,ib;
@@ -3161,7 +3169,8 @@ function impRun(){
       : 'CEM43 <b>absolu</b> : à ce niveau d\'exposition la dose est <b>'+(negligible?'négligeable':'faible')+'</b> ('+cemMax.toExponential(2)+' min ≪ seuil de lésion ~10 min). La carte reflète surtout la <b>température de base</b> (≈37 °C au cœur, refroidie en surface), pas la direction du champ — passe en <b>« Dû à l\'EM seul »</b> pour voir la signature de l\'onde.';
   }
   const c2=v=>(v).toFixed(3);   // mK -> °C helper inline
-  impStatus(`✓ coupe ${G.nu}×${G.nv}, ${N} cellules · affichage SAR : ${mode==='10g'?'psSAR 10g':'point'}\n`+
+  impStatus((noGeom?'⚠ Mode champ E seul (sans géométrie) : la zone |E|²>0 sert de « tissu » — la carte SAR est correcte, la thermique est indicative (bord = limite du domaine exporté, pas la peau).\n':'')+
+            `✓ coupe ${G.nu}×${G.nv}, ${N} cellules · affichage SAR : ${mode==='10g'?'psSAR 10g':'point'}\n`+
             `SAR point max=${sarMax.toExponential(3)} · psSAR 10g max=${sar10gMax.toExponential(3)} W/kg (cube ${cubeMM.toFixed(0)} mm ≈ ${cubeG.toFixed(0)} g)\n`+
             `Normalisé ${sarref} W/kg crête → psSAR 10g=${(sar10gMax*factor).toExponential(3)} W/kg · ΔT permanent=${(dTeq*1e3).toFixed(1)} mK (${c2(dTeq)} °C)\n`+
             `Transitoire ${durMin} min : ΔT max=${(dTmax*1e3).toFixed(1)} mK (${c2(dTmax)} °C) · CEM43 max=${cemMax.toExponential(2)} min équiv. @43°C`);
