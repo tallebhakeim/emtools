@@ -852,6 +852,7 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
   <button onclick="impRun()" style="background:#6366f1;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-weight:700;cursor:pointer;margin:.5rem 0">Calculer SAR + Température</button>
   <div id="imp-status" style="font-size:12px;color:var(--text2);margin:.3rem 0;white-space:pre-line"></div>
 
+  <style>#imp-sar-map,#imp-dt-map,#imp-cem-map,#imp-cmp-ours,#imp-cmp-cst,#imp-cmp-diff{max-width:330px}</style>
   <div class="row" style="margin-top:.5rem">
     <div style="flex:1;min-width:240px"><div class="stitle" style="border-top:none;padding-top:0">SAR sur la coupe [W/kg]</div><canvas id="imp-sar-map" width="600" height="600" style="width:100%;height:auto;border-radius:8px;border:.5px solid var(--border);background:#fff"></canvas></div>
     <div style="flex:1;min-width:240px"><div class="stitle" style="border-top:none;padding-top:0">ΔT induit par l'EM [mK]</div><canvas id="imp-dt-map" width="600" height="600" style="width:100%;height:auto;border-radius:8px;border:.5px solid var(--border);background:#fff"></canvas></div>
@@ -2697,8 +2698,8 @@ function impSyncProps(){
 
 // — Cas tests de validation (liquide équivalent ε=42, σ=0,99, ρ=1000) + fichiers embarqués —
 const IMPCASES={
-  head:{ef:'efield_head_09GHz.txt',sar:'sar10g_head_09GHz.txt',stl:'head.stl',axis:2,pos:-191.3,grid:3,pAxis:2,pDir:'fwd',pMode:'plane',
-        sigma:0.99,eps:42,rho:1000,freqGHz:0.9,lbl:'tête (onde plane 0,9 GHz, propagation +z, E∥x)'},
+  head:{ef:'efield_head_09GHz.txt',sar:'sar10g_head_09GHz.txt',stl:'head.stl',axis:0,pos:0,grid:3,pAxis:2,pDir:'fwd',pMode:'plane',
+        sigma:0.99,eps:42,rho:1000,freqGHz:0.9,lbl:'tête (onde plane 0,9 GHz, propagation +z, E∥x ; coupe sagittale x=0)'},
   slab:{ef:'slab_efield_09GHz.txt',sar:'slab_sar10g_09GHz.txt',stl:null,axis:1,pos:0,grid:4,pAxis:1,pDir:'auto',pMode:'line',
         sigma:0.99,eps:42,rho:1000,freqGHz:0.9,lbl:'dalle (onde plane 0,9 GHz, sans STL → tissu = SAR>0)'},
   trunk:{ef:'trunk_efield_09GHz.txt',sar:'trunk_sar10g_09GHz.txt',stl:null,axis:1,pos:0,grid:4,pAxis:2,pDir:'auto',pMode:'plane',stack:'trunk',
