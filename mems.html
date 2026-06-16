@@ -65,13 +65,13 @@ th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}th:fi
       <div class="grid2">
         <div>
           <label data-i18n="pl.area">Surface des plaques L × W (µm)</label>
-          <div class="row"><input type="number" id="pl-L" value="100" step="10" oninput="pull()"><input type="number" id="pl-W" value="100" step="10" oninput="pull()"></div>
+          <div class="row"><input type="number" id="pl-L" value="100" step="10" oninput="pullRescale()"><input type="number" id="pl-W" value="100" step="10" oninput="pullRescale()"></div>
           <label data-i18n="pl.gap">Entrefer initial g₀ (µm)</label>
-          <input type="number" id="pl-g" value="2" step="0.1" oninput="pull()">
+          <input type="number" id="pl-g" value="2" step="0.1" oninput="pullRescale()">
           <label data-i18n="pl.k">Raideur du ressort k (N/m)</label>
-          <input type="number" id="pl-k" value="1" step="0.1" oninput="pull()">
+          <input type="number" id="pl-k" value="1" step="0.1" oninput="pullRescale()">
           <label><span data-i18n="pl.v">Tension appliquée V</span> <b class="muted" id="pl-v-v"></b></label>
-          <div class="rng"><input type="range" id="pl-v" min="0" max="100" value="50" oninput="pull()"><b id="pl-v-b"></b></div>
+          <div class="rng"><input type="range" id="pl-v" min="0" max="7" value="3.5" step="0.05" oninput="pull()"><b id="pl-v-b"></b></div>
           <div class="metrics" id="pl-metrics"></div>
         </div>
         <div>
@@ -79,6 +79,8 @@ th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}th:fi
           <div class="cap" data-i18n="pl.cap1">Vue en coupe : plaque mobile sur ressorts (orange), électrode fixe (bleu), entrefer</div>
           <canvas id="cv-pullc" width="440" height="220" style="margin-top:10px"></canvas>
           <div class="cap" data-i18n="pl.cap2">Déplacement vs tension : montée douce puis saut brutal au pull-in (V_PI)</div>
+          <canvas id="cv-pullcap" width="440" height="190" style="margin-top:10px"></canvas>
+          <div class="cap" data-i18n="pl.cap3">Détection capacitive : avant le pull-in, C varie en douceur (C₀ → 1,5·C₀) — c'est la zone de lecture/mesure (ΔC = C₀·Δx/g₀). Au claquage, C saute.</div>
         </div>
       </div>
     </div>
@@ -196,17 +198,26 @@ function met(k,v,u,cls){return `<div class="metric ${cls||''}"><div class="k">${
 function fmtSI(x,u){const a=Math.abs(x);if(a===0)return "0 "+u;if(a>=1)return x.toFixed(2)+" "+u;if(a>=1e-3)return (x*1e3).toFixed(2)+" m"+u;if(a>=1e-6)return (x*1e6).toFixed(2)+" µ"+u;if(a>=1e-9)return (x*1e9).toFixed(2)+" n"+u;if(a>=1e-12)return (x*1e12).toFixed(2)+" p"+u;return (x*1e15).toFixed(1)+" f"+u;}
 
 // ════ 1 · PULL-IN ════
+// Recalibre le slider de tension sur V_pull-in (sinon les valeurs « par défaut » sont hors échelle).
+function pullRescale(){
+  const A=parseFloat(document.getElementById('pl-L').value)*1e-6*parseFloat(document.getElementById('pl-W').value)*1e-6;
+  const g0=parseFloat(document.getElementById('pl-g').value)*1e-6, k=parseFloat(document.getElementById('pl-k').value)||1;
+  const Vpi=Math.sqrt(8*k*g0*g0*g0/(27*EPS0*A)), sl=document.getElementById('pl-v');
+  if(isFinite(Vpi)&&Vpi>0){ sl.max=(Vpi*1.3).toPrecision(3); sl.step=(Vpi/200).toPrecision(2); sl.value=(Vpi*0.7).toPrecision(3); }
+  pull();
+}
 function pull(){
   const A=parseFloat(document.getElementById('pl-L').value)*1e-6*parseFloat(document.getElementById('pl-W').value)*1e-6;
   const g0=parseFloat(document.getElementById('pl-g').value)*1e-6, k=parseFloat(document.getElementById('pl-k').value)||1, V=parseFloat(document.getElementById('pl-v').value);
-  document.getElementById('pl-v-b').textContent=V+" V";
+  document.getElementById('pl-v-b').textContent=V.toFixed(2)+" V";
   const Vpi=Math.sqrt(8*k*g0*g0*g0/(27*EPS0*A));
   // déplacement d'équilibre stable pour V (itération de point fixe x=ε0AV²/(2k(g0-x)²)), sinon pull-in
   const xeq=Vapp=>{let x=0;for(let i=0;i<200;i++){const xn=EPS0*A*Vapp*Vapp/(2*k*(g0-x)*(g0-x));if(xn>=g0/3+1e-12||!isFinite(xn))return null;if(Math.abs(xn-x)<1e-12)return xn;x=xn;}return x;};
   const pulled=V>Vpi, x=pulled?g0:(xeq(V)??g0/3);
-  const gap=g0-x, Cap=EPS0*A/Math.max(gap,1e-9);
+  const gap=g0-x, Cap=EPS0*A/Math.max(gap,1e-9), C0=EPS0*A/g0;
   document.getElementById('pl-metrics').innerHTML=
-    met("V_pull-in",Vpi.toFixed(2),"V")+met(T('pl.disp'),(x*1e9).toFixed(0),"nm")+met(T('pl.gap'),(gap*1e9).toFixed(0),"nm")+met("C",fmtSI(Cap,"F"),"")+
+    met("V_pull-in",Vpi.toFixed(2),"V")+met(T('pl.disp'),(x*1e9).toFixed(0),"nm")+met(T('pl.gap'),(gap*1e9).toFixed(0),"nm")+
+    met("C₀",fmtSI(C0,"F"),"")+met("C",fmtSI(Cap,"F"),"")+met("ΔC/C₀","+"+((Cap/C0-1)*100).toFixed(0),"%")+
     met(T('pl.state'),pulled?T('pl.collapsed'):T('pl.stable'),"",pulled?'bad':'good');
   // vue en coupe
   const cv=document.getElementById('cv-pull'),c=cv.getContext('2d');c.clearRect(0,0,cv.width,cv.height);
@@ -240,6 +251,23 @@ function pull(){
   x2.fillStyle="#e05a5a";x2.textAlign="left";x2.fillText("V_PI "+Vpi.toFixed(1)+" V",X(Vpi)+4,Y(g0/3));
   // point courant
   x2.fillStyle=pulled?"#e05a5a":"#e0884b";x2.beginPath();x2.arc(X(Math.min(V,Vm)),Y(x),5,0,2*Math.PI);x2.fill();
+  // ── détection capacitive : C/C₀ vs tension (zone stable avant pull-in) ──
+  const c3=document.getElementById('cv-pullcap');
+  if(c3){const x3=c3.getContext('2d');x3.clearRect(0,0,c3.width,c3.height);
+    const W3=c3.width,H3=c3.height,mL3=46,mT3=12,ph3=H3-mT3-24,pw3=W3-mL3-12,Cmax=1.6;
+    const X3=v=>mL3+v/Vm*pw3, Y3=r=>mT3+ph3-(Math.min(r,Cmax)-1)/(Cmax-1)*ph3;
+    x3.fillStyle="rgba(77,182,164,.10)";x3.fillRect(mL3,mT3,X3(Vpi)-mL3,ph3);
+    x3.strokeStyle="#2d3742";x3.beginPath();x3.moveTo(mL3,mT3);x3.lineTo(mL3,mT3+ph3);x3.lineTo(mL3+pw3,mT3+ph3);x3.stroke();
+    x3.fillStyle="#8b97a3";x3.font="10px sans-serif";x3.textAlign="right";x3.fillText("1,5·C₀",mL3-4,Y3(1.5)+3);x3.fillText("C₀",mL3-4,Y3(1)+3);
+    x3.textAlign="center";x3.fillText(T('pl.vaxis'),mL3+pw3/2,H3-2);
+    x3.strokeStyle="#1c242d";x3.setLineDash([2,3]);x3.beginPath();x3.moveTo(mL3,Y3(1.5));x3.lineTo(mL3+pw3,Y3(1.5));x3.stroke();x3.setLineDash([]);
+    x3.strokeStyle="#6fb6d6";x3.lineWidth=2;x3.beginPath();let s3=false;
+    for(let v=0;v<=Vpi;v+=Vpi/120){const xx=xeq(v);if(xx==null)break;const r=g0/(g0-xx),px3=X3(v),py3=Y3(r);s3?x3.lineTo(px3,py3):x3.moveTo(px3,py3);s3=true;}
+    x3.lineTo(X3(Vpi),Y3(1.5));x3.stroke();
+    x3.strokeStyle="#e05a5a";x3.setLineDash([4,3]);x3.beginPath();x3.moveTo(X3(Vpi),Y3(1.5));x3.lineTo(X3(Vpi),Y3(Cmax));x3.stroke();x3.setLineDash([]);
+    x3.fillStyle="#4db6a4";x3.font="bold 10px sans-serif";x3.textAlign="left";x3.fillText(T('pl.detect'),mL3+6,mT3+11);
+    x3.fillStyle=pulled?"#e05a5a":"#e0884b";x3.beginPath();x3.arc(X3(Math.min(V,Vm)),Y3(pulled?Cmax:Cap/C0),5,0,2*Math.PI);x3.fill();
+  }
 }
 
 // ════ 2 · PEIGNE ════
@@ -398,6 +426,7 @@ const I18N={
  'pl.disp':{fr:"Déplacement x",en:"Displacement x"},'pl.gap':{fr:"Entrefer restant",en:"Remaining gap"},'pl.state':{fr:"État",en:"State"},'pl.stable':{fr:"Stable",en:"Stable"},'pl.collapsed':{fr:"Pull-in (collé)",en:"Pulled in (collapsed)"},
  'pl.cap1':{fr:"Vue en coupe : plaque mobile sur ressorts (orange), électrode fixe (bleu), entrefer",en:"Cross-section: movable plate on springs (orange), fixed electrode (blue), gap"},
  'pl.cap2':{fr:"Déplacement vs tension : montée douce puis saut brutal au pull-in (V_PI)",en:"Displacement vs voltage: smooth rise then abrupt jump at pull-in (V_PI)"},'pl.vaxis':{fr:"tension V",en:"voltage V"},
+ 'pl.cap3':{fr:"Détection capacitive : avant le pull-in, C varie en douceur (C₀ → 1,5·C₀) — c'est la zone de lecture/mesure (ΔC = C₀·Δx/g₀). Au claquage, C saute.",en:"Capacitive readout: before pull-in, C varies smoothly (C₀ → 1.5·C₀) — this is the sensing zone (ΔC = C₀·Δx/g₀). At snap, C jumps."},'pl.detect':{fr:"zone de détection",en:"sensing zone"},
  'cb.h':{fr:"Le peigne interdigité (comb drive)",en:"The interdigitated comb drive"},
  'cb.lead':{fr:"Des doigts entrelacés : la force latérale F = N·ε₀·t·V²/g est <b>indépendante du déplacement</b> (pas de pull-in dans l'axe du mouvement) → un actionneur linéaire et contrôlable, idéal pour résonateurs, accéléromètres et gyroscopes. La force monte avec le nombre de doigts N, l'épaisseur t (couche structurelle) et 1/g.",en:"Interleaved fingers: the lateral force F = N·ε₀·t·V²/g is <b>independent of displacement</b> (no pull-in along the motion axis) → a linear, controllable actuator, ideal for resonators, accelerometers and gyroscopes. Force grows with finger count N, thickness t (structural layer) and 1/g."},
  'cb.n':{fr:"Nombre de doigts N",en:"Number of fingers N"},'cb.t':{fr:"Épaisseur structurelle t (µm)",en:"Structural thickness t (µm)"},'cb.g':{fr:"Entrefer entre doigts g (µm)",en:"Inter-finger gap g (µm)"},'cb.k':{fr:"Raideur k (N/m)",en:"Stiffness k (N/m)"},'cb.v':{fr:"Tension V",en:"Voltage V"},
@@ -437,7 +466,7 @@ function setLang(l){LANG=l;document.getElementById('lf').classList.toggle('on',l
   document.querySelectorAll('[data-i18n]').forEach(e=>{const k=e.getAttribute('data-i18n');if(I18N[k])e.innerHTML=I18N[k][l];});
   document.documentElement.lang=l;const cur=['pull','comb','dyn','des'].find(p=>document.getElementById('pane-'+p).style.display!=='none');document.getElementById('ds-inputs').innerHTML='';showTab(cur||'pull');}
 
-showTab('pull');
+pullRescale();showTab('pull');
 </script>
 </body>
 </html>
