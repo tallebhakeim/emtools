@@ -823,6 +823,12 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
     <div class="field"><label>Affichage SAR</label><select id="imp-sarmode" onchange="if(impEfield)impRun()"><option value="point">Point (local)</option><option value="10g">psSAR 10g</option></select></div>
     <div class="field"><label>Carte CEM43</label><select id="imp-cem-mode" onchange="if(impEfield)impRun()"><option value="abs">Absolu (T réelle)</option><option value="em">Dû à l'EM seul</option></select></div>
   </div>
+  <div style="display:flex;align-items:center;gap:7px;margin:.1rem 0 .2rem;flex-wrap:wrap">
+    <span style="font-size:11px;color:var(--text2);font-weight:600">Vue rapide (coupe centrée) :</span>
+    <button type="button" onclick="impQuickCut(0)" style="background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:7px;padding:4px 10px;font-weight:600;cursor:pointer;font-size:11px">Sagittale (x)</button>
+    <button type="button" onclick="impQuickCut(1)" style="background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:7px;padding:4px 10px;font-weight:600;cursor:pointer;font-size:11px">Frontale / coronale (y)</button>
+    <button type="button" onclick="impQuickCut(2)" style="background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:7px;padding:4px 10px;font-weight:600;cursor:pointer;font-size:11px">Axiale (z)</button>
+  </div>
 
   <div class="stitle">Thermique — Pennes 2D</div>
   <div class="row">
@@ -3324,6 +3330,17 @@ function impSyncScale(){
   if(e0)e0.style.display=(m==='pw')?'':'none';
   const sref=document.getElementById('imp-sarref'); const f=sref&&sref.closest('.field');
   if(f)f.style.display=(m==='peak')?'':'none';                          // « Pic SAR cible » visible seulement en mode pic
+}
+
+// Vue rapide : recadre la coupe au centre du volume chargé selon l'axe (0=x sagittal, 1=y frontal/coronal, 2=z axial).
+function impQuickCut(ax){
+  if(!impEfield){impStatus('⚠ Charge d\'abord un champ (cas de référence ou ton export).');return;}
+  const arr=[impEfield.xs,impEfield.ys,impEfield.zs][ax]||[];
+  if(!arr.length)return;
+  const mid=arr[Math.floor(arr.length/2)];
+  document.getElementById('imp-axis').value=String(ax);
+  document.getElementById('imp-pos').value=+mid.toFixed(1);
+  impRun();
 }
 
 // Note d'aide « Mon projet CST » : champ E chargé sans SAR de référence → guider vers matériau + calage.
