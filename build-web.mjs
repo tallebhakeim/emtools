@@ -30,4 +30,8 @@ for (const a of ['vendor', 'catalogue-shots', 'xcat_demo_thorax.json', 'LICENSE'
   if (existsSync(a)) cpSync(a, `${OUT}/${a}`, { recursive: true });
 }
 
-console.log(`✓ dist/ prêt : ${pages} pages + assets (vendor/, cas test voxel, LICENSE)`);
+// 3) cas de référence CST (tête/dalle/tronc) embarqués → onglet « CST comparaison » en 1 clic, hors-ligne
+if (existsSync('dosimetrie_cas_test/models_CST'))
+  cpSync('dosimetrie_cas_test/models_CST', `${OUT}/cst-cases`, { recursive: true });
+
+console.log(`✓ dist/ prêt : ${pages} pages + assets (vendor/, cas test voxel, cst-cases/, LICENSE)`);

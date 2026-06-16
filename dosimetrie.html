@@ -125,7 +125,7 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
   <button class="tab" onclick="switchTab('valid')"><span class="tab-dot" style="background:#16a34a"></span><span data-i18n="tab.valid">Validation</span></button>
   <span class="tab-sep"></span>
   <span class="tab-grp">Avancé</span>
-  <button class="tab" onclick="switchTab('import')"><span class="tab-dot" style="background:#6366f1"></span>Import CST</button>
+  <button class="tab" onclick="switchTab('import')"><span class="tab-dot" style="background:#6366f1"></span>CST comparaison</button>
 </div>
 
 
@@ -777,9 +777,26 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
 
 <!-- ═══ IMPORT CST / CARTOGRAPHIE 2D ═══ -->
 <div id="tab-import" class="panel">
-  <div class="stitle0">Import CST → SAR → Cartographie thermique 2D</div>
-  <div style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;padding:10px 14px;margin:0 0 .75rem;font-size:11.5px;color:#3730a3;line-height:1.55">
-    <strong>ℹ Module données volumiques externes</strong> — charge un export de champ E (grille 3D régulière, format CST ASCII <code>x y z ExRe ExIm EyRe EyIm EzRe EzIm</code>, ou magnitudes <code>x y z |Ex| |Ey| |Ez|</code>, ou SAR direct <code>x y z SAR</code>) et le STL du modèle. Calcule SAR = σ|E|²/(2ρ), découpe un plan, résout la bio-chaleur de Pennes 2D sur la coupe. Complémentaire de la méthode analytique TMM (1D) : ici la source vient d'une simulation 3D. <strong>Validation</strong> : charge en plus un export <em>SAR CST de référence</em> — l'outil recalcule le SAR depuis le champ E, le moyenne sur 10 g et le compare voxel à voxel à la référence (corrélation, écart RMS, σ déduit). <strong>Le champ E seul suffit pour afficher la carte SAR</strong> (la zone où le champ est présent sert de « tissu ») ; ajoute le STL ou un SAR de référence pour une thermique réaliste et la validation. Puis clique <strong>« Calculer »</strong>.
+  <div class="stitle0">CST comparaison — notre SAR vs simulation CST</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:.7rem;margin:.3rem 0 1rem">
+    <div style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;padding:.8rem .9rem;display:flex;flex-direction:column">
+      <div style="font-weight:700;color:#3730a3;font-size:12.5px;margin-bottom:.35rem">① Cas de référence (validés)</div>
+      <div style="font-size:11px;color:#475569;line-height:1.45;margin-bottom:.6rem;flex:1">En 1 clic : champ E + SAR CST + matériau + fréquence. Compare notre SAR au SAR CST (corrélation, écart, profil).</div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px">
+        <button type="button" onclick="impLoadCase('head')" style="background:#3730a3;color:#fff;border:0;border-radius:7px;padding:6px 11px;font-weight:600;cursor:pointer;font-size:11.5px">🧠 Tête</button>
+        <button type="button" onclick="impLoadCase('slab')" style="background:#3730a3;color:#fff;border:0;border-radius:7px;padding:6px 11px;font-weight:600;cursor:pointer;font-size:11.5px">▦ Dalle</button>
+        <button type="button" onclick="impLoadCase('trunk')" style="background:#3730a3;color:#fff;border:0;border-radius:7px;padding:6px 11px;font-weight:600;cursor:pointer;font-size:11.5px">🫀 Tronc</button>
+      </div>
+    </div>
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:.8rem .9rem;display:flex;flex-direction:column">
+      <div style="font-weight:700;color:#166534;font-size:12.5px;margin-bottom:.35rem">② Mon projet CST</div>
+      <div style="font-size:11px;color:#475569;line-height:1.45;flex:1">Charge tes exports <b>ci-dessous</b> : champ E (<code>x y z ExRe…EzIm</code>, magnitudes, ou SAR direct) ± <b>SAR de référence</b> ± STL. <b>Sans SAR de référence</b>, précise le <b>calage</b> (puissance/amplitude) et le <b>matériau</b> pour obtenir l'absolu.</div>
+    </div>
+    <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:.8rem .9rem;display:flex;flex-direction:column">
+      <div style="font-weight:700;color:#9a3412;font-size:12.5px;margin-bottom:.35rem">③ Mon fantôme voxel</div>
+      <div style="font-size:11px;color:#475569;line-height:1.45;margin-bottom:.6rem;flex:1">Fantôme voxélisé (Interfile <code>.h33/.i33</code> + STL) → ε/σ/ρ par tissu, SAR, thermique. (Tête ~43 Mo OK ; corps entier trop lourd pour un navigateur.)</div>
+      <a href="voxel.html" style="background:#9a3412;color:#fff;border-radius:7px;padding:6px 11px;font-weight:600;font-size:11.5px;text-decoration:none;width:fit-content">Ouvrir l'outil Voxel →</a>
+    </div>
   </div>
 
   <div class="row">
@@ -787,18 +804,12 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
     <div class="field"><label>Maillage STL (.stl) — option. si SAR de réf. fourni</label><input type="file" id="imp-stl" accept=".stl"></div>
     <div class="field"><label>SAR CST de référence — validation (.txt, option.)</label><input type="file" id="imp-sarref-file" accept=".txt"></div>
   </div>
+  <div id="imp-nosar-note" style="display:none;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:9px;padding:8px 12px;margin:.2rem 0 .6rem;font-size:11.5px;line-height:1.5">⚠ <b>Champ E chargé sans SAR de référence.</b> La carte SAR s'affiche, mais pour des <b>valeurs absolues</b> comparables à CST, précise le <b>matériau</b> (σ, ρ) ci-dessous et, pour une onde plane, le <b>calage</b> (densité de puissance incidente ou pic SAR) plus bas. La validation voxel-à-voxel nécessite un export SAR de référence.</div>
 
   <div class="stitle">Matériau (tissu équivalent)</div>
   <div class="row">
     <div class="field"><label>Tissu (Cole-Cole)</label><select id="imp-tissue" onchange="impSyncProps()"></select></div>
     <div class="field"><label style="display:flex;align-items:center;gap:5px;text-transform:none;letter-spacing:0"><input type="checkbox" id="imp-manual" onchange="impSyncProps()"> Saisie manuelle</label></div>
-    <div class="field"><label>Cas test de validation</label>
-      <select id="imp-case">
-        <option value="head">Tête — onde plane 0,9 GHz</option>
-        <option value="slab">Dalle — onde plane 0,9 GHz (sans STL)</option>
-        <option value="trunk">Tronc multicouche — peau/graisse/muscle/foie</option>
-      </select></div>
-    <div class="field" style="display:flex;align-items:flex-end"><button type="button" onclick="impLoadCase()" style="background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:8px;padding:7px 12px;font-weight:600;cursor:pointer;font-size:12px">⤓ Charger (liquide ε=42, σ=0,99 S/m, ρ=1000)</button></div>
   </div>
   <div class="row">
     <div class="field"><label>σ (S/m)</label><input type="number" id="imp-sigma" step="any" value="0.99"></div>
@@ -828,10 +839,10 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
   </div>
 
   <div class="row">
-    <div class="field"><label>Calage du SAR absolu</label>
+    <div class="field"><label>Cartographies — calage des valeurs</label>
       <select id="imp-scale-mode" onchange="impSyncScale();if(impEfield)impRun()">
-        <option value="peak">Pic SAR cible — caler sur une valeur connue (ex. CST)</option>
-        <option value="raw">Champ brut (|E| tel quel, absolu)</option>
+        <option value="peak">Calé sur un pic connu (normalisé, ex. CST)</option>
+        <option value="raw">Valeurs absolues (|E| tel quel)</option>
         <option value="pw">Onde plane : densité de puissance incidente</option>
       </select></div>
     <div class="field" id="imp-pw-wrap" style="display:none"><label>Densité de puissance incidente S (W/m²)</label><input type="number" id="imp-pdens" step="any" value="1" onchange="if(impEfield)impRun()"></div>
@@ -2687,30 +2698,30 @@ function impSyncProps(){
 // — Cas tests de validation (liquide équivalent ε=42, σ=0,99, ρ=1000) + fichiers embarqués —
 const IMPCASES={
   head:{ef:'efield_head_09GHz.txt',sar:'sar10g_head_09GHz.txt',stl:'head.stl',axis:2,pos:-191.3,grid:3,pAxis:2,pDir:'fwd',pMode:'plane',
-        lbl:'tête (onde plane 0,9 GHz, propagation +z, E∥x)'},
+        sigma:0.99,eps:42,rho:1000,freqGHz:0.9,lbl:'tête (onde plane 0,9 GHz, propagation +z, E∥x)'},
   slab:{ef:'slab_efield_09GHz.txt',sar:'slab_sar10g_09GHz.txt',stl:null,axis:1,pos:0,grid:4,pAxis:1,pDir:'auto',pMode:'line',
-        lbl:'dalle (onde plane 0,9 GHz, sans STL → tissu = SAR>0)'},
+        sigma:0.99,eps:42,rho:1000,freqGHz:0.9,lbl:'dalle (onde plane 0,9 GHz, sans STL → tissu = SAR>0)'},
   trunk:{ef:'trunk_efield_09GHz.txt',sar:'trunk_sar10g_09GHz.txt',stl:null,axis:1,pos:0,grid:4,pAxis:2,pDir:'auto',pMode:'plane',stack:'trunk',
-        lbl:'tronc multicouche (peau/graisse/muscle/foie ; notre SAR σ unique vs SAR CST + profil vs empilement TMM)'}
+        sigma:0.99,eps:42,rho:1000,freqGHz:0.9,lbl:'tronc multicouche (peau/graisse/muscle/foie ; notre SAR σ unique vs SAR CST + profil vs empilement TMM)'}
 };
-async function impLoadCase(){
-  const which=document.getElementById('imp-case').value, c=IMPCASES[which]||IMPCASES.head;
+async function impLoadCase(name){
+  const which=name||(document.getElementById('imp-case')||{}).value||'head', c=IMPCASES[which]||IMPCASES.head;
   document.getElementById('imp-manual').checked=true; impSyncProps();
-  document.getElementById('imp-sigma').value=0.99; document.getElementById('imp-eps').value=42; document.getElementById('imp-rho').value=1000; document.getElementById('imp-conv').value='peak';
+  document.getElementById('imp-sigma').value=c.sigma; document.getElementById('imp-eps').value=c.eps; document.getElementById('imp-rho').value=c.rho; document.getElementById('imp-conv').value='peak';
   const set=(id,v)=>{const e=document.getElementById(id); if(e)e.value=v;};
   set('imp-prof-tissue', c.stack?'__stack__':'__manual__'); set('imp-prof-axis',c.pAxis); set('imp-prof-dir',c.pDir); set('imp-prof-mode',c.pMode);
-  set('imp-axis',c.axis); set('imp-pos',c.pos); set('imp-grid',c.grid); set('freq',9e8);
+  set('imp-axis',c.axis); set('imp-pos',c.pos); set('imp-grid',c.grid); set('freq',c.freqGHz*1e9); set('imp-prof-freq',c.freqGHz);
   if(c.stack && typeof PRESETS!=='undefined' && PRESETS[c.stack]){ layers=PRESETS[c.stack].map(l=>({...l})); if(typeof renderStack==='function'){try{renderStack();}catch(_){}}}
-  impStatus('Cas test « '+which+' » : chargement des fichiers embarqués…');
+  impStatus('Cas de référence « '+which+' » : chargement des fichiers embarqués…');
   try{
-    const base='dosimetrie_cas_test/';
+    const base='cst-cases/';
     const get=n=>fetch(base+n).then(r=>{if(!r.ok)throw new Error(n);return r.text();});
     const res=await Promise.all([get(c.ef), c.sar?get(c.sar):Promise.resolve(null), c.stl?get(c.stl):Promise.resolve(null)]);
     impEfield=impParseField(res[0]); impRefSAR=res[1]?impParseField(res[1]):null; impSTL=res[2]?impParseSTL(res[2]):null;
-    impStatus('✓ Cas test chargé : '+c.lbl+'. Calcul en cours…');
-    impRun();
+    impStatus('✓ Cas de référence chargé : '+c.lbl+'. Calcul en cours…');
+    impRun(); impUpdateModeHints();
   }catch(e){
-    impStatus('Matériau cas test appliqué (ε=42, σ=0,99 S/m, ρ=1000). Fichiers embarqués introuvables — charge tes propres exports CST ci-dessus.');
+    impStatus('Matériau appliqué (ε='+c.eps+', σ='+c.sigma+' S/m, ρ='+c.rho+'). Fichiers de référence introuvables — vérifie que cst-cases/ est servi, ou charge tes propres exports CST ci-dessus.');
   }
 }
 
@@ -3314,8 +3325,14 @@ function impSyncScale(){
   if(f)f.style.display=(m==='peak')?'':'none';                          // « Pic SAR cible » visible seulement en mode pic
 }
 
+// Note d'aide « Mon projet CST » : champ E chargé sans SAR de référence → guider vers matériau + calage.
+function impUpdateModeHints(){
+  const n=document.getElementById('imp-nosar-note'); if(!n)return;
+  n.style.display=(impEfield && impEfield.kind==='efield' && !impRefSAR)?'':'none';
+}
+
 (function impInit(){
-  impSyncScale();
+  impSyncScale(); impUpdateModeHints();
   const sel=document.getElementById('imp-tissue');
   if(sel&&typeof TNAMES!=='undefined'){TNAMES.forEach(n=>{const o=document.createElement('option');o.textContent=n;o.value=n;sel.appendChild(o);});
     sel.value=(TNAMES.indexOf('Muscle')>=0?'Muscle':TNAMES[0]);}
@@ -3327,10 +3344,10 @@ function impSyncScale(){
     pt.value='__manual__';}
   const ef=document.getElementById('imp-efield');
   if(ef)ef.addEventListener('change',()=>{const f=ef.files[0];if(!f)return;const r=new FileReader();
-    r.onload=()=>{impEfield=impParseField(r.result);impStatus(impEfield?`✓ Données : grille ${impEfield.nx}×${impEfield.ny}×${impEfield.nz} · pas ${impEfield.dx.toFixed(1)}×${impEfield.dy.toFixed(1)}×${impEfield.dz.toFixed(1)} mm · ${impEfield.note}`:'⚠ Format non reconnu.');};r.readAsText(f);});
+    r.onload=()=>{impEfield=impParseField(r.result);impStatus(impEfield?`✓ Données : grille ${impEfield.nx}×${impEfield.ny}×${impEfield.nz} · pas ${impEfield.dx.toFixed(1)}×${impEfield.dy.toFixed(1)}×${impEfield.dz.toFixed(1)} mm · ${impEfield.note}`:'⚠ Format non reconnu.');impUpdateModeHints();};r.readAsText(f);});
   const sr=document.getElementById('imp-sarref-file');
-  if(sr)sr.addEventListener('change',()=>{const f=sr.files[0];if(!f){impRefSAR=null;return;}const r=new FileReader();
-    r.onload=()=>{impRefSAR=impParseField(r.result);impStatus(impRefSAR?`✓ SAR CST de référence chargé : grille ${impRefSAR.nx}×${impRefSAR.ny}×${impRefSAR.nz} — la validation s'affichera après le calcul.`:'⚠ SAR de référence non reconnu.');};r.readAsText(f);});
+  if(sr)sr.addEventListener('change',()=>{const f=sr.files[0];if(!f){impRefSAR=null;impUpdateModeHints();return;}const r=new FileReader();
+    r.onload=()=>{impRefSAR=impParseField(r.result);impStatus(impRefSAR?`✓ SAR CST de référence chargé : grille ${impRefSAR.nx}×${impRefSAR.ny}×${impRefSAR.nz} — la validation s'affichera après le calcul.`:'⚠ SAR de référence non reconnu.');impUpdateModeHints();};r.readAsText(f);});
   const st=document.getElementById('imp-stl');
   if(st)st.addEventListener('change',()=>{const f=st.files[0];if(!f)return;const r=new FileReader();
     r.onload=()=>{impSTL=impParseSTL(r.result);impStatus(impSTL?`✓ STL : ${impSTL.length} triangles`:'⚠ STL non reconnu (ASCII attendu).');};r.readAsText(f);});
