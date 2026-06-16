@@ -824,7 +824,18 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
     <div class="field"><label>c (J/kg/K)</label><input type="number" id="imp-c" step="any" value="3500"></div>
     <div class="field"><label>Durée exposition (min)</label><input type="number" id="imp-dur" step="any" value="30"></div>
     <div class="field"><label>Pas grille therm. (mm)</label><input type="number" id="imp-grid" step="any" value="2" onchange="if(impEfield)impRun()"></div>
-    <div class="field"><label>Normalisation SAR crête (W/kg)</label><input type="number" id="imp-sarref" step="any" value="1"></div>
+    <div class="field"><label>Pic SAR cible (W/kg)</label><input type="number" id="imp-sarref" step="any" value="1" onchange="if(impEfield)impRun()"></div>
+  </div>
+
+  <div class="row">
+    <div class="field"><label>Calage du SAR absolu</label>
+      <select id="imp-scale-mode" onchange="impSyncScale();if(impEfield)impRun()">
+        <option value="peak">Pic SAR cible — caler sur une valeur connue (ex. CST)</option>
+        <option value="raw">Champ brut (|E| tel quel, absolu)</option>
+        <option value="pw">Onde plane : densité de puissance incidente</option>
+      </select></div>
+    <div class="field" id="imp-pw-wrap" style="display:none"><label>Densité de puissance incidente S (W/m²)</label><input type="number" id="imp-pdens" step="any" value="1" onchange="if(impEfield)impRun()"></div>
+    <div class="field" id="imp-e0-wrap" style="display:none"><label>E₀ de l'export CST (V/m)</label><input type="number" id="imp-e0export" step="any" value="1" onchange="if(impEfield)impRun()"></div>
   </div>
 
   <button onclick="impRun()" style="background:#6366f1;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-weight:700;cursor:pointer;margin:.5rem 0">Calculer SAR + Température</button>
@@ -3082,7 +3093,16 @@ function impRun(){
   }
   let sarMax=0; for(let n=0;n<N;n++)sarMax=Math.max(sarMax,SAR[n]);    // pic SUR LA COUPE (affichage)
   let sar3dMax=0; for(let i=0;i<sar3d.length;i++){if(tissue3d&&!tissue3d[i])continue; if(sar3d[i]>sar3dMax)sar3dMax=sar3d[i];}
-  const factor=sar3dMax>0?sarref/sar3dMax:1;                            // normalisation sur le pic 3D du tissu
+  const scaleMode=(document.getElementById('imp-scale-mode')||{}).value||'peak';
+  let factor, scaleTxt;
+  if(scaleMode==='raw'){ factor=1; scaleTxt='champ brut (absolu)'; }
+  else if(scaleMode==='pw'){                                            // onde plane : cale sur la densité de puissance incidente
+    const S=parseFloat(document.getElementById('imp-pdens').value)||0;
+    const E0e=parseFloat(document.getElementById('imp-e0export').value)||1;
+    factor=2*376.730313668*S/(E0e*E0e);                                 // SAR_abs = SAR_brut × (√(2η₀S)/E₀_export)²  (η₀=376,73 Ω)
+    scaleTxt='onde plane S='+S+' W/m² (E₀ export '+E0e+' V/m)';
+  }
+  else { factor=sar3dMax>0?sarref/sar3dMax:1; scaleTxt='pic calé '+sarref+' W/kg'; }   // pic SAR cible (sur le pic 3D du tissu)
 
   // psSAR 10g (3D) — moyenne cubique de masse ~10g sur le masque tissu
   const Lmm=Math.cbrt(0.01/rho)*1000, r10=Math.max(1,Math.round(Lmm/impEfield.dx/2));
@@ -3172,7 +3192,7 @@ function impRun(){
   impStatus((noGeom?'⚠ Mode champ E seul (sans géométrie) : la zone |E|²>0 sert de « tissu » — la carte SAR est correcte, la thermique est indicative (bord = limite du domaine exporté, pas la peau).\n':'')+
             `✓ coupe ${G.nu}×${G.nv}, ${N} cellules · affichage SAR : ${mode==='10g'?'psSAR 10g':'point'}\n`+
             `SAR point max=${sarMax.toExponential(3)} · psSAR 10g max=${sar10gMax.toExponential(3)} W/kg (cube ${cubeMM.toFixed(0)} mm ≈ ${cubeG.toFixed(0)} g)\n`+
-            `Normalisé ${sarref} W/kg crête → psSAR 10g=${(sar10gMax*factor).toExponential(3)} W/kg · ΔT permanent=${(dTeq*1e3).toFixed(1)} mK (${c2(dTeq)} °C)\n`+
+            `Calage : ${scaleTxt} → SAR pic=${(sar3dMax*factor).toExponential(3)} · psSAR 10g=${(sar10gMax*factor).toExponential(3)} W/kg · ΔT permanent=${(dTeq*1e3).toFixed(1)} mK (${c2(dTeq)} °C)\n`+
             `Transitoire ${durMin} min : ΔT max=${(dTmax*1e3).toFixed(1)} mK (${c2(dTmax)} °C) · CEM43 max=${cemMax.toExponential(2)} min équiv. @43°C`);
 
   // profil 1D SAR(z) — disponible dès qu'on part d'un champ E
@@ -3278,7 +3298,17 @@ function impDrawProfile(){
 }
 
 // — Init du module —
+function impSyncScale(){
+  const m=(document.getElementById('imp-scale-mode')||{}).value||'peak';
+  const pw=document.getElementById('imp-pw-wrap'), e0=document.getElementById('imp-e0-wrap');
+  if(pw)pw.style.display=(m==='pw')?'':'none';
+  if(e0)e0.style.display=(m==='pw')?'':'none';
+  const sref=document.getElementById('imp-sarref'); const f=sref&&sref.closest('.field');
+  if(f)f.style.display=(m==='peak')?'':'none';                          // « Pic SAR cible » visible seulement en mode pic
+}
+
 (function impInit(){
+  impSyncScale();
   const sel=document.getElementById('imp-tissue');
   if(sel&&typeof TNAMES!=='undefined'){TNAMES.forEach(n=>{const o=document.createElement('option');o.textContent=n;o.value=n;sel.appendChild(o);});
     sel.value=(TNAMES.indexOf('Muscle')>=0?'Muscle':TNAMES[0]);}
