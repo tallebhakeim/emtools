@@ -879,6 +879,7 @@ td select,td input[type=number]{padding:3px 6px;font-size:12px}
     <div class="stitle0">Profil 1D — SAR vs profondeur : analytique (TMM) vs données CST</div>
     <div class="row">
       <div class="field"><label>Axe de propagation</label><select id="imp-prof-axis" onchange="impDrawProfile()"><option value="0">x</option><option value="1">y</option><option value="2" selected>z</option></select></div>
+      <div class="field"><label>Fréquence du cas (GHz)</label><input type="number" id="imp-prof-freq" step="any" min="0" placeholder="sinon : onglet Source EM" oninput="impDrawProfile()"></div>
       <div class="field" style="flex:2"><label>Matériau pour la TMM (σ/ε saisis ou tissu Cole-Cole)</label><select id="imp-prof-tissue" onchange="impDrawProfile()"></select></div>
       <div class="field"><label>Sens d'entrée</label><select id="imp-prof-dir" onchange="impDrawProfile()"><option value="auto">auto (depuis le pic)</option><option value="fwd">indices croissants</option><option value="bwd">indices décroissants</option></select></div>
       <div class="field"><label>Extraction</label><select id="imp-prof-mode" onchange="impDrawProfile()"><option value="line">Ligne centrale</option><option value="plane">Moyenne par plan</option></select></div>
@@ -3158,6 +3159,11 @@ function impRun(){
       pO=Math.max(pO,o);pC=Math.max(pC,c); const x2=sarCoef>0?o/sarCoef:0; fxy+=x2*c;fxx+=x2*x2;}
     const rP=(vo>0&&vc>0)?cov/Math.sqrt(vo*vc):0, relRMS=sref>0?Math.sqrt(se/sref)*100:0, ratio=pC>0?pO/pC:0;
     const sigFit=fxx>0?2*(fxy/fxx)*rho:0;   // σ effectif (conv. crête) que CST a utilisé
+    const sigGap=sigFit>0?Math.abs(sigma-sigFit)/sigFit:0;
+    const warnHtml=sigGap>0.15
+      ? '<div style="background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:8px;padding:8px 11px;margin-bottom:.55rem;font-weight:600">⚠ σ saisi ('+sigma.toFixed(3)+' S/m) ≠ σ déduit du CST ('+sigFit.toFixed(3)+' S/m). La <b>corrélation r</b> est déjà bonne, mais l\'amplitude (RMS, pic) ne se calera qu\'avec le <b>bon matériau (σ, ρ)</b> — et la <b>fréquence du cas</b> pour le profil. Astuce : saisis σ ≈ '+sigFit.toFixed(2)+' S/m (valeur déduite du CST).</div>'
+      : '';
+    (function(){var w=document.getElementById('imp-valid-warn');if(!w){w=document.createElement('div');w.id='imp-valid-warn';var wr=document.getElementById('imp-valid-wrap');wr.insertBefore(w,wr.children[1]||null);}w.innerHTML=warnHtml;w.style.display=warnHtml?'':'none';})();
     document.getElementById('imp-valid-stats').textContent=
       `Corrélation Pearson r = ${rP.toFixed(4)}   ·   écart RMS relatif = ${relRMS.toFixed(1)} %   ·   ${n} voxels tissu\n`+
       `Pic psSAR 10g : nous ${pO.toExponential(3)}  vs  CST ${pC.toExponential(3)} W/kg  (rapport ${ratio.toFixed(2)})\n`+
@@ -3211,7 +3217,8 @@ function impDrawProfile(){
   // empilement multicouche → SAR 10 g de réf. CST (par couche) vs TMM 10 g ; sinon SAR point (notre calcul) vs TMM point
   const useRef10g=(tname==='__stack__') && !!impLast.refOnE;
   const sar3d=useRef10g?impLast.refOnE:impLast.sar3d;
-  const f=parseFloat(document.getElementById('freq').value)||9e8;
+  const fImp=parseFloat((document.getElementById('imp-prof-freq')||{}).value);   // fréquence du cas CST (GHz) ; sinon celle de l'onglet Source EM
+  const f=(fImp>0?fImp*1e9:(parseFloat(document.getElementById('freq').value)||9e8));
   const dims=[E.nx,E.ny,E.nz], step=[E.dx,E.dy,E.dz][ax];
   const at=(ix,iy,iz)=>(ix*E.ny+iy)*E.nz+iz;
   let emode=document.getElementById('imp-prof-mode').value;   // 'line' (centrale) | 'plane' (moyenne)
