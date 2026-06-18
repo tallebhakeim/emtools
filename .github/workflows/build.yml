@@ -17,6 +17,9 @@ jobs:
           - os: windows-latest
             args: ''
             label: Windows-x64
+          - os: ubuntu-latest
+            args: '--bundles deb,appimage'
+            label: Linux
     runs-on: ${{ matrix.os }}
     steps:
       - name: Récupérer le code
@@ -34,6 +37,12 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
 
+      - name: Dépendances Linux (WebKitGTK)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+
       - name: Dépendances npm
         run: npm install
 
@@ -49,3 +58,5 @@ jobs:
             src-tauri/target/**/release/bundle/**/*.dmg
             src-tauri/target/**/release/bundle/**/*.exe
             src-tauri/target/**/release/bundle/**/*.msi
+            src-tauri/target/**/release/bundle/**/*.AppImage
+            src-tauri/target/**/release/bundle/**/*.deb
