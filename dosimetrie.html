@@ -3049,18 +3049,91 @@ function impGridFromTissue(F,tissue3d,ca,pos,h){
     ed(iu-1,iv,[x0,y0],[x0,y1]);ed(iu+1,iv,[x1,y0],[x1,y1]);ed(iu,iv-1,[x0,y0],[x1,y0]);ed(iu,iv+1,[x0,y1],[x1,y1]);}
   return {segs,ia,ib,u0,v0,h,nu,nv,inside};
 }
-// — psSAR moyenné sur un cube de masse ~10g (moyenne masquée tissu) —
-function impAvg10g(sar,tissue,nx,ny,nz,r){
-  const out=new Float64Array(sar.length); const at=(ix,iy,iz)=>(ix*ny+iy)*nz+iz;
-  for(let ix=0;ix<nx;ix++)for(let iy=0;iy<ny;iy++)for(let iz=0;iz<nz;iz++){
-    if(!tissue[at(ix,iy,iz)])continue; let num=0,den=0;
-    for(let a=-r;a<=r;a++){const jx=ix+a;if(jx<0||jx>=nx)continue;
-      for(let b=-r;b<=r;b++){const jy=iy+b;if(jy<0||jy>=ny)continue;
-        for(let c=-r;c<=r;c++){const jz=iz+c;if(jz<0||jz>=nz)continue;
-          const id=at(jx,jy,jz); if(tissue[id]){num+=sar[id];den++;}}}}
-    out[at(ix,iy,iz)]=den>0?num/den:0;
+// — psSAR moyenné sur un cube de masse EXACTE (principe IEC/IEEE 62704-1 §6.2) —
+// Chaque échantillon de la grille (éventuellement non uniforme) porte une cellule bornée par les mi-distances.
+// 1) cube centré sur l'échantillon, côté continu ajusté (cellules partiellement couvertes au prorata)
+//    jusqu'à la masse cible ; valide si le fond (hors tissu ou hors grille) occupe ≤ 10 % du volume ;
+// 2) sinon, 6 cubes ayant l'échantillon au centre d'une face ; on retient le maximum des cubes valides ;
+// 3) sinon, l'échantillon reçoit le maximum des cubes valides qui le contiennent (sinon 0, stats.none).
+// Intégrales de boîte en O(1) par sommes préfixées 3D. À valider sur « SAR Star » (Annexe B de 62704-1).
+function impPsSAR(sar,tissue,F,rho,targetKg,maxBg){
+  targetKg=targetKg||0.01; maxBg=(maxBg==null)?0.10:maxBg;
+  const xs=F.xs,ys=F.ys,zs=F.zs,nx=xs.length,ny=ys.length,nz=zs.length;
+  const bnd=a=>{const n=a.length,b=new Float64Array(n+1);
+    for(let i=1;i<n;i++)b[i]=0.5*(a[i-1]+a[i]);
+    b[0]=a[0]-(n>1?0.5*(a[1]-a[0]):0.5); b[n]=a[n-1]+(n>1?0.5*(a[n-1]-a[n-2]):0.5); return b;};
+  const bx=bnd(xs),by=bnd(ys),bz=bnd(zs);
+  const mm3=1e-9, tgtVol=targetKg/(rho*mm3);                       // volume de tissu visé (mm³)
+  const span=Math.max(bx[nx]-bx[0],by[ny]-by[0],bz[nz]-bz[0]);
+  // sommes préfixées du volume tissu V et de ∫SAR Q par cellule : P[(i*(ny+1)+j)*(nz+1)+k] = Σ_{<i,<j,<k}
+  const NY=ny+1,NZ=nz+1,PV=new Float64Array((nx+1)*NY*NZ),PQ=new Float64Array((nx+1)*NY*NZ);
+  for(let i=0;i<nx;i++)for(let j=0;j<ny;j++)for(let k=0;k<nz;k++){
+    const id=(i*ny+j)*nz+k, v=tissue[id]?(bx[i+1]-bx[i])*(by[j+1]-by[j])*(bz[k+1]-bz[k]):0;
+    const o=((i+1)*NY+(j+1))*NZ+(k+1);
+    const inc=(P)=>P[o-NY*NZ]+P[o-NZ]+P[o-1]-P[o-NY*NZ-NZ]-P[o-NY*NZ-1]-P[o-NZ-1]+P[o-NY*NZ-NZ-1];
+    PV[o]=v+inc(PV); PQ[o]=v*sar[id]+inc(PQ);
   }
-  return out;
+  const S=(P,i0,i1,j0,j1,k0,k1)=>{const a=NY*NZ;   // somme sur cellules [i0,i1)×[j0,j1)×[k0,k1)
+    return P[i1*a+j1*NZ+k1]-P[i0*a+j1*NZ+k1]-P[i1*a+j0*NZ+k1]-P[i1*a+j1*NZ+k0]
+          +P[i0*a+j0*NZ+k1]+P[i0*a+j1*NZ+k0]+P[i1*a+j0*NZ+k0]-P[i0*a+j0*NZ+k0];};
+  const first=(b,v)=>{let lo=0,hi=b.length-2;while(lo<hi){const m=(lo+hi)>>1;if(b[m+1]>v)hi=m;else lo=m+1;}return lo;};
+  // découpe d'un axe en ≤ 3 morceaux [début,fin,fraction] : cellule partielle basse, cellules pleines, partielle haute
+  function parts(b,n,lo,hi){
+    lo=Math.max(lo,b[0]);hi=Math.min(hi,b[n]); if(hi<=lo)return [];
+    const i0=first(b,lo),i1=first(b,hi-1e-12*(Math.abs(hi)+1));
+    if(i0===i1)return [[i0,i0+1,(hi-lo)/(b[i0+1]-b[i0])]];
+    const out=[[i0,i0+1,(b[i0+1]-lo)/(b[i0+1]-b[i0])]];
+    if(i1>i0+1)out.push([i0+1,i1,1]);
+    out.push([i1,i1+1,(hi-b[i1])/(b[i1+1]-b[i1])]); return out;
+  }
+  function box(x0,x1,y0,y1,z0,z1){
+    const X=parts(bx,nx,x0,x1),Y=parts(by,ny,y0,y1),Z=parts(bz,nz,z0,z1); let vt=0,q=0;
+    for(const a of X)for(const b of Y)for(const c of Z){const w=a[2]*b[2]*c[2];
+      vt+=w*S(PV,a[0],a[1],b[0],b[1],c[0],c[1]); q+=w*S(PQ,a[0],a[1],b[0],b[1],c[0],c[1]);}
+    return [vt,q];
+  }
+  // cube de demi-côté s ; dir 0 = centré, 1..6 = échantillon au centre de la face −x,+x,−y,+y,−z,+z
+  function bounds(cx,cy,cz,dir,s){
+    const B=[cx-s,cx+s,cy-s,cy+s,cz-s,cz+s];
+    if(dir===1){B[0]=cx;B[1]=cx+2*s;}else if(dir===2){B[0]=cx-2*s;B[1]=cx;}
+    else if(dir===3){B[2]=cy;B[3]=cy+2*s;}else if(dir===4){B[2]=cy-2*s;B[3]=cy;}
+    else if(dir===5){B[4]=cz;B[5]=cz+2*s;}else if(dir===6){B[4]=cz-2*s;B[5]=cz;}
+    return B;
+  }
+  const cube=(cx,cy,cz,dir,s)=>{const B=bounds(cx,cy,cz,dir,s);return box(B[0],B[1],B[2],B[3],B[4],B[5]);};
+  function solveCube(cx,cy,cz,dir){
+    let lo=0,hi=0.5*Math.cbrt(tgtVol),r=cube(cx,cy,cz,dir,hi);
+    while(r[0]<tgtVol){lo=hi;hi*=1.5;if(hi>span)return null;r=cube(cx,cy,cz,dir,hi);}
+    // Illinois (fausse position modifiée) sur f(s) = V_tissu(s) − V_cible, monotone croissante
+    let flo=(lo>0?cube(cx,cy,cz,dir,lo)[0]:0)-tgtVol, fhi=r[0]-tgtVol, side=0;
+    for(let it=0;it<80&&r[0]-tgtVol>1e-10*tgtVol;it++){
+      let m=(flo*hi-fhi*lo)/(flo-fhi); if(!(m>lo&&m<hi))m=0.5*(lo+hi);
+      const rm=cube(cx,cy,cz,dir,m),fm=rm[0]-tgtVol;
+      if(fm>=0){hi=m;fhi=fm;r=rm;if(side===1)flo*=0.5;side=1;}else{lo=m;flo=fm;if(side===-1)fhi*=0.5;side=-1;}
+      if((hi-lo)<1e-13*hi)break;}
+    const L=2*hi; return {avg:r[1]/r[0],bg:1-r[0]/(L*L*L),mass:r[0]*rho*mm3,L,B:bounds(cx,cy,cz,dir,hi)};
+  }
+  const out=new Float64Array(sar.length),kind=new Uint8Array(sar.length),used=[];
+  let nC=0,nF=0,nU=0,nN=0,mErr=0,Lc=0,Lmax=0;
+  for(let i=0;i<nx;i++)for(let j=0;j<ny;j++)for(let k=0;k<nz;k++){
+    const id=(i*ny+j)*nz+k; if(!tissue[id])continue;
+    const c=solveCube(xs[i],ys[j],zs[k],0);
+    if(c&&c.bg<=maxBg){out[id]=c.avg;kind[id]=1;nC++;mErr=Math.max(mErr,Math.abs(c.mass-targetKg)/targetKg);
+      Lc=Math.max(Lc,c.L);Lmax=Math.max(Lmax,c.L);used.push([c.B,c.avg]);continue;}
+    let best=null;
+    for(let d=1;d<=6;d++){const f=solveCube(xs[i],ys[j],zs[k],d);
+      if(f&&f.bg<=maxBg){if(!best||f.avg>best.avg)best=f;mErr=Math.max(mErr,Math.abs(f.mass-targetKg)/targetKg);}}
+    if(best){out[id]=best.avg;kind[id]=2;nF++;Lmax=Math.max(Lmax,best.L);used.push([best.B,best.avg]);}
+  }
+  // 3) échantillons tissu restants : maximum des cubes valides qui contiennent leur centre
+  const rest=[]; for(let i=0;i<nx;i++)for(let j=0;j<ny;j++)for(let k=0;k<nz;k++){const id=(i*ny+j)*nz+k;if(tissue[id]&&!kind[id])rest.push([i,j,k,id]);}
+  if(rest.length){
+    used.sort((u,v)=>v[1]-u[1]);                                  // par valeur décroissante : le 1er cube contenant est le max
+    for(const [i,j,k,id] of rest){const x=xs[i],y=ys[j],z=zs[k]; let b=-1;
+      for(const [B,a] of used)if(x>=B[0]&&x<=B[1]&&y>=B[2]&&y<=B[3]&&z>=B[4]&&z<=B[5]){b=a;break;}
+      if(b>=0){out[id]=b;kind[id]=3;nU++;}else nN++;}
+  }
+  return {avg:out,kind,stats:{centred:nC,face:nF,contained:nU,none:nN,massRelErr:mErr,sideMM:Lc||Math.cbrt(tgtVol),targetG:targetKg*1e3}};
 }
 
 // — Orchestrateur —
@@ -3124,9 +3197,14 @@ function impRun(){
   else { factor=sar3dMax>0?sarref/sar3dMax:1; scaleTxt='pic calé '+sarref+' W/kg'; }   // pic SAR cible (sur le pic 3D du tissu)
 
   // psSAR 10g (3D) — moyenne cubique de masse ~10g sur le masque tissu
-  const Lmm=Math.cbrt(0.01/rho)*1000, r10=Math.max(1,Math.round(Lmm/impEfield.dx/2));
-  const cubeMM=(2*r10+1)*impEfield.dx, cubeG=rho*Math.pow(cubeMM/1000,3)*1000;
-  const g10=impAvg10g(sar3d,tissue3d,impEfield.nx,impEfield.ny,impEfield.nz,r10);
+  let ps10=impPsSAR(sar3d,tissue3d,impEfield,rho,0.01,0.10), thinMask=false;
+  if(ps10.stats.centred+ps10.stats.face+ps10.stats.contained===0 && kind!=='sar'){
+    // masque tissu trop mince pour contenir 10 g (ex. export CST « coquille ») → repli sur la zone |E|²>0
+    const t2=new Uint8Array(sar3d.length); for(let i=0;i<t2.length;i++)t2[i]=impEfield.g[i]>0?1:0;
+    ps10=impPsSAR(sar3d,t2,impEfield,rho,0.01,0.10); thinMask=true;
+  }
+  const g10=ps10.avg, psSt=ps10.stats;
+  const cubeMM=psSt.sideMM, cubeG=psSt.targetG;
   let sar10gMax=0; for(let i=0;i<g10.length;i++)if(g10[i]>sar10gMax)sar10gMax=g10[i];
   const F10={...Fsar,g:g10};
 
@@ -3168,7 +3246,8 @@ function impRun(){
     // masque = voxels où la référence a du signal (indépendant du STL → robuste)
     const refMask=new Uint8Array(refOnE.length); for(let i=0;i<refOnE.length;i++)refMask[i]=refOnE[i]>0?1:0;
     // notre psSAR 10g calculé sur le MÊME masque que la référence (comparaison équitable)
-    const g10cmp=impAvg10g(sar3d,refMask,impEfield.nx,impEfield.ny,impEfield.nz,r10);
+    const psCmp=impPsSAR(sar3d,refMask,impEfield,rho,0.01,0.10);
+    const g10cmp=(psCmp.stats.centred+psCmp.stats.face+psCmp.stats.contained>0)?psCmp.avg:g10;   // masque de réf. trop mince → psSAR du repli
     // métriques 3D sur le masque tissu
     let n=0,so=0,sc=0; for(let i=0;i<refOnE.length;i++)if(refMask[i]){n++;so+=g10cmp[i];sc+=refOnE[i];}
     const mo=so/n,mc=sc/n; let vo=0,vc=0,cov=0,se=0,sref=0,pO=0,pC=0,fxy=0,fxx=0;
@@ -3189,7 +3268,7 @@ function impRun(){
     document.getElementById('imp-valid-note').innerHTML=
       'Notre SAR est calculé à partir du champ E exporté (SAR = σ|E|²/2ρ), puis moyenné sur 10 g comme la référence CST. '+
       'Un <b>r proche de 1</b> et un <b>σ déduit cohérent</b> valident notre chaîne de calcul du SAR. '+
-      'Le rapport de pics ≠ 1 vient surtout de la <b>résolution de la grille exportée</b> ('+impEfield.dx.toFixed(1)+' mm → cube de moyennage ≈ '+cubeG.toFixed(0)+' g, pas exactement 10 g) : '+
+      'Le moyennage utilise un cube de masse exacte 10 g (voxels partiellement couverts au prorata, règle des 10 % de fond, repli sur cubes à face centrée, principe IEC/IEEE 62704-1). Un rapport de pics ≠ 1 vient surtout de la <b>résolution de la grille exportée</b> ('+impEfield.dx.toFixed(1)+' mm, à comparer au côté du cube ≈ '+cubeMM.toFixed(1)+' mm) : '+
       'la <b>méthode analytique (TMM)</b> de l\'outil, elle, résout le profil SAR(z) de façon exacte et continue, sans cet artefact de maillage.';
     // cartes sur la coupe : notre 10g, CST réf, écart relatif — interpolation trilinéaire (lissée)
     const F10cmp={...Fsar,g:g10cmp}, Fref={...Fsar,g:refOnE};
@@ -3213,9 +3292,10 @@ function impRun(){
       : 'CEM43 <b>absolu</b> : à ce niveau d\'exposition la dose est <b>'+(negligible?'négligeable':'faible')+'</b> ('+cemMax.toExponential(2)+' min ≪ seuil de lésion ~10 min). La carte reflète surtout la <b>température de base</b> (≈37 °C au cœur, refroidie en surface), pas la direction du champ — passe en <b>« Dû à l\'EM seul »</b> pour voir la signature de l\'onde.';
   }
   const c2=v=>(v).toFixed(3);   // mK -> °C helper inline
-  impStatus((noGeom?'⚠ Mode champ E seul (sans géométrie) : la zone |E|²>0 sert de « tissu » — la carte SAR est correcte, la thermique est indicative (bord = limite du domaine exporté, pas la peau).\n':'')+
+  const psTot=psSt.centred+psSt.face+psSt.contained+psSt.none, fragMask=psTot>0&&psSt.none>0.2*psTot;
+  impStatus((fragMask?'⚠ '+psSt.none+' voxels tissu sur '+psTot+' ne tiennent dans aucun cube de 10 g valide : masque tissu fragmenté (voxélisation du STL à vérifier). Le pic psSAR 10 g est alors sous-estimé.\n':'')+(thinMask?'⚠ Masque tissu trop mince pour un cube de 10 g (export de référence limité à une coquille ?) : psSAR 10 g calculé sur la zone |E|²>0.\n':'')+(noGeom?'⚠ Mode champ E seul (sans géométrie) : la zone |E|²>0 sert de « tissu » — la carte SAR est correcte, la thermique est indicative (bord = limite du domaine exporté, pas la peau).\n':'')+
             `✓ coupe ${G.nu}×${G.nv}, ${N} cellules · affichage SAR : ${mode==='10g'?'psSAR 10g':'point'}\n`+
-            `SAR point max=${sarMax.toExponential(3)} · psSAR 10g max=${sar10gMax.toExponential(3)} W/kg (cube ${cubeMM.toFixed(0)} mm ≈ ${cubeG.toFixed(0)} g)\n`+
+            `SAR point max=${sarMax.toExponential(3)} · psSAR 10g max=${sar10gMax.toExponential(3)} W/kg (cube ${cubeG.toFixed(0)} g exact, côté ≤ ${cubeMM.toFixed(1)} mm · ${psSt.centred} centrés, ${psSt.face} face, ${psSt.contained} contenus, ${psSt.none} non évalués)\n`+
             `Calage : ${scaleTxt} → SAR pic=${(sar3dMax*factor).toExponential(3)} · psSAR 10g=${(sar10gMax*factor).toExponential(3)} W/kg · ΔT permanent=${(dTeq*1e3).toFixed(1)} mK (${c2(dTeq)} °C)\n`+
             `Transitoire ${durMin} min : ΔT max=${(dTmax*1e3).toFixed(1)} mK (${c2(dTmax)} °C) · CEM43 max=${cemMax.toExponential(2)} min équiv. @43°C`);
 
