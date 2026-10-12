@@ -20,6 +20,7 @@ const PUBLIC = new Set([
   '/emtools-logo.svg',
   '/xcat_demo_thorax.json',
   '/favicon.ico',
+       '/license-gate.js',
 ]);
 
 function parseCodes(raw) {
