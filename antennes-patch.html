@@ -109,6 +109,21 @@ table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
   </div>
 
   <div class="panel">
+    <div class="ptitle" data-i18n="inset.title">Alimentation par encoches (inset feed) : adaptation à Z₀</div>
+    <div class="sub" style="font-size:.84rem;color:var(--text2);margin-bottom:.8rem" data-i18n-html="inset.intro">La résistance d'entrée vaut R<sub>in</sub>(0) = 1/[2(G₁+G₁₂)] au bord du patch et décroît vers le centre : R<sub>in</sub>(y₀) = R<sub>in</sub>(0)·cos²(πy₀/L). On creuse donc deux fentes de part et d'autre de la ligne, jusqu'à la profondeur y₀ où R<sub>in</sub> = Z₀.</div>
+    <div class="metrics">
+      <div class="metric"><div class="k" data-i18n="i.r0">R<sub>in</sub> bord (sans pertes)</div><div class="v" id="i_r0">—</div><div class="u">Ω</div></div>
+      <div class="metric hl"><div class="k" data-i18n="i.y0">Encoche y₀ (sans pertes)</div><div class="v" id="i_y0">—</div><div class="u">mm</div></div>
+      <div class="metric"><div class="k" data-i18n="i.r0l">R<sub>in</sub> bord (avec pertes)</div><div class="v" id="i_r0l">—</div><div class="u" data-i18n="i.r0lu">Ω (= R<sub>in</sub>·η)</div></div>
+      <div class="metric hl"><div class="k" data-i18n="i.y0l">Encoche y₀ (avec pertes)</div><div class="v" id="i_y0l">—</div><div class="u">mm</div></div>
+      <div class="metric hl"><div class="k" data-i18n="i.w">Largeur ligne Z₀</div><div class="v" id="i_w">—</div><div class="u">mm</div></div>
+      <div class="metric hl"><div class="k" data-i18n="i.g">Largeur de chaque fente g</div><div class="v" id="i_g">—</div><div class="u" data-i18n="i.gu">mm (≈ w/2)</div></div>
+    </div>
+    <canvas id="cv_top" width="900" height="300" style="margin-top:1rem"></canvas>
+    <div class="warn" style="margin-top:.8rem" data-i18n-html="inset.note"><b>Comment lire les deux valeurs de y₀ —</b> le modèle sans pertes surestime R<sub>in</sub>(0), donc la profondeur ; la correction par l'efficacité η la sous-estime. La bonne profondeur est entre les deux et se règle en full-wave. <b>Référence openEMS</b> (FR-4, h 1,6 mm, tan δ 0,02, 868 MHz) : optimum <b>y₀ = 19 mm</b>, g = 1,53 mm, S₁₁ = −31,7 dB, à condition de raccourcir L de 2,8 % (79,85 mm au lieu de 82,15 mm), car les encoches abaissent la résonance.</div>
+  </div>
+
+  <div class="panel">
     <div class="ptitle" data-i18n="viz">Diagrammes de rayonnement (hémisphère avant)</div>
     <div class="plots">
       <div class="plotbox">
@@ -141,6 +156,7 @@ table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
         <tr><td>W</td><td id="vr_W">—</td><td>11,86 mm</td></tr>
         <tr><td>L</td><td id="vr_L">—</td><td>9,06 mm</td></tr>
         <tr><td>ε_eff</td><td id="vr_e">—</td><td>1,972</td></tr>
+        <tr><td>R<sub>in</sub>(0) <span style="color:var(--text2)">(ex. 14.3)</span></td><td id="vr_r">—</td><td>228,3 Ω</td></tr>
       </tbody>
     </table>
   </div>
@@ -179,6 +195,20 @@ function design(er,h,fr){
   const Leff = C0/(2*fr*Math.sqrt(eeff));
   return {W,eeff,dL,Leff,L:Leff-2*dL};
 }
+// J0(x) = (1/π) ∫₀^π cos(x sin τ) dτ
+function besselJ0(x){let s=0;const n=64;for(let i=0;i<n;i++){s+=Math.cos(x*Math.sin((i+0.5)/n*Math.PI));}return s/n;}
+// résistance au bord : Rin(0) = 1/(2(G1+G12)) (Balanis 14-12, 14-17, 14-18)
+function edgeR(W,L,fr){const k0=2*Math.PI*fr/C0,n=400;let g1=0,g12=0;
+  for(let i=0;i<n;i++){const th=(i+0.5)/n*Math.PI,c=Math.cos(th),st=Math.sin(th);
+    const f=Math.abs(c)<1e-9?(k0*W/2)**2:(Math.sin(k0*W/2*c)/c)**2;const v=f*st*st*st*Math.PI/n;
+    g1+=v;g12+=v*besselJ0(k0*L*st);}
+  const k=1/(120*Math.PI*Math.PI);return {G1:g1*k,G12:g12*k,R0:1/(2*(g1+g12)*k)};}
+// largeur d'une ligne microruban d'impédance Z0 (Hammerstad)
+function msWidth(er,h,Z0){const A=Z0/60*Math.sqrt((er+1)/2)+(er-1)/(er+1)*(0.23+0.11/er);
+  let wh=8*Math.exp(A)/(Math.exp(2*A)-2);
+  if(wh>2){const B=377*Math.PI/(2*Z0*Math.sqrt(er));wh=2/Math.PI*(B-1-Math.log(2*B-1)+(er-1)/(2*er)*(Math.log(B-1)+0.39-0.61/er));}
+  return wh*h;}
+function insetDepth(R0,L,Z0){return R0>Z0?L/Math.PI*Math.acos(Math.sqrt(Z0/R0)):0;}
 let CUR=null;
 function compute(){
   const er=num('er'), h=num('h')/1000, fr=num('fr')*parseFloat($('fu').value);
@@ -208,7 +238,10 @@ function compute(){
   const hp=(arr,mx)=>{const half=mx/Math.SQRT2;let iL=NP/2,iR=NP/2;while(iL>0&&arr[iL]>half)iL--;while(iR<NP&&arr[iR]>half)iR++;return (iL===0&&iR===NP)?Infinity:(iR-iL)/NP*180;};
   // |S11|(f) with parallel-RLC model matched at fr: Zin=Z0/(1+jx), x=Qt·(f/fr−fr/f)
   const s11=(f)=>{ const x=Qt*(f/fr-fr/f); return Math.abs(x)/Math.sqrt(4+x*x); };
-  CUR={er,h,fr,lam0,W,L,Leff,eeff,dL,BWrad,BW,Qrad,Qt,eta,Z0,tand,DdBi,E,H,NP,Em,Hm,hpE:hp(E,Em),s11};
+  // alimentation par encoches
+  const R0=edgeR(W,L,fr).R0, R0l=R0*eta, wl=msWidth(er,h,Z0);
+  const inset={R0,R0l,y0:insetDepth(R0,L,Z0),y0l:insetDepth(R0l,L,Z0),w:wl,g:wl/2};
+  CUR={er,h,fr,lam0,W,L,Leff,eeff,dL,BWrad,BW,Qrad,Qt,eta,Z0,tand,DdBi,E,H,NP,Em,Hm,hpE:hp(E,Em),s11,inset};
   return CUR;
 }
 function recompute(){
@@ -229,7 +262,38 @@ function recompute(){
   $('vr_W').textContent=(B.W*1000).toFixed(2)+' mm';
   $('vr_L').textContent=(B.L*1000).toFixed(2)+' mm';
   $('vr_e').textContent=B.eeff.toFixed(3);
-  drawPolar(c); drawRect(c); drawS11(c);
+  $('vr_r').textContent=edgeR(B.W,B.L,10e9).R0.toFixed(1)+' Ω';
+  const I=c.inset, fmt=(v)=>v>0?(v*1000).toFixed(2):'0 (R₀ < Z₀)';
+  $('i_r0').textContent=I.R0.toFixed(0); $('i_r0l').textContent=I.R0l.toFixed(0);
+  $('i_y0').textContent=fmt(I.y0); $('i_y0l').textContent=fmt(I.y0l);
+  $('i_w').textContent=(I.w*1000).toFixed(2); $('i_g').textContent=(I.g*1000).toFixed(2);
+  drawPolar(c); drawRect(c); drawS11(c); drawTop(c);
+}
+// vue de dessus à l'échelle : patch, encoches, ligne d'accès, cotes
+function drawTop(c){
+  const cv=$('cv_top'); cv.style.height='300px'; const {x,w,h}=dpr(cv);
+  x.clearRect(0,0,w,h);
+  const I=c.inset, y0=I.y0, mm=v=>v*1000;
+  const Ll=mm(c.L), Ww=mm(c.W), wl=mm(I.w), g=mm(I.g), yi=mm(y0), feed=Math.max(0.35*Ll,15);
+  const totX=feed+Ll, s=Math.min((w-150)/totX,(h-70)/Ww), ox=(w-totX*s)/2, oy=h/2;
+  const X=v=>ox+(v+feed)*s, Y=v=>oy-v*s;   // x=0 au bord d'alimentation du patch
+  x.fillStyle='#e6f7f5';x.fillRect(X(-feed),Y(Ww/2+10/s),totX*s,(Ww+20/s)*s);
+  x.fillStyle='#d97706';
+  x.beginPath();x.moveTo(X(0),Y(Ww/2));x.lineTo(X(Ll),Y(Ww/2));x.lineTo(X(Ll),Y(-Ww/2));x.lineTo(X(0),Y(-Ww/2));
+  x.lineTo(X(0),Y(-wl/2-g));x.lineTo(X(yi),Y(-wl/2-g));x.lineTo(X(yi),Y(-wl/2));x.lineTo(X(-feed),Y(-wl/2));
+  x.lineTo(X(-feed),Y(wl/2));x.lineTo(X(yi),Y(wl/2));x.lineTo(X(yi),Y(wl/2+g));x.lineTo(X(0),Y(wl/2+g));x.closePath();x.fill();
+  x.strokeStyle='#1a2e4a';x.fillStyle='#1a2e4a';x.lineWidth=1;x.font='11px sans-serif';
+  const cote=(x1,y1,x2,y2,txt,dx,dy)=>{x.beginPath();x.moveTo(x1,y1);x.lineTo(x2,y2);x.stroke();
+    [[x1,y1],[x2,y2]].forEach(([a,b])=>{x.beginPath();x.arc(a,b,1.8,0,2*Math.PI);x.fill();});
+    x.textAlign='center';x.fillText(txt,(x1+x2)/2+(dx||0),(y1+y2)/2+(dy||0));};
+  cote(X(0),Y(Ww/2)-12,X(Ll),Y(Ww/2)-12,'L = '+Ll.toFixed(2)+' mm',0,-4);
+  cote(X(Ll)+14,Y(Ww/2),X(Ll)+14,Y(-Ww/2),'',0,0);
+  x.save();x.translate(X(Ll)+28,oy);x.rotate(-Math.PI/2);x.textAlign='center';x.fillText('W = '+Ww.toFixed(2)+' mm',0,0);x.restore();
+  if(yi>0){cote(X(0),Y(-Ww/2)+14,X(yi),Y(-Ww/2)+14,'y₀ = '+yi.toFixed(2)+' mm',0,14);
+    x.strokeStyle='rgba(26,46,74,.35)';x.setLineDash([3,3]);x.beginPath();x.moveTo(X(yi),Y(-wl/2-g));x.lineTo(X(yi),Y(-Ww/2)+14);x.stroke();x.setLineDash([]);x.strokeStyle='#1a2e4a';}
+  x.textAlign='left';x.fillText('w = '+wl.toFixed(2)+' mm',X(-feed)+4,Y(wl/2)-6);
+  x.fillText('g = '+g.toFixed(2)+' mm',X(-feed)+4,Y(-wl/2)+16);
+  x.fillStyle='#64748b';x.textAlign='right';x.fillText('Z₀ = '+c.Z0+' Ω →',X(-feed)-4,oy+4);
 }
 function drawS11(c){
   const cv=$('cv_s11'); cv.style.height='260px'; const {x,w,h}=dpr(cv);
@@ -329,6 +393,15 @@ const I18N={
  'disclaimer':{fr:"<b>Outil pédagogique —</b> modèle ligne de transmission + 2 fentes (plan de masse infini, substrat sans pertes, alimentation idéale). La bande passante est une estimation. Pour un dimensionnement réel (point d'alimentation, pertes, ondes de surface), utiliser un solveur full-wave.",
                en:"<b>Educational tool —</b> transmission-line + 2-slot model (infinite ground, lossless substrate, ideal feed). The bandwidth is an estimate. For real design (feed point, losses, surface waves), use a full-wave solver."},
  'footer.lic':{fr:'© 2026 Hakeim Talleb · EMtools · <a href="LICENSE">Tous droits réservés</a>',en:'© 2026 Hakeim Talleb · EMtools · <a href="LICENSE">All rights reserved</a>'},
+ 'inset.title':{fr:"Alimentation par encoches (inset feed) : adaptation à Z₀",en:"Inset feed: matching to Z₀"},
+ 'inset.intro':{fr:"La résistance d'entrée vaut R<sub>in</sub>(0) = 1/[2(G₁+G₁₂)] au bord du patch et décroît vers le centre : R<sub>in</sub>(y₀) = R<sub>in</sub>(0)·cos²(πy₀/L). On creuse donc deux fentes de part et d'autre de la ligne, jusqu'à la profondeur y₀ où R<sub>in</sub> = Z₀.",
+   en:"The input resistance is R<sub>in</sub>(0) = 1/[2(G₁+G₁₂)] at the patch edge and decreases towards the centre: R<sub>in</sub>(y₀) = R<sub>in</sub>(0)·cos²(πy₀/L). Two slots are therefore cut on each side of the feed line, down to the depth y₀ where R<sub>in</sub> = Z₀."},
+ 'i.r0':{fr:"Rin bord (sans pertes)",en:"Edge Rin (lossless)"},'i.y0':{fr:"Encoche y₀ (sans pertes)",en:"Inset y₀ (lossless)"},
+ 'i.r0l':{fr:"Rin bord (avec pertes)",en:"Edge Rin (with losses)"},'i.y0l':{fr:"Encoche y₀ (avec pertes)",en:"Inset y₀ (with losses)"},
+ 'i.r0lu':{fr:"Ω (= Rin·η)",en:"Ω (= Rin·η)"},
+ 'i.w':{fr:"Largeur ligne Z₀",en:"Z₀ line width"},'i.g':{fr:"Largeur de chaque fente g",en:"Width of each slot g"},'i.gu':{fr:"mm (≈ w/2)",en:"mm (≈ w/2)"},
+ 'inset.note':{fr:"<b>Comment lire les deux valeurs de y₀ —</b> le modèle sans pertes surestime R<sub>in</sub>(0), donc la profondeur ; la correction par l'efficacité η la sous-estime. La bonne profondeur est entre les deux et se règle en full-wave. <b>Référence openEMS</b> (FR-4, h 1,6 mm, tan δ 0,02, 868 MHz) : optimum <b>y₀ = 19 mm</b>, g = 1,53 mm, S₁₁ = −31,7 dB, à condition de raccourcir L de 2,8 % (79,85 mm au lieu de 82,15 mm), car les encoches abaissent la résonance.",
+   en:"<b>How to read the two y₀ values —</b> the lossless model overestimates R<sub>in</sub>(0), hence the depth; the efficiency correction η underestimates it. The right depth lies in between and is tuned with a full-wave solver. <b>openEMS reference</b> (FR-4, h 1.6 mm, tan δ 0.02, 868 MHz): optimum <b>y₀ = 19 mm</b>, g = 1.53 mm, S₁₁ = −31.7 dB, provided L is shortened by 2.8 % (79.85 mm instead of 82.15 mm), because the slots lower the resonance."},
  'footer.home':{fr:"← Antennes",en:"← Antennas"},
 };
 let LANG=localStorage.getItem('emtools_lang')||'fr';
