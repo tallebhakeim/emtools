@@ -43,6 +43,9 @@ main{padding:2rem 0 3rem}
 .leg{display:flex;gap:1rem;font-size:.78rem;margin-top:.2rem}
 canvas{width:100%;height:auto;background:#fff;border:1px solid var(--border);border-radius:10px}
 @media(max-width:760px){.plots{grid-template-columns:1fr}}
+.fq{font:inherit;font-size:.74rem;padding:.15rem .5rem;border:1px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--teal2);cursor:pointer}
+.fq:hover{border-color:var(--teal)}
+.err{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:10px;padding:.6rem .9rem;font-size:.85rem;margin-top:.9rem}
 .warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:10px;padding:.7rem .9rem;font-size:.83rem;margin-top:1rem}
 footer{border-top:1px solid var(--border);padding:1.5rem 0;font-size:.8rem;color:var(--text2);margin-top:1rem}
 footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
@@ -72,20 +75,22 @@ table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
   <div class="panel">
     <div class="ptitle" data-i18n="cfg">Substrat et fréquence</div>
     <div class="controls">
-      <div class="ctrl"><label data-i18n="er">Permittivité relative εr</label><input id="er" type="number" value="2.2" min="1" max="12" step="0.1" onchange="recompute()"></div>
-      <div class="ctrl"><label data-i18n="h">Hauteur substrat h (mm)</label><input id="h" type="number" value="1.588" min="0.1" max="10" step="0.1" onchange="recompute()"></div>
-      <div class="ctrl"><label data-i18n="fr">Fréquence visée fr (GHz)</label><input id="fr" type="number" value="10" min="0.3" max="40" step="0.1" onchange="recompute()"></div>
-      <div class="ctrl"><label data-i18n="tand">Tangente de pertes tan δ</label><input id="tand" type="number" value="0.0009" min="0" max="0.05" step="0.0005" onchange="recompute()"></div>
-      <div class="ctrl"><label data-i18n="z0">Impédance d'accès Z₀ (Ω)</label><input id="z0" type="number" value="50" min="20" max="300" step="5" onchange="recompute()"></div>
+      <div class="ctrl"><label data-i18n="er">Permittivité relative εr</label><input id="er" type="text" inputmode="decimal" value="2.2" oninput="recompute()"></div>
+      <div class="ctrl"><label data-i18n="h">Hauteur substrat h (mm)</label><input id="h" type="text" inputmode="decimal" value="1.588" oninput="recompute()"></div>
+      <div class="ctrl"><label data-i18n="fr">Fréquence visée fr</label><div style="display:flex;gap:.4rem"><input id="fr" type="text" inputmode="decimal" value="10" oninput="recompute()" style="flex:1;min-width:0"><select id="fu" onchange="recompute()"><option value="1e9">GHz</option><option value="1e6">MHz</option></select></div>
+        <div style="display:flex;gap:.3rem;flex-wrap:wrap;margin-top:.2rem"><button type="button" class="fq" onclick="setF(868,'1e6')">868 MHz</button><button type="button" class="fq" onclick="setF(915,'1e6')">915 MHz</button><button type="button" class="fq" onclick="setF(2.45,'1e9')">2,45 GHz</button><button type="button" class="fq" onclick="setF(5.8,'1e9')">5,8 GHz</button></div></div>
+      <div class="ctrl"><label data-i18n="tand">Tangente de pertes tan δ</label><input id="tand" type="text" inputmode="decimal" value="0.0009" oninput="recompute()"></div>
+      <div class="ctrl"><label data-i18n="z0">Impédance d'accès Z₀ (Ω)</label><input id="z0" type="text" inputmode="decimal" value="50" oninput="recompute()"></div>
       <div class="ctrl"><label data-i18n="sub">Substrat type</label>
         <select id="sub" onchange="setSub()">
           <option value="">— personnalisé —</option>
-          <option value="2.2">RT/Duroid 5880 (εr 2,2)</option>
-          <option value="4.4">FR-4 (εr 4,4)</option>
-          <option value="10.2">RO3010 (εr 10,2)</option>
+          <option value="2.2|0.0009|1.588">RT/Duroid 5880 (εr 2,2 · tan δ 0,0009)</option>
+          <option value="4.4|0.02|1.6">FR-4 (εr 4,4 · tan δ 0,02 · h 1,6 mm)</option>
+          <option value="10.2|0.0022|1.27">RO3010 (εr 10,2 · tan δ 0,0022)</option>
         </select>
       </div>
     </div>
+    <div class="err" id="inerr" style="display:none"></div>
   </div>
 
   <div class="panel">
@@ -152,21 +157,36 @@ table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
 function $(id){return document.getElementById(id);}
 const C0=299792458;
 function dpr(cv){const r=window.devicePixelRatio||1;const w=cv.clientWidth||parseFloat(cv.style.width)||cv.width;const h=parseFloat(cv.style.height)||cv.clientHeight||cv.height;cv.width=Math.round(w*r);cv.height=Math.round(h*r);const x=cv.getContext('2d');x.setTransform(r,0,0,r,0,0);return {x,w,h};}
-function setSub(){const v=$('sub').value; if(v){$('er').value=v;} recompute();}
+// accepte la virgule décimale (saisie FR) ; NaN si vide/invalide
+function num(id){const s=String($(id).value).trim().replace(/\s/g,'').replace(',','.');return s===''?NaN:Number(s);}
+function setSub(){const v=$('sub').value; if(v){const [er,td,hh]=v.split('|');$('er').value=er;$('tand').value=td;if(hh)$('h').value=hh;} recompute();}
+function setF(v,u){$('fr').value=String(v);$('fu').value=u;recompute();}
+function checkInputs(){const er=num('er'),h=num('h'),f=num('fr')*parseFloat($('fu').value),td=num('tand'),z=num('z0');
+  const fr=LANG==='fr', bad=[];
+  if(!(er>=1&&er<=30))bad.push(fr?'εr doit être entre 1 et 30':'εr must be between 1 and 30');
+  if(!(h>0&&h<=20))bad.push(fr?'h doit être entre 0 et 20 mm':'h must be between 0 and 20 mm');
+  if(!(f>=50e6&&f<=100e9))bad.push(fr?'fr doit être entre 50 MHz et 100 GHz (vérifier l\'unité)':'fr must be between 50 MHz and 100 GHz (check the unit)');
+  if(!(td>=0&&td<0.5))bad.push(fr?'tan δ doit être entre 0 et 0,5':'tan δ must be between 0 and 0.5');
+  if(!(z>0))bad.push(fr?'Z₀ doit être positif':'Z₀ must be positive');
+  const e=$('inerr'); e.style.display=bad.length?'':'none'; e.textContent=bad.join(' · ');
+  return bad.length===0;}
 
-let CUR=null;
-function compute(){
-  const er=parseFloat($('er').value), h=parseFloat($('h').value)/1000, fr=parseFloat($('fr').value)*1e9;
-  const lam0=C0/fr;
-  // transmission-line design (Balanis 14-6..14-9)
+// synthèse ligne de transmission (Balanis 14-6..14-9) : h en m, fr en Hz
+function design(er,h,fr){
   const W = C0/(2*fr)*Math.sqrt(2/(er+1));
   const eeff = (er+1)/2 + (er-1)/2*Math.pow(1+12*h/W,-0.5);
   const dL = h*0.412*((eeff+0.3)*(W/h+0.264))/((eeff-0.258)*(W/h+0.8));
   const Leff = C0/(2*fr*Math.sqrt(eeff));
-  const L = Leff - 2*dL;
+  return {W,eeff,dL,Leff,L:Leff-2*dL};
+}
+let CUR=null;
+function compute(){
+  const er=num('er'), h=num('h')/1000, fr=num('fr')*parseFloat($('fu').value);
+  const lam0=C0/fr;
+  const {W,eeff,dL,Leff,L}=design(er,h,fr);
   // radiation-only fractional bandwidth (VSWR<2) -> radiation Q ; add dielectric loss -> total Q, efficiency
   const BWrad = 3.77*((er-1)/(er*er))*(W/L)*(h/lam0);
-  const tand=parseFloat($('tand').value)||0, Z0=parseFloat($('z0').value)||50;
+  const tand=num('tand')||0, Z0=num('z0')||50;
   const Qrad=Math.SQRT1_2/Math.max(BWrad,1e-6), Qd= tand>0 ? 1/tand : 1e9;
   const Qt=1/(1/Qrad+1/Qd), eta=Qt/Qrad, BW=Math.SQRT1_2/Qt;
   // pattern: 2-slot array (sep Leff along x=E-plane) × slot width W (along y=H-plane), upper hemisphere
@@ -185,13 +205,14 @@ function compute(){
   const NP=360, E=new Float64Array(NP+1), H=new Float64Array(NP+1); let Em=0,Hm=0;
   for(let i=0;i<=NP;i++){ const th=(-90+180*i/NP)*Math.PI/180; const at=Math.abs(th);
     E[i]=F(at,0); H[i]=F(at,Math.PI/2); if(E[i]>Em)Em=E[i]; if(H[i]>Hm)Hm=H[i]; }
-  const hp=(arr,mx)=>{const half=mx/Math.SQRT2;let iL=NP/2,iR=NP/2;while(iL>0&&arr[iL]>half)iL--;while(iR<NP&&arr[iR]>half)iR++;return (iR-iL)/NP*180;};
+  const hp=(arr,mx)=>{const half=mx/Math.SQRT2;let iL=NP/2,iR=NP/2;while(iL>0&&arr[iL]>half)iL--;while(iR<NP&&arr[iR]>half)iR++;return (iL===0&&iR===NP)?Infinity:(iR-iL)/NP*180;};
   // |S11|(f) with parallel-RLC model matched at fr: Zin=Z0/(1+jx), x=Qt·(f/fr−fr/f)
   const s11=(f)=>{ const x=Qt*(f/fr-fr/f); return Math.abs(x)/Math.sqrt(4+x*x); };
   CUR={er,h,fr,lam0,W,L,Leff,eeff,dL,BWrad,BW,Qrad,Qt,eta,Z0,tand,DdBi,E,H,NP,Em,Hm,hpE:hp(E,Em),s11};
   return CUR;
 }
 function recompute(){
+  if(!checkInputs()){['m_W','m_L','m_eeff','m_D','m_bw','m_q','m_eta','m_hp'].forEach(id=>$(id).textContent='—');return;}
   const c=compute();
   $('m_W').textContent=(c.W*1000).toFixed(2);
   $('m_L').textContent=(c.L*1000).toFixed(2);
@@ -201,23 +222,26 @@ function recompute(){
   $('m_q').textContent=c.Qt.toFixed(0);
   $('m_q').nextElementSibling.textContent=c.Qrad.toFixed(0)+' / '+(c.Qt<c.Qrad?(1/c.tand).toFixed(0):'∞');
   $('m_eta').textContent=(c.eta*100).toFixed(1);
-  $('m_hp').textContent=c.hpE.toFixed(0);
+  $('m_hp').textContent=isFinite(c.hpE)?c.hpE.toFixed(0):'> 180';
   $('geonote').innerHTML='<span style="font-size:.85rem;color:#64748b">L<sub>eff</sub> = '+(c.Leff*1000).toFixed(2)+' mm · ΔL = '+(c.dL*1000).toFixed(3)+' mm · λ₀ = '+(c.lam0*1000).toFixed(1)+' mm · W/L = '+(c.W/c.L).toFixed(2)+'</span>';
-  $('vr_W')&&($('vr_W').textContent=(c.W*1000).toFixed(2)+' mm');
-  $('vr_L')&&($('vr_L').textContent=(c.L*1000).toFixed(2)+' mm');
-  $('vr_e')&&($('vr_e').textContent=c.eeff.toFixed(3));
+  // validation sur le cas fixe de Balanis, indépendamment de la saisie
+  const B=design(2.2,1.588e-3,10e9);
+  $('vr_W').textContent=(B.W*1000).toFixed(2)+' mm';
+  $('vr_L').textContent=(B.L*1000).toFixed(2)+' mm';
+  $('vr_e').textContent=B.eeff.toFixed(3);
   drawPolar(c); drawRect(c); drawS11(c);
 }
 function drawS11(c){
   const cv=$('cv_s11'); cv.style.height='260px'; const {x,w,h}=dpr(cv);
   x.clearRect(0,0,w,h);
-  const f0=c.fr/1e9, span=Math.max(0.12, c.BW*4); // GHz window ~ ±2·BW around fr
+  const uM=c.fr<1e9, sc=uM?1e6:1e9; // axe en MHz sous 1 GHz
+  const f0=c.fr/sc, span=Math.max(0.12, c.BW*4); // window ~ ±2·BW around fr
   const fmin=f0*(1-span/2), fmax=f0*(1+span/2);
   const pad=44,x0=pad,x1=w-14,y0=h-30,y1=14, dbMin=-35;
   const sx=f=>x0+(f-fmin)/(fmax-fmin)*(x1-x0), sy=db=>y0-(db-dbMin)/(0-dbMin)*(y0-y1);
   // S11<-10dB band shading
   const NP=600, pts=[];
-  for(let i=0;i<=NP;i++){const f=fmin+(fmax-fmin)*i/NP; const s=c.s11(f*1e9); const db=20*Math.log10(Math.max(s,1e-4)); pts.push({f,db});}
+  for(let i=0;i<=NP;i++){const f=fmin+(fmax-fmin)*i/NP; const s=c.s11(f*sc); const db=20*Math.log10(Math.max(s,1e-4)); pts.push({f,db});}
   // matched band (db<-10)
   let bL=null,bR=null; pts.forEach(p=>{if(p.db<=-10){if(bL===null)bL=p.f;bR=p.f;}});
   if(bL!==null){x.fillStyle='#ecfdf5';x.fillRect(sx(bL),y1,sx(bR)-sx(bL),y0-y1);}
@@ -229,8 +253,8 @@ function drawS11(c){
   x.strokeStyle='#86efac';x.setLineDash([4,4]);x.beginPath();x.moveTo(x0,sy(-10));x.lineTo(x1,sy(-10));x.stroke();x.setLineDash([]);
   x.fillStyle='#16a34a';x.font='9px sans-serif';x.textAlign='left';x.fillText('−10 dB (VSWR 2)',x0+4,sy(-10)-3);
   x.fillStyle='#64748b';x.font='11px sans-serif';x.textAlign='center';
-  for(let k=0;k<=4;k++){const f=fmin+(fmax-fmin)*k/4;x.fillText(f.toFixed(2),sx(f),y0+14);}
-  x.fillText('f (GHz)',(x0+x1)/2,h-5);
+  for(let k=0;k<=4;k++){const f=fmin+(fmax-fmin)*k/4;x.fillText(f.toFixed(uM?1:3),sx(f),y0+14);}
+  x.fillText(uM?'f (MHz)':'f (GHz)',(x0+x1)/2,h-5);
   x.save();x.translate(13,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText('|S₁₁| (dB)',0,0);x.restore();
   // curve
   x.strokeStyle='#0d9488';x.lineWidth=2.2;x.beginPath();
@@ -279,7 +303,7 @@ const I18N={
  'cfg':{fr:"Substrat et fréquence",en:"Substrate and frequency"},
  'er':{fr:"Permittivité relative εr",en:"Relative permittivity εr"},
  'h':{fr:"Hauteur substrat h (mm)",en:"Substrate height h (mm)"},
- 'fr':{fr:"Fréquence visée fr (GHz)",en:"Target frequency fr (GHz)"},
+ 'fr':{fr:"Fréquence visée fr",en:"Target frequency fr"},
  'tand':{fr:"Tangente de pertes tan δ",en:"Loss tangent tan δ"},
  'z0':{fr:"Impédance d'accès Z₀ (Ω)",en:"Feed impedance Z₀ (Ω)"},
  'sub':{fr:"Substrat type",en:"Substrate preset"},
