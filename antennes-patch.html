@@ -46,6 +46,9 @@ canvas{width:100%;height:auto;background:#fff;border:1px solid var(--border);bor
 .fq{font:inherit;font-size:.74rem;padding:.15rem .5rem;border:1px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--teal2);cursor:pointer}
 .fq:hover{border-color:var(--teal)}
 .err{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:10px;padding:.6rem .9rem;font-size:.85rem;margin-top:.9rem}
+.btn{font:inherit;font-size:.86rem;font-weight:700;padding:.5rem 1rem;border-radius:8px;border:1.5px solid var(--teal);background:var(--teal);color:#fff;cursor:pointer}
+.btn.alt{background:#fff;color:var(--teal2)}
+.btn:hover{filter:brightness(.95)}
 .warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:10px;padding:.7rem .9rem;font-size:.83rem;margin-top:1rem}
 footer{border-top:1px solid var(--border);padding:1.5rem 0;font-size:.8rem;color:var(--text2);margin-top:1rem}
 footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
@@ -138,6 +141,29 @@ table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
         <canvas id="cv_rect" width="440" height="320"></canvas>
       </div>
     </div>
+  </div>
+
+  <div class="panel" id="simpanel">
+    <div class="ptitle" data-i18n="sim.title">Simulation FDTD 2D : cartographie du champ (coupe y = 0)</div>
+    <div class="sub" style="font-size:.84rem;color:var(--text2);margin-bottom:.9rem" data-i18n-html="sim.intro">Résolution directe des équations de Maxwell (schéma de Yee) dans la coupe verticale passant par l'axe du patch : champs H<sub>y</sub>, E<sub>x</sub>, E<sub>z</sub>, substrat avec pertes, plan de masse fini, couches absorbantes. Le patch est supposé infiniment large selon y, donc la résonance 2D tombe un peu plus bas qu'en 3D. <b>Validation</b> contre openEMS dans la même configuration 2D (murs PMC) : résonance 836,6 MHz contre 839,9 MHz (FR-4, L 82,15 mm), 8 702 MHz contre 8 852 MHz (Duroid, exemple Balanis).</div>
+    <div class="controls">
+      <div class="ctrl"><label data-i18n="sim.f">Fréquence de simulation (MHz)</label><input id="sim_f" type="text" inputmode="decimal" placeholder="auto"></div>
+      <div class="ctrl"><label data-i18n="sim.L">Longueur L simulée (mm)</label><input id="sim_L" type="text" inputmode="decimal" placeholder="auto"></div>
+      <div class="ctrl"><label data-i18n="sim.xf">Sonde d'alimentation : distance au bord (mm)</label><input id="sim_xf" type="text" inputmode="decimal" placeholder="auto"></div>
+      <div class="ctrl"><label data-i18n="sim.view">Affichage</label>
+        <select id="sim_view"><option value="ez" data-i18n="sim.v.ez">Ez instantané (onde)</option><option value="abs" data-i18n="sim.v.abs">|E| en régime établi (dB)</option></select></div>
+    </div>
+    <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1rem">
+      <button type="button" class="btn" id="sim_run" onclick="simStart('cw')" data-i18n="sim.run">▶ Lancer (régime harmonique)</button>
+      <button type="button" class="btn alt" onclick="simStart('pulse')" data-i18n="sim.res">⌁ Chercher la résonance (impulsion)</button>
+      <button type="button" class="btn alt" onclick="simStop()" data-i18n="sim.stop">■ Arrêter</button>
+    </div>
+    <div class="geo" id="sim_status" style="font-size:.85rem;color:var(--text2)"></div>
+    <div class="err" id="sim_err" style="display:none"></div>
+    <canvas id="cv_sim" width="900" height="380" style="margin-top:.8rem"></canvas>
+    <div class="sub" style="font-size:.78rem;color:var(--text2);margin:.6rem 0 .3rem" data-i18n="sim.zoom">Zoom sur le substrat (épaisseur dilatée : chaque maille a la même hauteur)</div>
+    <canvas id="cv_simz" width="900" height="150"></canvas>
+    <canvas id="cv_simspec" width="900" height="200" style="margin-top:.8rem;display:none"></canvas>
   </div>
 
   <div class="panel">
@@ -412,6 +438,236 @@ function applyLang(){document.documentElement.lang=LANG;
 function toggleLang(){LANG=LANG==='fr'?'en':'fr';localStorage.setItem('emtools_lang',LANG);applyLang();}
 applyLang(); recompute();
 window.addEventListener('resize',recompute);
+</script>
+<script>
+// ===== Simulation FDTD 2D dans la coupe y = 0 (champs Hy, Ex, Ez, schéma de Yee, maillage z non uniforme) =====
+const MU0=4e-7*Math.PI, EPS0=8.8541878128e-12, ETA0=376.730313668;
+let SIM=null;
+
+function simParams(){
+  const c=CUR, L=(num('sim_L')||c.L*1000)/1000, f=(num('sim_f')||c.fr/1e6)*1e6;
+  const xf=(num('sim_xf')||c.inset.y0*1000)/1000;
+  return {er:c.er,h:c.h,tand:c.tand,L,f,xf:Math.min(Math.max(xf,0),L/2),Qt:c.Qt};
+}
+function simSync(){ // valeurs « auto » affichées en placeholder
+  if(!CUR)return;
+  $('sim_f').placeholder='auto : '+(CUR.fr/1e6).toFixed(1);
+  $('sim_L').placeholder='auto : '+(CUR.L*1000).toFixed(2);
+  $('sim_xf').placeholder='auto : '+(CUR.inset.y0*1000).toFixed(1);
+}
+
+function buildSim(mode){
+  const P=simParams(), {er,h,L,f}=P, lam0=C0/f;
+  const NP=16;                                   // épaisseur des couches absorbantes (mailles)
+  const dx=Math.min(L/80, lam0/Math.sqrt(er)/30);
+  const brd=0.12*lam0, airx=0.2*lam0, xb=L/2+brd; // demi-largeur de la carte
+  const x0=-(xb+airx), nIn=Math.round(2*(xb+airx)/dx);
+  const Nx=nIn+2*NP, xn=new Float64Array(Nx+1);
+  for(let i=0;i<=Nx;i++)xn[i]=x0+(i-NP)*dx;
+  // z : 4 mailles dans le substrat, croissance géométrique dans l'air, puis PML
+  const dz0=h/4, dzmax=Math.min(2*dx,lam0/40), up=[], dn=[];
+  let z=h,d=dz0; while(z<h+0.3*lam0){d=Math.min(d*1.3,dzmax);z+=d;up.push(z);}
+  z=0;d=dz0; while(z>-0.2*lam0){d=Math.min(d*1.3,dzmax);z-=d;dn.push(z);}
+  let zs=[...dn.reverse(),0,dz0,2*dz0,3*dz0,h,...up];
+  const zlo=zs[0], zhi=zs[zs.length-1];
+  for(let k=1;k<=NP;k++){zs.unshift(zlo-k*dzmax);zs.push(zhi+k*dzmax);}
+  const zn=Float64Array.from(zs), Nz=zn.length-1, kg=NP+dn.length, kh=kg+4;
+  const dzc=new Float64Array(Nz+1); for(let k=1;k<Nz;k++)dzc[k]=(zn[k+1]-zn[k-1])/2;
+  let dzmin=Infinity; for(let k=0;k<Nz;k++)dzmin=Math.min(dzmin,zn[k+1]-zn[k]);
+  const dt=0.99/(C0*Math.sqrt(1/(dx*dx)+1/(dzmin*dzmin)));   // condition de Courant sur la plus petite maille
+  // conductivité des couches absorbantes (profil cubique), sommée en x et z
+  const sx=(x)=>{const a=xn[NP],b=xn[Nx-NP],D=NP*dx,s0=0.8*4/(ETA0*dx);let u=0;if(x<a)u=(a-x)/D;else if(x>b)u=(x-b)/D;return s0*Math.min(u,1)**3;};
+  const zA=zn[NP], zB=zn[Nz-NP];
+  const sz=(z)=>{const D=NP*dzmax,s0=0.8*4/(ETA0*dzmax);let u=0;if(z<zA)u=(zA-z)/D;else if(z>zB)u=(z-zB)/D;return s0*Math.min(u,1)**3;};
+  const sig=2*Math.PI*f*EPS0*er*P.tand;
+  const inSub=(x,z)=>Math.abs(x)<=xb&&z>0&&z<h;
+  const mat=(x,z)=>inSub(x,z)?[er,sig]:[1,0];
+  const coef=(epsr,s)=>{const e=epsr*EPS0,a=s*dt/(2*e);return [(1-a)/(1+a),(dt/e)/(1+a)];};
+  const Hy=new Float32Array(Nx*Nz), Ex=new Float32Array(Nx*(Nz+1)), Ez=new Float32Array((Nx+1)*Nz);
+  const DaH=new Float32Array(Nx*Nz), DbH=new Float32Array(Nx*Nz);
+  const CaX=new Float32Array(Nx*(Nz+1)), CbX=new Float32Array(Nx*(Nz+1));
+  const CaZ=new Float32Array((Nx+1)*Nz), CbZ=new Float32Array((Nx+1)*Nz);
+  for(let i=0;i<Nx;i++){const xc=(xn[i]+xn[i+1])/2;
+    for(let k=0;k<Nz;k++){const zc=(zn[k]+zn[k+1])/2, sm=(sx(xc)+sz(zc))*MU0/EPS0, a=sm*dt/(2*MU0);
+      DaH[i*Nz+k]=(1-a)/(1+a); DbH[i*Nz+k]=(dt/MU0)/(1+a);}
+    for(let k=1;k<Nz;k++){const z=zn[k],m1=mat(xc,z-1e-9),m2=mat(xc,z+1e-9);
+      const [ca,cb]=coef((m1[0]+m2[0])/2,(m1[1]+m2[1])/2+sx(xc)+sz(z));
+      let pec=(k===kg&&Math.abs(xc)<=xb)||(k===kh&&Math.abs(xc)<=L/2);
+      CaX[i*(Nz+1)+k]=pec?0:ca; CbX[i*(Nz+1)+k]=pec?0:cb;}}
+  for(let i=1;i<Nx;i++){const x=xn[i];
+    for(let k=0;k<Nz;k++){const zc=(zn[k]+zn[k+1])/2,m=mat(x,zc),[ca,cb]=coef(m[0],m[1]+sx(x)+sz(zc));
+      CaZ[i*Nz+k]=ca; CbZ[i*Nz+k]=cb;}}
+  const iF=Math.round((-L/2+P.xf-xn[0])/dx);           // sonde d'alimentation (colonne Ez dans le substrat)
+  const T=1/f, w=2*Math.PI*f;
+  const S={P,mode,Nx,Nz,xn,zn,dx,dzc,kg,kh,NP,dt,Hy,Ex,Ez,DaH,DbH,CaX,CbX,CaZ,CbZ,iF,T,w,n:0,xb,
+    zA,zB,run:true,lam0};
+  if(mode==='cw'){
+    const settle=Math.min(60,Math.max(12,Math.ceil(3*P.Qt/Math.PI)));
+    S.nStart=Math.round(settle*T/dt); S.nEnd=S.nStart+Math.round(4*T/dt);
+    S.reX=new Float32Array(Ex.length);S.imX=new Float32Array(Ex.length);
+    S.reZ=new Float32Array(Ez.length);S.imZ=new Float32Array(Ez.length);
+  }else{
+    S.tau=1/(Math.PI*0.35*f); S.t0=4*S.tau;
+    S.nEnd=Math.round((2*S.t0+Math.min(80,Math.max(20,4*P.Qt/Math.PI))*T)/dt);
+    S.probe=new Float32Array(S.nEnd); S.src=new Float32Array(S.nEnd);
+  }
+  return S;
+}
+
+function source(S,t){
+  if(S.mode==='cw'){const r=Math.min(1,t/(3*S.T));return Math.sin(S.w*t)*(r<1?0.5*(1-Math.cos(Math.PI*r)):1);}
+  const u=(t-S.t0)/S.tau; return Math.exp(-u*u)*Math.sin(S.w*t);
+}
+
+function stepSim(S,nsteps){
+  const {Nx,Nz,dx,dzc,zn,Hy,Ex,Ez,DaH,DbH,CaX,CbX,CaZ,CbZ,kg,iF,dt}=S, NZ1=Nz+1;
+  for(let s=0;s<nsteps&&S.n<S.nEnd;s++){
+    for(let i=0;i<Nx;i++){const o=i*Nz,ox=i*NZ1,oz=i*Nz,oz1=(i+1)*Nz;
+      for(let k=0;k<Nz;k++){
+        Hy[o+k]=DaH[o+k]*Hy[o+k]+DbH[o+k]*((Ez[oz1+k]-Ez[oz+k])/dx-(Ex[ox+k+1]-Ex[ox+k])/(zn[k+1]-zn[k]));}}
+    for(let i=0;i<Nx;i++){const o=i*Nz,ox=i*NZ1;
+      for(let k=1;k<Nz;k++){Ex[ox+k]=CaX[ox+k]*Ex[ox+k]-CbX[ox+k]*(Hy[o+k]-Hy[o+k-1])/dzc[k];}}
+    for(let i=1;i<Nx;i++){const o=i*Nz,om=(i-1)*Nz;
+      for(let k=0;k<Nz;k++){Ez[o+k]=CaZ[o+k]*Ez[o+k]+CbZ[o+k]*(Hy[o+k]-Hy[om+k])/dx;}}
+    const t=(S.n+1)*dt, sv=source(S,t);
+    for(let k=kg;k<kg+4;k++)Ez[iF*Nz+k]+=sv;                 // courant de sonde, soft source
+    if(S.mode==='cw'){
+      if(S.n>=S.nStart){const c=Math.cos(S.w*t),sn=Math.sin(S.w*t);
+        for(let j=0;j<Ez.length;j++){S.reZ[j]+=Ez[j]*c;S.imZ[j]+=Ez[j]*sn;}
+        for(let j=0;j<Ex.length;j++){S.reX[j]+=Ex[j]*c;S.imX[j]+=Ex[j]*sn;}}
+    }else{let v=0;for(let k=kg;k<kg+4;k++)v+=Ez[iF*Nz+k]*(zn[k+1]-zn[k]);S.probe[S.n]=v;S.src[S.n]=sv;} // tension de sonde
+    S.n++;
+  }
+}
+
+// palettes : divergente (bleu-blanc-rouge) et séquentielle (magma simplifié)
+const PAL_D=[[5,48,97],[67,147,195],[247,247,247],[214,96,77],[103,0,31]];
+const PAL_S=[[0,0,4],[81,18,124],[183,55,121],[252,137,97],[252,253,191]];
+function pal(P,u){u=Math.max(0,Math.min(1,u))*(P.length-1);const i=Math.min(P.length-2,Math.floor(u)),a=u-i;
+  return [0,1,2].map(j=>P[i][j]+(P[i+1][j]-P[i][j])*a);}
+
+function absMap(S){ // |E| en régime établi aux nœuds Ez (Ex moyenné sur les 4 voisins)
+  const {Nx,Nz,reX,imX,reZ,imZ}=S, NZ1=Nz+1, A=new Float32Array((Nx+1)*Nz);
+  for(let i=1;i<Nx;i++)for(let k=0;k<Nz;k++){
+    const a=(i-1)*NZ1+k,b=i*NZ1+k;
+    const rx=(reX[a]+reX[b]+reX[a+1]+reX[b+1])/4, ix=(imX[a]+imX[b]+imX[a+1]+imX[b+1])/4;
+    const j=i*Nz+k; A[j]=Math.sqrt(rx*rx+ix*ix+reZ[j]*reZ[j]+imZ[j]*imZ[j]);}
+  return A;
+}
+
+function fieldFor(S){
+  if($('sim_view').value==='abs'&&S.absE)return {F:S.absE,kind:'abs'};
+  return {F:S.Ez,kind:'ez'};
+}
+function colorOf(v,m,kind){
+  if(kind==='abs'){const db=20*Math.log10(Math.max(v/m,1e-6));return pal(PAL_S,(db+50)/50);}
+  const r=v/m, u=Math.sign(r)*Math.min(1,Math.log10(1+Math.abs(r)*1e3)/3);return pal(PAL_D,(u+1)/2);
+}
+function fmax(F){let m=0;for(let j=0;j<F.length;j++){const a=Math.abs(F[j]);if(a>m)m=a;}return m||1;}
+
+function drawSim(S){
+  const {Nx,Nz,xn,zn,dx,NP,kg,kh,P}=S, {F,kind}=fieldFor(S);
+  // vue réelle, sans les couches absorbantes
+  const cv=$('cv_sim'), xr=xn[Nx-NP]-xn[NP], zr=S.zB-S.zA;
+  const W0=cv.clientWidth||900; cv.style.height=Math.round(W0*zr/xr)+'px';
+  const {x,w,h}=dpr(cv), r=window.devicePixelRatio||1, PW=Math.round(w*r), PH=Math.round(h*r);
+  const img=x.createImageData(PW,PH), m=S.vmax=(kind===S.lastKind?Math.max(fmax(F),0.92*(S.vmax||0)):fmax(F));
+  S.lastKind=kind;
+  const kOf=new Int32Array(PH); {let k=Nz-1;for(let py=0;py<PH;py++){const z=S.zB-(py+0.5)/PH*zr;while(k>0&&zn[k]>z)k--;kOf[py]=k;}}
+  for(let px=0;px<PW;px++){const xx=xn[NP]+(px+0.5)/PW*xr, i=Math.max(1,Math.min(Nx-1,Math.round((xx-xn[0])/dx)));
+    for(let py=0;py<PH;py++){const c=colorOf(F[i*Nz+kOf[py]],m,kind),o=4*(py*PW+px);
+      img.data[o]=c[0];img.data[o+1]=c[1];img.data[o+2]=c[2];img.data[o+3]=255;}}
+  x.setTransform(1,0,0,1,0,0);x.putImageData(img,0,0);x.setTransform(r,0,0,r,0,0);
+  const X=v=>(v-xn[NP])/xr*w, Z=v=>(S.zB-v)/zr*h;
+  x.lineWidth=2;x.strokeStyle='#94a3b8';x.beginPath();x.moveTo(X(-S.xb),Z(0));x.lineTo(X(S.xb),Z(0));x.stroke();
+  x.strokeStyle='#111827';x.lineWidth=2.5;x.beginPath();x.moveTo(X(-P.L/2),Z(P.h));x.lineTo(X(P.L/2),Z(P.h));x.stroke();
+  const lab=(kind==='abs'?'|E| (dB, 50 dB)':'Ez')+' · x : '+(xr*1000).toFixed(0)+' mm · z : '+(zr*1000).toFixed(0)+' mm';
+  x.font='11px sans-serif';x.textAlign='left';x.fillStyle='rgba(255,255,255,.85)';x.fillRect(4,4,x.measureText(lab).width+8,16);
+  x.fillStyle='#111827';x.fillText(lab,8,16);
+  // zoom substrat : x sur la carte, z en indices de maille
+  const cz=$('cv_simz'); cz.style.height='150px';
+  const D=dpr(cz), PW2=Math.round(D.w*r), PH2=Math.round(D.h*r), k0=kg-3, k1=kh+5, nk=k1-k0;
+  const img2=D.x.createImageData(PW2,PH2), xa=-S.xb-0.02*S.lam0, xbb=S.xb+0.02*S.lam0;
+  let m2=0;for(let i=1;i<Nx;i++){const xx=xn[i];if(xx<xa||xx>xbb)continue;for(let k=k0;k<k1;k++)m2=Math.max(m2,Math.abs(F[i*Nz+k]));}
+  m2=m2||1;
+  for(let px=0;px<PW2;px++){const xx=xa+(px+0.5)/PW2*(xbb-xa), i=Math.max(1,Math.min(Nx-1,Math.round((xx-xn[0])/dx)));
+    for(let py=0;py<PH2;py++){const k=k1-1-Math.floor(py/PH2*nk), c=colorOf(F[i*Nz+k],m2,kind),o=4*(py*PW2+px);
+      img2.data[o]=c[0];img2.data[o+1]=c[1];img2.data[o+2]=c[2];img2.data[o+3]=255;}}
+  D.x.setTransform(1,0,0,1,0,0);D.x.putImageData(img2,0,0);D.x.setTransform(r,0,0,r,0,0);
+  const X2=v=>(v-xa)/(xbb-xa)*D.w, Zk=k=>(k1-k)/nk*D.h;
+  D.x.strokeStyle='#94a3b8';D.x.lineWidth=3;D.x.beginPath();D.x.moveTo(X2(-S.xb),Zk(kg));D.x.lineTo(X2(S.xb),Zk(kg));D.x.stroke();
+  D.x.strokeStyle='#111827';D.x.beginPath();D.x.moveTo(X2(-P.L/2),Zk(kh));D.x.lineTo(X2(P.L/2),Zk(kh));D.x.stroke();
+  D.x.strokeStyle='#d97706';D.x.lineWidth=2;const xF=xn[S.iF];D.x.beginPath();D.x.moveTo(X2(xF),Zk(kg));D.x.lineTo(X2(xF),Zk(kh));D.x.stroke();
+  D.x.fillStyle='#111827';D.x.font='10px sans-serif';D.x.textAlign='left';
+  D.x.fillText(LANG==='fr'?'patch':'patch',X2(-P.L/2)+3,Zk(kh)-4);D.x.fillText(LANG==='fr'?'masse':'ground',X2(-S.xb)+3,Zk(kg)+12);
+  D.x.fillStyle='#d97706';D.x.fillText(LANG==='fr'?'sonde':'probe',X2(xF)+4,Zk(kg+2));
+}
+
+function spectrum(S){ // Re(V/I) à la sonde ∝ Re(Zin) : son pic donne la résonance 2D
+  const f0=S.P.f, N=300, fs=[], A=[];
+  for(let j=0;j<N;j++){const f=f0*(0.6+0.8*j/(N-1)),w=2*Math.PI*f;let pr=0,pi=0,sr=0,si=0;
+    for(let n=0;n<S.n;n+=2){const t=(n+1)*S.dt,c=Math.cos(w*t),s=Math.sin(w*t);pr+=S.probe[n]*c;pi+=S.probe[n]*s;sr+=S.src[n]*c;si+=S.src[n]*s;}
+    fs.push(f);A.push((pr*sr+pi*si)/Math.max(sr*sr+si*si,1e-30));}
+  if(Math.max(...A)<-Math.min(...A))for(let j=0;j<N;j++)A[j]=-A[j];   // signe de la source molle
+  let jm=0;for(let j=1;j<N;j++)if(A[j]>A[jm])jm=j;
+  const cv=$('cv_simspec');cv.style.display='';cv.style.height='200px';const {x,w,h}=dpr(cv);x.clearRect(0,0,w,h);
+  const pad=44,x0=pad,x1=w-14,y0=h-30,y1=14,am=A[jm];
+  const sx=f=>x0+(f-fs[0])/(fs[N-1]-fs[0])*(x1-x0), sy=a=>y0-Math.max(a,0)/am*(y0-y1);
+  x.strokeStyle='#cbd5e1';x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  x.strokeStyle='#0d9488';x.lineWidth=2;x.beginPath();fs.forEach((f,j)=>{j?x.lineTo(sx(f),sy(A[j])):x.moveTo(sx(f),sy(A[j]));});x.stroke();
+  x.strokeStyle='#1a2e4a';x.setLineDash([3,3]);x.beginPath();x.moveTo(sx(fs[jm]),y1);x.lineTo(sx(fs[jm]),y0);x.stroke();x.setLineDash([]);
+  x.fillStyle='#64748b';x.font='11px sans-serif';x.textAlign='center';
+  for(let q=0;q<=4;q++){const f=fs[0]+(fs[N-1]-fs[0])*q/4;x.fillText((f/1e6).toFixed(0),sx(f),y0+14);}
+  x.fillText('f (MHz)',(x0+x1)/2,h-4);
+  x.save();x.translate(13,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillText(LANG==='fr'?'Re(Zin) sonde (u.a.)':'Probe Re(Zin) (a.u.)',0,0);x.restore();
+  x.fillStyle='#0f766e';x.fillText('f₂D = '+(fs[jm]/1e6).toFixed(1)+' MHz',sx(fs[jm]),y1+10);
+  return fs[jm];
+}
+
+function simStatus(S,extra){
+  const per=S.n*S.dt/S.T, tot=S.nEnd*S.dt/S.T;
+  $('sim_status').innerHTML='<span>'+(LANG==='fr'?'Mailles : ':'Cells: ')+S.Nx+' × '+S.Nz+' · t = '+(S.n*S.dt*1e9).toFixed(2)+' ns · '+per.toFixed(1)+' / '+tot.toFixed(0)+(LANG==='fr'?' périodes':' periods')+(extra||'')+'</span>';
+}
+function simStart(mode){
+  simStop();
+  if(!CUR){return;}
+  try{SIM=buildSim(mode);}catch(e){$('sim_err').style.display='';$('sim_err').textContent=String(e);return;}
+  $('sim_err').style.display='none';
+  if(mode==='cw'){$('cv_simspec').style.display='none';}
+  const S=SIM, loop=()=>{
+    if(!S.run||SIM!==S)return;
+    const t0=performance.now(); while(performance.now()-t0<28&&S.n<S.nEnd)stepSim(S,20);
+    if(!isFinite(S.Ez[S.iF*S.Nz+S.kg+1])){S.run=false;$('sim_err').style.display='';
+      $('sim_err').textContent=LANG==='fr'?'Simulation instable : vérifier les paramètres.':'Unstable simulation: check the parameters.';return;}
+    if(S.mode==='cw'&&S.n>=S.nEnd&&!S.absE){S.absE=absMap(S);$('sim_view').value='abs';}
+    drawSim(S);
+    if(S.n<S.nEnd){simStatus(S);requestAnimationFrame(loop);}
+    else{S.run=false;
+      if(S.mode==='pulse'){const fr2=spectrum(S);simStatus(S,' · '+(LANG==='fr'?'résonance 2D : ':'2D resonance: ')+(fr2/1e6).toFixed(1)+' MHz');}
+      else simStatus(S,LANG==='fr'?' · régime établi : carte |E| calculée':' · steady state: |E| map computed');}
+  };
+  requestAnimationFrame(loop);
+}
+function simStop(){if(SIM)SIM.run=false;}
+
+$('sim_view').addEventListener('change',()=>{if(SIM)drawSim(SIM);});
+const _recompute=recompute; recompute=function(){_recompute();simSync();};
+Object.assign(I18N,{
+ 'sim.title':{fr:"Simulation FDTD 2D : cartographie du champ (coupe y = 0)",en:"2D FDTD simulation: field map (cut y = 0)"},
+ 'sim.intro':{fr:"Résolution directe des équations de Maxwell (schéma de Yee) dans la coupe verticale passant par l'axe du patch : champs H<sub>y</sub>, E<sub>x</sub>, E<sub>z</sub>, substrat avec pertes, plan de masse fini, couches absorbantes. Le patch est supposé infiniment large selon y, donc la résonance 2D tombe un peu plus bas qu'en 3D. <b>Validation</b> contre openEMS dans la même configuration 2D (murs PMC) : résonance 836,6 MHz contre 839,9 MHz (FR-4, L 82,15 mm), 8 702 MHz contre 8 852 MHz (Duroid, exemple Balanis).",
+   en:"Direct solution of Maxwell's equations (Yee scheme) in the vertical cut through the patch axis: fields H<sub>y</sub>, E<sub>x</sub>, E<sub>z</sub>, lossy substrate, finite ground plane, absorbing layers. The patch is assumed infinitely wide along y, so the 2D resonance falls slightly below the 3D one. <b>Validation</b> against openEMS in the same 2D configuration (PMC walls): resonance 836.6 MHz vs 839.9 MHz (FR-4, L 82.15 mm), 8,702 MHz vs 8,852 MHz (Duroid, Balanis example)."},
+ 'sim.f':{fr:"Fréquence de simulation (MHz)",en:"Simulation frequency (MHz)"},
+ 'sim.L':{fr:"Longueur L simulée (mm)",en:"Simulated length L (mm)"},
+ 'sim.xf':{fr:"Sonde d'alimentation : distance au bord (mm)",en:"Feed probe: distance from edge (mm)"},
+ 'sim.view':{fr:"Affichage",en:"Display"},
+ 'sim.v.ez':{fr:"Ez instantané (onde)",en:"Instantaneous Ez (wave)"},
+ 'sim.v.abs':{fr:"|E| en régime établi (dB)",en:"Steady-state |E| (dB)"},
+ 'sim.run':{fr:"▶ Lancer (régime harmonique)",en:"▶ Run (time-harmonic)"},
+ 'sim.res':{fr:"⌁ Chercher la résonance (impulsion)",en:"⌁ Find resonance (pulse)"},
+ 'sim.stop':{fr:"■ Arrêter",en:"■ Stop"},
+ 'sim.zoom':{fr:"Zoom sur le substrat (épaisseur dilatée : chaque maille a la même hauteur)",en:"Substrate zoom (thickness stretched: every cell has the same height)"},
+});
+applyLang(); simSync();
 </script>
 </body>
 </html>
