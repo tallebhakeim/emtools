@@ -143,6 +143,34 @@ table.valid th{background:var(--bg2);color:var(--navy);font-weight:700}
     </div>
   </div>
 
+  <div class="panel" id="cavpanel">
+    <div class="ptitle" data-i18n="cav.title">Vue de dessus : champ et courant sur le patch selon la fréquence</div>
+    <div class="sub" style="font-size:.84rem;color:var(--text2);margin-bottom:.9rem" data-i18n-html="cav.intro">Modèle de cavité : sous le patch, le champ est la somme des modes TM<sub>mn</sub> excités par l'alimentation, E<sub>z</sub> = Σ A<sub>mn</sub>(f)·cos(mπx/L<sub>e</sub>)·cos(nπy/W<sub>e</sub>), et le courant de surface vaut J ∝ −∇E<sub>z</sub>. Le générateur (Z₀ interne) est le même à toutes les fréquences : hors adaptation, l'onde réfléchie réduit le courant. <b>Clique sur la courbe S₁₁</b> pour choisir la fréquence.</div>
+    <div class="controls">
+      <div class="ctrl"><label data-i18n="cav.y0">Profondeur du point d'alimentation y₀ (mm)</label><input id="cav_y0" type="text" inputmode="decimal" placeholder="auto"></div>
+      <div class="ctrl"><label data-i18n="cav.view">Affichage</label>
+        <select id="cav_view"><option value="j" data-i18n="cav.v.j">Courant de surface J (flèches animées)</option><option value="ez" data-i18n="cav.v.ez">Champ Ez sous le patch (animé)</option></select></div>
+      <div class="ctrl"><label data-i18n="cav.scale">Échelle des couleurs</label>
+        <select id="cav_scale"><option value="ref" data-i18n="cav.s.ref">Fixe (référence = adaptation)</option><option value="own" data-i18n="cav.s.own">Normalisée à chaque fréquence</option></select></div>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.9rem">
+      <button type="button" class="btn" onclick="cavGo('match')" data-i18n="cav.b.match">À l'adaptation</button>
+      <button type="button" class="btn alt" onclick="cavGo('m3')" data-i18n="cav.b.m3">Mal adapté (S₁₁ ≈ −3 dB)</button>
+      <button type="button" class="btn alt" onclick="cavGo('far')" data-i18n="cav.b.far">Hors bande (−8 %)</button>
+      <button type="button" class="btn alt" id="cav_play" onclick="cavPlay()">⏸</button>
+    </div>
+    <canvas id="cv_cavs11" width="900" height="170" style="margin-top:.9rem;cursor:crosshair"></canvas>
+    <div class="metrics" style="margin-top:.8rem">
+      <div class="metric"><div class="k">f</div><div class="v" id="cav_f">—</div><div class="u">MHz</div></div>
+      <div class="metric"><div class="k">S₁₁</div><div class="v" id="cav_s">—</div><div class="u">dB</div></div>
+      <div class="metric"><div class="k">Z<sub>in</sub></div><div class="v" id="cav_z" style="font-size:1rem">—</div><div class="u">Ω</div></div>
+      <div class="metric hl"><div class="k" data-i18n="cav.pin">Puissance acceptée</div><div class="v" id="cav_p">—</div><div class="u" data-i18n="cav.pinu">% (1 − |Γ|²)</div></div>
+      <div class="metric hl"><div class="k" data-i18n="cav.jrel">Courant au centre / adaptation</div><div class="v" id="cav_j">—</div><div class="u">×</div></div>
+    </div>
+    <canvas id="cv_cav" width="900" height="520" style="margin-top:.9rem"></canvas>
+    <div class="warn" style="margin-top:.8rem" data-i18n-html="cav.note"><b>Limites du modèle —</b> la cavité est un rectangle L<sub>e</sub> × W<sub>e</sub> (bords prolongés de ΔL) : les encoches ne sont pas représentées, seul le point d'alimentation (profondeur y₀, largeur de ruban w) l'est. Le modèle place donc la résonance à fr même avec encoches, alors qu'openEMS 3D la trouve 2,8 % plus bas et situe l'adaptation à y₀ = 19 mm (contre ≈ 14 à 16 mm ici). Avec openEMS 3D (même générateur), le courant au centre vaut 0,87 et 0,80 de sa valeur adaptée à S₁₁ ≈ −4,5 dB, et 0,33 et 0,26 hors bande (800 et 940 MHz).</div>
+  </div>
+
   <div class="panel" id="simpanel">
     <div class="ptitle" data-i18n="sim.title">Simulation FDTD 2D : cartographie du champ (coupe y = 0)</div>
     <div class="sub" style="font-size:.84rem;color:var(--text2);margin-bottom:.9rem" data-i18n-html="sim.intro">Résolution directe des équations de Maxwell (schéma de Yee) dans la coupe verticale passant par l'axe du patch : champs H<sub>y</sub>, E<sub>x</sub>, E<sub>z</sub>, substrat avec pertes, plan de masse fini, couches absorbantes. Le patch est supposé infiniment large selon y, donc la résonance 2D tombe un peu plus bas qu'en 3D. <b>Validation</b> contre openEMS dans la même configuration 2D (murs PMC) : résonance 836,6 MHz contre 839,9 MHz (FR-4, L 82,15 mm), 8 702 MHz contre 8 852 MHz (Duroid, exemple Balanis).</div>
@@ -668,6 +696,162 @@ Object.assign(I18N,{
  'sim.zoom':{fr:"Zoom sur le substrat (épaisseur dilatée : chaque maille a la même hauteur)",en:"Substrate zoom (thickness stretched: every cell has the same height)"},
 });
 applyLang(); simSync();
+</script>
+<script>
+// ===== Vue de dessus par le modèle de cavité (modes TMmn, alimentation par ruban de largeur w) =====
+const CAV={f:null,phi:0,play:true,raf:0};
+function cavGeom(){
+  const c=CUR, Le=c.L+2*c.dL, We=c.W+2*c.dL, d=c.inset.w;
+  return {c,Le,We,d,dL:c.dL,L:c.L,W:c.W,h:c.h,eeff:c.eeff,Qt:c.Qt,Z0:c.Z0,fr:c.fr};
+}
+function cavK2(G,f){const k0=2*Math.PI*f/C0, k2=G.eeff*k0*k0; return [k2,-k2/G.Qt];} // k² (1 − j/Qt)
+// Zin au point d'alimentation (x0 depuis le bord prolongé)
+function cavZin(G,f,x0,M=40,N=40){
+  const [kr,ki]=cavK2(G,f), w=2*Math.PI*f; let sr=0,si=0;
+  for(let m=0;m<M;m++){const cm=Math.cos(m*Math.PI*x0/G.Le), em=m?2:1, km=(m*Math.PI/G.Le)**2;
+    for(let n=0;n<N;n+=2){ // cos(nπ/2) = 0 pour n impair
+      const u=n*G.d/(2*G.We), g=n?Math.sin(Math.PI*u)/(Math.PI*u):1, en=n?2:1;
+      const a=em*en/(G.Le*G.We)*cm*cm*g*g, dr=kr-km-(n*Math.PI/G.We)**2, den=dr*dr+ki*ki;
+      sr+=a*dr/den; si+=-a*ki/den;}}
+  const K=w*MU0*G.h; return [K*si,-K*sr]; // −jK·(sr + j si)
+}
+function cavS11(Z,Z0){const nr=Z[0]-Z0,ni=Z[1],dr=Z[0]+Z0,di=Z[1],d=dr*dr+di*di;return [(nr*dr+ni*di)/d,(ni*dr-nr*di)/d];}
+function cavAutoY0(G){ // profondeur telle que Re Zin(fr) = Z0 (Re décroît avec la profondeur)
+  let a=0,b=G.L/2; if(cavZin(G,G.fr,G.dL)[0]<G.Z0)return 0;
+  for(let it=0;it<40;it++){const m=(a+b)/2;if(cavZin(G,G.fr,G.dL+m)[0]>G.Z0)a=m;else b=m;}return (a+b)/2;
+}
+function cavState(){
+  const G=cavGeom(), auto=cavAutoY0(G), y0=(num('cav_y0')>=0?num('cav_y0')/1000:auto);
+  $('cav_y0').placeholder='auto : '+(auto*1000).toFixed(1);
+  const x0=G.dL+Math.min(Math.max(y0,0),G.L/2);
+  const span=Math.max(0.08,6*G.c.BW), fa=G.fr*(1-span), fb=G.fr*(1+span), NF=361, fs=[], s=[];
+  for(let i=0;i<NF;i++){const f=fa+(fb-fa)*i/(NF-1), g=cavS11(cavZin(G,f,x0,30,30),G.Z0);fs.push(f);s.push(10*Math.log10(g[0]*g[0]+g[1]*g[1]+1e-12));}
+  let im=0;for(let i=1;i<NF;i++)if(s[i]<s[im])im=i;
+  return {G,x0,y0,fs,s,im,fa,fb};
+}
+// champ sur la grille du patch physique : Ez et J (complexes), courant d'alimentation I0 = Vg/(Z0+Zin)
+function cavField(S,f,NX=96,NY=120,M=28,N=28){
+  const G=S.G, [kr,ki]=cavK2(G,f), Z=cavZin(G,f,S.x0), dr=G.Z0+Z[0], di=Z[1], dd=dr*dr+di*di, I0r=dr/dd*2*G.Z0, I0i=-di/dd*2*G.Z0;
+  const xs=new Float64Array(NX), ys=new Float64Array(NY);
+  for(let i=0;i<NX;i++)xs[i]=G.dL+G.L*(i+0.5)/NX; for(let j=0;j<NY;j++)ys[j]=G.dL+G.W*(j+0.5)/NY;
+  const Ar=new Float64Array(M*N), Ai=new Float64Array(M*N);
+  for(let m=0;m<M;m++){const cm=Math.cos(m*Math.PI*S.x0/G.Le), em=m?2:1, sm=m?Math.sin(Math.PI*m/M)/(Math.PI*m/M):1;
+    for(let n=0;n<N;n+=2){const u=n*G.d/(2*G.We), g=n?Math.sin(Math.PI*u)/(Math.PI*u):1, en=n?2:1, sn=n?Math.sin(Math.PI*n/N)/(Math.PI*n/N):1;
+      const a=em*en/(G.Le*G.We)*cm*g*Math.cos(n*Math.PI/2)*sm*sn, d1=kr-(m*Math.PI/G.Le)**2-(n*Math.PI/G.We)**2, den=d1*d1+ki*ki;
+      const br=a*d1/den, bi=-a*ki/den; Ar[m*N+n]=br*I0r-bi*I0i; Ai[m*N+n]=br*I0i+bi*I0r;}} // A_mn·I0
+  const Er=new Float32Array(NX*NY),Ei=new Float32Array(NX*NY),Jxr=new Float32Array(NX*NY),Jxi=new Float32Array(NX*NY),Jyr=new Float32Array(NX*NY),Jyi=new Float32Array(NX*NY);
+  const cy=[],sy=[];for(let n=0;n<N;n++){cy.push(ys.map(y=>Math.cos(n*Math.PI*y/G.We)));sy.push(ys.map(y=>Math.sin(n*Math.PI*y/G.We)));}
+  const w=2*Math.PI*f, K=w*MU0;
+  for(let m=0;m<M;m++){const km=m*Math.PI/G.Le;
+    const bcr=new Float64Array(NY),bci=new Float64Array(NY),bsr=new Float64Array(NY),bsi=new Float64Array(NY);
+    for(let n=0;n<N;n+=2){const ar=Ar[m*N+n],ai=Ai[m*N+n];if(!ar&&!ai)continue;const kn=n*Math.PI/G.We;
+      for(let j=0;j<NY;j++){bcr[j]+=ar*cy[n][j];bci[j]+=ai*cy[n][j];bsr[j]+=ar*kn*sy[n][j];bsi[j]+=ai*kn*sy[n][j];}}
+    for(let i=0;i<NX;i++){const cx=Math.cos(km*xs[i]),sx=Math.sin(km*xs[i]);
+      for(let j=0;j<NY;j++){const o=j*NX+i;
+        Er[o]+=K*bci[j]*cx; Ei[o]+=-K*bcr[j]*cx;          // Ez = −jωμ0 Σ A I0 ψ
+        Jxr[o]+=-km*sx*bcr[j]; Jxi[o]+=-km*sx*bci[j];     // J = Σ A I0 ∇ψ
+        Jyr[o]+=-cx*bsr[j]; Jyi[o]+=-cx*bsi[j];}}}
+  let em=0,jm=0;for(let o=0;o<NX*NY;o++){em=Math.max(em,Math.hypot(Er[o],Ei[o]));jm=Math.max(jm,Math.sqrt(Jxr[o]**2+Jxi[o]**2+Jyr[o]**2+Jyi[o]**2));}
+  const oc=Math.floor(NY/4)*NX+Math.floor(NX/2), jc=Math.sqrt(Jxr[oc]**2+Jxi[oc]**2+Jyr[oc]**2+Jyi[oc]**2); // centre, hors axe d'alimentation
+  return {NX,NY,Er,Ei,Jxr,Jxi,Jyr,Jyi,em,jm,jc,Z};
+}
+function cavDrawS11(S){
+  const cv=$('cv_cavs11'); cv.style.height='170px'; const {x,w,h}=dpr(cv); x.clearRect(0,0,w,h);
+  const pad=44,x0=pad,x1=w-14,y0=h-28,y1=10,dbMin=-35;
+  const sx=f=>x0+(f-S.fa)/(S.fb-S.fa)*(x1-x0), sy=db=>y0-(Math.max(db,dbMin)-dbMin)/(-dbMin)*(y0-y1);
+  CAV.sx=sx; CAV.px=[x0,x1];
+  x.strokeStyle='#cbd5e1';x.beginPath();x.moveTo(x0,y0);x.lineTo(x1,y0);x.moveTo(x0,y0);x.lineTo(x0,y1);x.stroke();
+  x.fillStyle='#94a3b8';x.font='10px sans-serif';x.textAlign='right';
+  for(let db=0;db>=dbMin;db-=10){x.fillText(db,x0-4,sy(db)+3);}
+  x.strokeStyle='#86efac';x.setLineDash([4,4]);x.beginPath();x.moveTo(x0,sy(-10));x.lineTo(x1,sy(-10));x.stroke();x.setLineDash([]);
+  x.strokeStyle='#0d9488';x.lineWidth=2;x.beginPath();S.fs.forEach((f,i)=>{i?x.lineTo(sx(f),sy(S.s[i])):x.moveTo(sx(f),sy(S.s[i]));});x.stroke();
+  x.fillStyle='#64748b';x.textAlign='center';for(let q=0;q<=4;q++){const f=S.fa+(S.fb-S.fa)*q/4;x.fillText((f/1e6).toFixed(1),sx(f),y0+13);}
+  x.fillText('f (MHz) · S₁₁ (dB)',(x0+x1)/2,h-2);
+  if(CAV.f){x.strokeStyle='#d97706';x.lineWidth=2;x.beginPath();x.moveTo(sx(CAV.f),y1);x.lineTo(sx(CAV.f),y0);x.stroke();}
+}
+function cavDrawMap(){
+  const S=CAV.S, F=CAV.F, R=CAV.R, G=S.G; if(!F)return;
+  const cv=$('cv_cav'), W0=cv.clientWidth||900, aspect=G.W/(G.L*1.35);
+  cv.style.height=Math.round(Math.min(560,W0*aspect))+'px';
+  const {x,w,h}=dpr(cv); x.clearRect(0,0,w,h);
+  const r=window.devicePixelRatio||1, view=$('cav_view').value, own=$('cav_scale').value==='own';
+  // géométrie : ligne d'accès à gauche, patch à l'échelle
+  const feed=0.35*G.L, sc=Math.min((w-40)/(G.L+feed),(h-40)/G.W), ox=(w-(G.L+feed)*sc)/2+feed*sc, oy=(h-G.W*sc)/2;
+  const PX=xx=>ox+xx*sc, PY=yy=>oy+(G.W-yy)*sc;      // xx, yy en m depuis le coin du patch physique
+  const c=Math.cos(CAV.phi), s=Math.sin(CAV.phi);
+  const iw=Math.max(1,Math.round(G.L*sc*r)), ih=Math.max(1,Math.round(G.W*sc*r)), img=x.createImageData(iw,ih);
+  const ref=view==='ez'?(own?F.em:R.em):(own?F.jm:R.jm);
+  for(let py=0;py<ih;py++){const j=Math.min(F.NY-1,Math.floor((1-(py+0.5)/ih)*F.NY));
+    for(let px=0;px<iw;px++){const i=Math.min(F.NX-1,Math.floor((px+0.5)/iw*F.NX)), o=j*F.NX+i;let col;
+      if(view==='ez'){const v=(F.Er[o]*c-F.Ei[o]*s)/ref;col=pal(PAL_D,(Math.max(-1,Math.min(1,v))+1)/2);}
+      else{const a=Math.sqrt(F.Jxr[o]**2+F.Jxi[o]**2+F.Jyr[o]**2+F.Jyi[o]**2)/ref;col=pal(PAL_S,Math.min(1,a));}
+      const q=4*(py*iw+px);img.data[q]=col[0];img.data[q+1]=col[1];img.data[q+2]=col[2];img.data[q+3]=255;}}
+  x.setTransform(1,0,0,1,0,0);x.putImageData(img,Math.round(PX(0)*r),Math.round(PY(G.W)*r));x.setTransform(r,0,0,r,0,0);
+  // ligne d'accès, encoches (contour), point d'alimentation
+  const y0=S.x0-G.dL, wl=G.d, gp=G.c.inset.g;
+  x.fillStyle='#d97706';x.fillRect(PX(-feed),PY(G.W/2+wl/2),feed*sc+y0*sc,wl*sc);
+  x.strokeStyle='rgba(255,255,255,.9)';x.lineWidth=1;x.setLineDash([3,2]);
+  [[G.W/2+wl/2,G.W/2+wl/2+gp],[G.W/2-wl/2-gp,G.W/2-wl/2]].forEach(([ya,yb])=>{x.strokeRect(PX(0),PY(yb),y0*sc,(yb-ya)*sc);});
+  x.setLineDash([]);x.strokeStyle='#1a2e4a';x.lineWidth=1.5;x.strokeRect(PX(0),PY(G.W),G.L*sc,G.W*sc);
+  if(view==='j'){ // flèches du courant instantané Re(J e^{jφ})
+    const nxA=14,nyA=Math.max(6,Math.round(14*G.W/G.L)), L0=0.8*Math.min(G.L/nxA,G.W/nyA)*sc;
+    x.strokeStyle='rgba(255,255,255,.95)';x.fillStyle='rgba(255,255,255,.95)';x.lineWidth=1.4;
+    for(let a=0;a<nxA;a++)for(let b=0;b<nyA;b++){
+      const i=Math.floor((a+0.5)/nxA*F.NX), j=Math.floor((b+0.5)/nyA*F.NY), o=j*F.NX+i;
+      const jx=(F.Jxr[o]*c-F.Jxi[o]*s)/ref, jy=(F.Jyr[o]*c-F.Jyi[o]*s)/ref, m=Math.hypot(jx,jy); if(m<0.03)continue;
+      const len=L0*Math.min(1,m), ux=jx/m, uy=-jy/m, cx0=PX((i+0.5)/F.NX*G.L), cy0=PY((j+0.5)/F.NY*G.W);
+      const xa=cx0-ux*len/2, ya=cy0-uy*len/2, xb=cx0+ux*len/2, yb=cy0+uy*len/2;
+      x.beginPath();x.moveTo(xa,ya);x.lineTo(xb,yb);x.stroke();
+      x.beginPath();x.moveTo(xb,yb);x.lineTo(xb-ux*5-uy*3,yb-uy*5+ux*3);x.lineTo(xb-ux*5+uy*3,yb-uy*5-ux*3);x.closePath();x.fill();}
+  }
+  x.fillStyle='#1a2e4a';x.font='11px sans-serif';x.textAlign='left';
+  x.fillText((view==='ez'?'Re(Ez·e^{jωt})':'|J| + Re(J·e^{jωt})')+' · '+(CAV.f/1e6).toFixed(1)+' MHz',8,14);
+}
+function cavSet(f){
+  CAV.f=f; const S=CAV.S, G=S.G;
+  CAV.F=cavField(S,f); const Z=CAV.F.Z, g=cavS11(Z,G.Z0), gm=g[0]*g[0]+g[1]*g[1];
+  $('cav_f').textContent=(f/1e6).toFixed(1); $('cav_s').textContent=(10*Math.log10(gm+1e-12)).toFixed(1);
+  $('cav_z').textContent=Z[0].toFixed(1)+(Z[1]>=0?' + ':' − ')+Math.abs(Z[1]).toFixed(1)+'j';
+  $('cav_p').textContent=((1-gm)*100).toFixed(0); $('cav_j').textContent=(CAV.F.jc/CAV.R.jc).toFixed(2);
+  cavDrawS11(S); cavDrawMap();
+}
+function cavGo(which){
+  const S=CAV.S; let f=S.fs[S.im];
+  if(which==='m3'){for(let i=S.im;i<S.fs.length;i++)if(S.s[i]>=-3){f=S.fs[i];break;}}
+  if(which==='far')f=S.fs[S.im]*0.92;
+  cavSet(f);
+}
+function cavRebuild(){
+  if(!CUR)return; CAV.S=cavState(); CAV.R=cavField(CAV.S,CAV.S.fs[CAV.S.im]);
+  const f=CAV.f&&CAV.f>=CAV.S.fa&&CAV.f<=CAV.S.fb?CAV.f:CAV.S.fs[CAV.S.im]; cavSet(f);
+}
+function cavPlay(){CAV.play=!CAV.play;$('cav_play').textContent=CAV.play?'⏸':'▶';}
+function cavTick(){if(CAV.play&&CAV.F){CAV.phi=(CAV.phi+0.08)%(2*Math.PI);cavDrawMap();}CAV.raf=requestAnimationFrame(cavTick);}
+$('cv_cavs11').addEventListener('click',e=>{if(!CAV.sx)return;const rc=e.target.getBoundingClientRect(),X=e.clientX-rc.left,[a,b]=CAV.px;
+  if(X<a||X>b)return;cavSet(CAV.S.fa+(X-a)/(b-a)*(CAV.S.fb-CAV.S.fa));});
+['cav_view','cav_scale'].forEach(id=>$(id).addEventListener('change',cavDrawMap));
+$('cav_y0').addEventListener('input',cavRebuild);
+const _recompute2=recompute; recompute=function(){_recompute2();cavRebuild();};
+Object.assign(I18N,{
+ 'cav.title':{fr:"Vue de dessus : champ et courant sur le patch selon la fréquence",en:"Top view: field and current on the patch versus frequency"},
+ 'cav.intro':{fr:"Modèle de cavité : sous le patch, le champ est la somme des modes TM<sub>mn</sub> excités par l'alimentation, E<sub>z</sub> = Σ A<sub>mn</sub>(f)·cos(mπx/L<sub>e</sub>)·cos(nπy/W<sub>e</sub>), et le courant de surface vaut J ∝ −∇E<sub>z</sub>. Le générateur (Z₀ interne) est le même à toutes les fréquences : hors adaptation, l'onde réfléchie réduit le courant. <b>Clique sur la courbe S₁₁</b> pour choisir la fréquence.",
+   en:"Cavity model: under the patch the field is the sum of the TM<sub>mn</sub> modes excited by the feed, E<sub>z</sub> = Σ A<sub>mn</sub>(f)·cos(mπx/L<sub>e</sub>)·cos(nπy/W<sub>e</sub>), and the surface current is J ∝ −∇E<sub>z</sub>. The generator (internal Z₀) is the same at every frequency: off match, the reflected wave reduces the current. <b>Click on the S₁₁ curve</b> to pick the frequency."},
+ 'cav.y0':{fr:"Profondeur du point d'alimentation y₀ (mm)",en:"Feed point depth y₀ (mm)"},
+ 'cav.view':{fr:"Affichage",en:"Display"},
+ 'cav.v.j':{fr:"Courant de surface J (flèches animées)",en:"Surface current J (animated arrows)"},
+ 'cav.v.ez':{fr:"Champ Ez sous le patch (animé)",en:"Ez field under the patch (animated)"},
+ 'cav.scale':{fr:"Échelle des couleurs",en:"Colour scale"},
+ 'cav.s.ref':{fr:"Fixe (référence = adaptation)",en:"Fixed (reference = matched)"},
+ 'cav.s.own':{fr:"Normalisée à chaque fréquence",en:"Normalised at each frequency"},
+ 'cav.b.match':{fr:"À l'adaptation",en:"At match"},
+ 'cav.b.m3':{fr:"Mal adapté (S₁₁ ≈ −3 dB)",en:"Poorly matched (S₁₁ ≈ −3 dB)"},
+ 'cav.b.far':{fr:"Hors bande (−8 %)",en:"Out of band (−8 %)"},
+ 'cav.pin':{fr:"Puissance acceptée",en:"Accepted power"},'cav.pinu':{fr:"% (1 − |Γ|²)",en:"% (1 − |Γ|²)"},
+ 'cav.jrel':{fr:"Courant au centre / adaptation",en:"Centre current / matched"},
+ 'cav.note':{fr:"<b>Limites du modèle —</b> la cavité est un rectangle L<sub>e</sub> × W<sub>e</sub> (bords prolongés de ΔL) : les encoches ne sont pas représentées, seul le point d'alimentation (profondeur y₀, largeur de ruban w) l'est. Le modèle place donc la résonance à fr même avec encoches, alors qu'openEMS 3D la trouve 2,8 % plus bas et situe l'adaptation à y₀ = 19 mm (contre ≈ 14 à 16 mm ici). Avec openEMS 3D (même générateur), le courant au centre vaut 0,87 et 0,80 de sa valeur adaptée à S₁₁ ≈ −4,5 dB, et 0,33 et 0,26 hors bande (800 et 940 MHz).",
+   en:"<b>Model limits —</b> the cavity is an L<sub>e</sub> × W<sub>e</sub> rectangle (edges extended by ΔL): the inset slots are not represented, only the feed point (depth y₀, strip width w) is. The model therefore puts the resonance at fr even with insets, whereas 3D openEMS finds it 2.8 % lower and the match at y₀ = 19 mm (vs ≈ 14 to 16 mm here). With 3D openEMS (same generator), the centre current is 0.87 and 0.80 of its matched value at S₁₁ ≈ −4.5 dB, and 0.33 and 0.26 out of band (800 and 940 MHz)."},
+});
+applyLang(); cavRebuild(); cavTick();
 </script>
 </body>
 </html>
